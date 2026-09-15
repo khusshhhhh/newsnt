@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aakar catalog
 
-## Getting Started
+Next.js (App Router) storefront + admin panel for the Aakar tapware/sanitaryware
+catalog, backed by Supabase (Postgres, Storage, Auth).
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Next.js 16** (App Router, Server Actions, Turbopack) + TypeScript + Tailwind v4
+- **Supabase**: Postgres for `series` / `categories` / `products` / `product_images`,
+  Storage for photography, Auth for the admin panel
+- **shadcn/ui** (Base UI primitives) for the admin forms
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Create a Supabase project.
+2. In the Supabase SQL editor, run the migrations in order:
+   - [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) — schema, RLS policies, `media` storage bucket
+   - [`supabase/migrations/0002_seed.sql`](supabase/migrations/0002_seed.sql) — optional sample categories/series
+3. In Supabase → Authentication, create your own admin user (email + password). Anyone
+   who can sign in can manage the catalog — there's no separate roles table.
+4. Copy `.env.local.example` to `.env.local` and fill in your project's URL and anon key
+   (Project Settings → API).
+5. Install dependencies and run the dev server:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-## Learn More
+6. Sign in at [`/admin/login`](http://localhost:3000/admin/login) and start adding
+   series, categories, and products.
 
-To learn more about Next.js, take a look at the following resources:
+## Data model
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`series` and `categories` are independent dimensions — a product belongs to exactly one
+category and *optionally* one series (`series_id` is nullable, so door handles and other
+non-series items work fine). This lets the storefront browse "everything in Series 3",
+"every basin mixer across all series" (`/category/[slug]`), or both together
+(`/series/[slug]/[categorySlug]`).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Product `specs` (finish, material, dimensions, ...) are a free-form JSON key/value map,
+edited as repeatable rows in the admin product form.
 
-## Deploy on Vercel
+## Routes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `/`, `/series`, `/series/[seriesSlug]`, `/series/[seriesSlug]/[categorySlug]`,
+  `/category/[categorySlug]`, `/product/[productSlug]` — public catalog
+- `/admin` — dashboard (protected; redirects to `/admin/login` if signed out)
+- `/admin/series`, `/admin/categories`, `/admin/products` — CRUD, each with `/new` and `/[id]`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploying
+
+Push to GitHub, import the repo in Vercel, and add `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` (and optionally `NEXT_PUBLIC_ENQUIRY_EMAIL`) as
+environment variables. Every catalog update after that happens through `/admin` —
+no redeploy needed, thanks to `revalidatePath` on every write.
