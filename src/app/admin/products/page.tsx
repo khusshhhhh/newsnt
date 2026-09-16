@@ -58,7 +58,7 @@ export default async function AdminProductsPage({
               className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-accent/50"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div className="relative size-11 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                <div className="relative size-11 shrink-0 overflow-hidden rounded-md border border-border/60 bg-card">
                   {image && (
                     <Image
                       src={mediaUrl(image.storage_path)}

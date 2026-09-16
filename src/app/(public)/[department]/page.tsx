@@ -1,13 +1,12 @@
-import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { getFeaturedProducts, getPublishedSeries } from "@/lib/data/catalog";
 import { ProductCard } from "@/components/product-card";
-import { mediaUrl } from "@/lib/supabase/storage";
+import { SeriesCarousel } from "@/components/series-carousel";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
-import { departmentCopy, isDepartment, seriesHref, seriesIndexHref, type Department } from "@/lib/department";
+import { departmentCopy, isDepartment, seriesIndexHref, type Department } from "@/lib/department";
 
 type Params = { department: string };
 
@@ -34,7 +33,7 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
 
   return (
     <div>
-      <section className="relative overflow-hidden border-b border-border bg-secondary/40">
+      <section className="relative overflow-hidden border-b border-border bg-background">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,color-mix(in_oklch,var(--foreground),transparent_94%),transparent_60%)]"
@@ -80,29 +79,7 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
                 View all
               </Link>
             </Reveal>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {series.slice(0, 6).map((s, i) => (
-                <Reveal key={s.id} delay={Math.min(i, 4) * 0.06}>
-                  <Link
-                    href={seriesHref(s)}
-                    className="group relative flex aspect-[4/3] flex-col justify-end overflow-hidden rounded-xl border border-border bg-muted transition-shadow duration-300 hover:shadow-xl"
-                  >
-                    {s.hero_image_url && (
-                      <Image
-                        src={mediaUrl(s.hero_image_url)}
-                        alt={s.name}
-                        fill
-                        sizes="(min-width: 1024px) 33vw, 100vw"
-                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                      />
-                    )}
-                    <div className="relative z-10 bg-gradient-to-t from-black/75 via-black/10 to-transparent p-6 pt-20">
-                      <h3 className="font-heading text-xl text-white">{s.name}</h3>
-                    </div>
-                  </Link>
-                </Reveal>
-              ))}
-            </div>
+            <SeriesCarousel series={series} />
           </Container>
         </section>
       )}

@@ -75,7 +75,7 @@ export function ProductImageManager({
             <div
               key={image.id}
               className={cn(
-                "group relative overflow-hidden rounded-lg border border-border bg-muted",
+                "group relative overflow-hidden rounded-lg border border-border/60 bg-card",
                 thumbSize
               )}
             >

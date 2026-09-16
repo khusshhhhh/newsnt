@@ -25,6 +25,13 @@ async function getHeroImage(department: Department) {
   return data?.hero_image_url ?? null;
 }
 
+// Static fallbacks for departments with no admin-uploaded hero yet — AI-generated
+// mood photography matching the site's monochrome, architectural aesthetic.
+const FALLBACK_HERO: Record<Department, string | null> = {
+  "sanitary-tapware": null,
+  "door-hardware": "/images/door-hardware-hero.png",
+};
+
 export default async function GatewayPage() {
   const [tapwareHero, hardwareHero] = await Promise.all([
     getHeroImage("sanitary-tapware"),
@@ -42,12 +49,12 @@ export default async function GatewayPage() {
       <main className="flex min-h-screen flex-col sm:flex-row">
         <GatewayPanel
           department="sanitary-tapware"
-          heroImage={tapwareHero}
+          heroImage={tapwareHero ? mediaUrl(tapwareHero) : FALLBACK_HERO["sanitary-tapware"]}
           eyebrow="01"
         />
         <GatewayPanel
           department="door-hardware"
-          heroImage={hardwareHero}
+          heroImage={hardwareHero ? mediaUrl(hardwareHero) : FALLBACK_HERO["door-hardware"]}
           eyebrow="02"
         />
       </main>
@@ -76,7 +83,7 @@ function GatewayPanel({
       <div className="absolute inset-0 transition-transform duration-700 ease-out group-hover:scale-[1.04]">
         {heroImage ? (
           <Image
-            src={mediaUrl(heroImage)}
+            src={heroImage}
             alt=""
             fill
             priority

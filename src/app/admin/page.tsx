@@ -129,7 +129,7 @@ export default async function AdminDashboardPage() {
                 href={`/admin/products/${p.id}`}
                 className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent"
               >
-                <div className="relative size-12 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                <div className="relative size-12 shrink-0 overflow-hidden rounded-md border border-border/60 bg-card">
                   {image && (
                     <Image
                       src={mediaUrl(image.storage_path)}

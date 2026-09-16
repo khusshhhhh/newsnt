@@ -24,7 +24,7 @@ export function ProductGallery({
 
   if (images.length === 0) {
     return (
-      <div className="flex aspect-square items-center justify-center rounded-xl border border-border bg-muted text-sm text-muted-foreground">
+      <div className="flex aspect-square items-center justify-center rounded-xl border border-border/60 bg-card text-sm text-muted-foreground">
         No image available
       </div>
     );
@@ -32,7 +32,7 @@ export function ProductGallery({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
+      <div className="relative aspect-square overflow-hidden rounded-xl border border-border/60 bg-card">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={active.id}
@@ -61,10 +61,10 @@ export function ProductGallery({
               type="button"
               onClick={() => setActiveIndex(index)}
               className={cn(
-                "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-muted transition-colors",
+                "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-card transition-colors",
                 index === activeIndex
                   ? "border-foreground"
-                  : "border-border hover:border-muted-foreground"
+                  : "border-border/60 hover:border-muted-foreground"
               )}
             >
               <Image

@@ -141,7 +141,14 @@
     @apply font-sans;
   }
   .font-heading {
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: -0.02em;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

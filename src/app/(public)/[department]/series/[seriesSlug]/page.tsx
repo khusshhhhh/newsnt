@@ -39,7 +39,7 @@ export default async function SeriesDetailPage({ params }: { params: Promise<Par
 
   return (
     <div>
-      <section className="relative flex h-[45vh] min-h-80 items-end overflow-hidden border-b border-border bg-muted">
+      <section className="relative flex h-[45vh] min-h-80 items-end overflow-hidden border-b border-border bg-background">
         {series.hero_image_url && (
           <Image
             src={mediaUrl(series.hero_image_url)}
