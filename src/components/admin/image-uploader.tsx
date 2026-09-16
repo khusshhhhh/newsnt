@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
  * resulting storage path(s) via a hidden form field so the surrounding
  * <form action={serverAction}> picks them up on submit.
  */
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // matches the `media` bucket's file_size_limit
+const MAX_FILE_BYTES = 25 * 1024 * 1024; // matches the `media` bucket's file_size_limit
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"]);
 
 /** Strips anything but alphanumerics/dot/dash/underscore so the storage path stays predictable. */
