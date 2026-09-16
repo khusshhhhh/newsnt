@@ -18,7 +18,8 @@ export default async function NewProductPage({
     <div>
       <h1 className="font-heading text-2xl text-foreground">New product</h1>
       <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-        Save the product first, then add photos on the next screen.
+        Create the product, then add its photos, colors, and resources right below — all on the
+        next screen together.
       </p>
       <div className="mt-8">
         <ProductForm

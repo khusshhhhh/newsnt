@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { upsertSeries } from "@/lib/actions/admin/series";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +22,16 @@ export function SeriesForm({
   images?: string[];
   defaultDepartment?: Department;
 }) {
+  const router = useRouter();
+  const isNew = !series;
   const [state, formAction, pending] = useActionState(upsertSeries, null);
+
+  useEffect(() => {
+    if (state && "success" in state && state.success) {
+      toast.success(isNew ? "Series created" : "Series saved");
+      router.push("/admin/series");
+    }
+  }, [state, isNew, router]);
 
   return (
     <form action={formAction} className="flex max-w-xl flex-col gap-5">
@@ -82,10 +93,10 @@ export function SeriesForm({
         Published
       </label>
 
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state && "error" in state && <p className="text-sm text-destructive">{state.error}</p>}
 
       <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? "Saving…" : "Save series"}
+        {pending ? (isNew ? "Creating…" : "Saving…") : isNew ? "Create series" : "Save series"}
       </Button>
     </form>
   );

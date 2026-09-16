@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { mediaUrl, MEDIA_BUCKET } from "@/lib/supabase/storage";
 import { addProductImage, deleteProductImage } from "@/lib/actions/admin/images";
@@ -35,6 +36,9 @@ export function ProductImageManager({
       ? `products/${productId}/variants/${variantId}`
       : `products/${productId}`;
 
+    let uploaded = 0;
+    let lastError: string | null = null;
+
     for (const file of Array.from(files)) {
       const path = `${prefix}/${crypto.randomUUID()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
@@ -42,16 +46,25 @@ export function ProductImageManager({
         .upload(path, file, { upsert: false });
 
       if (uploadError) {
-        setError(uploadError.message);
+        lastError = uploadError.message;
         continue;
       }
 
       try {
         const inserted = await addProductImage(productId, path, images.length, variantId);
-        if (inserted) setImages((prev) => [...prev, inserted]);
+        if (inserted) {
+          setImages((prev) => [...prev, inserted]);
+          uploaded += 1;
+        }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to save image");
+        lastError = e instanceof Error ? e.message : "Failed to save image";
       }
+    }
+
+    if (uploaded > 0) toast.success(uploaded === 1 ? "Photo added" : `${uploaded} photos added`);
+    if (lastError) {
+      setError(lastError);
+      toast.error(lastError);
     }
 
     setUploading(false);
@@ -60,8 +73,13 @@ export function ProductImageManager({
 
   function remove(image: ProductImage) {
     setImages((prev) => prev.filter((i) => i.id !== image.id));
-    startTransition(() => {
-      deleteProductImage(image.id, productId);
+    startTransition(async () => {
+      try {
+        await deleteProductImage(image.id, productId);
+        toast.success("Photo removed");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to remove photo");
+      }
     });
   }
 

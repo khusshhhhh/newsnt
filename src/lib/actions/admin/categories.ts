@@ -1,12 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slugify";
 import { logActivity } from "@/lib/data/activity";
-import { departmentSchema, fail, revalidateCatalog } from "./_shared";
+import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
 
 const categorySchema = z.object({
   department: departmentSchema,
@@ -73,7 +72,7 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
   revalidateCatalog();
   revalidatePath("/admin/categories");
   revalidatePath("/", "layout");
-  redirect("/admin/categories");
+  return ok(categoryId);
 }
 
 export async function deleteCategory(id: string) {

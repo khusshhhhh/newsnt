@@ -32,6 +32,7 @@ export function ProductDetail({ product }: { product: ProductWithRelations }) {
   const specs = Object.entries(product.specs ?? {});
   const sku = selectedVariant?.sku ?? product.sku;
   const hasSpecs = Boolean(sku) || specs.length > 0;
+  const resources = product.resources ?? [];
 
   const enquirySubject = encodeURIComponent(`Enquiry: ${product.name}`);
   const enquiryBody = encodeURIComponent(
@@ -43,40 +44,11 @@ export function ProductDetail({ product }: { product: ProductWithRelations }) {
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
       <Reveal className="lg:sticky lg:top-24 lg:self-start">
-        <div className="flex flex-col gap-4">
-          <ProductGallery
-            key={selectedVariant?.id ?? "default"}
-            images={images}
-            productName={product.name}
-          />
-
-          {product.variants.length > 0 && (
-            <div>
-              <p className="mb-2 text-sm text-foreground">
-                Colour: {selectedVariant?.color_name ?? "Default"}
-              </p>
-              <div className="flex flex-wrap gap-2.5">
-                {product.product_images.length > 0 && (
-                  <SwatchButton
-                    label="Default"
-                    active={selectedId === null}
-                    onClick={() => setSelectedId(null)}
-                    hex={null}
-                  />
-                )}
-                {product.variants.map((variant) => (
-                  <SwatchButton
-                    key={variant.id}
-                    label={variant.color_name}
-                    active={selectedId === variant.id}
-                    onClick={() => setSelectedId(variant.id)}
-                    hex={variant.color_hex}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <ProductGallery
+          key={selectedVariant?.id ?? "default"}
+          images={images}
+          productName={product.name}
+        />
       </Reveal>
 
       <div>
@@ -98,24 +70,56 @@ export function ProductDetail({ product }: { product: ProductWithRelations }) {
           </h1>
         </Reveal>
 
-        <Reveal delay={0.18} className="mt-8 rounded-2xl border border-border bg-card p-6">
-          <div className="flex items-baseline justify-between gap-4">
-            <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Price</span>
-            <span className="font-heading text-2xl font-medium text-foreground">
-              {formatPrice(product.price)}
-            </span>
+        <Reveal delay={0.18} className="mt-8 rounded-2xl border border-border bg-card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Price</span>
+              <p className="mt-1 font-heading text-2xl font-medium text-foreground">
+                {formatPrice(product.price)}
+              </p>
+            </div>
+            <a
+              href={`mailto:${process.env.NEXT_PUBLIC_ENQUIRY_EMAIL ?? ""}?subject=${enquirySubject}&body=${enquiryBody}`}
+              className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Mail className="size-4" />
+              Enquire
+            </a>
           </div>
-          <a
-            href={`mailto:${process.env.NEXT_PUBLIC_ENQUIRY_EMAIL ?? ""}?subject=${enquirySubject}&body=${enquiryBody}`}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Mail className="size-4" />
-            Enquire about this product
-          </a>
         </Reveal>
 
+        {product.variants.length > 0 && (
+          <Reveal delay={0.22} className="mt-6">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Colour</span>
+              <span className="text-xs text-muted-foreground">
+                {selectedVariant?.color_name ?? "Default"}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {product.product_images.length > 0 && (
+                <SwatchButton
+                  label="Default"
+                  active={selectedId === null}
+                  onClick={() => setSelectedId(null)}
+                  hex={null}
+                />
+              )}
+              {product.variants.map((variant) => (
+                <SwatchButton
+                  key={variant.id}
+                  label={variant.color_name}
+                  active={selectedId === variant.id}
+                  onClick={() => setSelectedId(variant.id)}
+                  hex={variant.color_hex}
+                />
+              ))}
+            </div>
+          </Reveal>
+        )}
+
         {hasSpecs && (
-          <Reveal delay={0.24} className="mt-10 border-t border-border pt-8">
+          <Reveal delay={0.26} className="mt-10 border-t border-border pt-8">
             <SectionHeading index={1} title="Specifications" />
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {sku && <SpecTile label="SKU" value={sku} />}
@@ -126,11 +130,11 @@ export function ProductDetail({ product }: { product: ProductWithRelations }) {
           </Reveal>
         )}
 
-        {product.resources.length > 0 && (
-          <Reveal delay={0.3} className="mt-10 border-t border-border pt-8">
+        {resources.length > 0 && (
+          <Reveal delay={0.32} className="mt-10 border-t border-border pt-8">
             <SectionHeading index={hasSpecs ? 2 : 1} title="Resources" />
             <div className="flex flex-col gap-2">
-              {product.resources.map((resource) => (
+              {resources.map((resource) => (
                 <a
                   key={resource.id}
                   href={documentUrl(resource.storage_path)}
@@ -194,8 +198,8 @@ function SwatchButton({
       <motion.span
         whileTap={{ scale: 0.92 }}
         className={cn(
-          "flex size-8 items-center justify-center rounded-full border transition-shadow",
-          active ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" : "border-border"
+          "flex size-5 items-center justify-center rounded-full border transition-shadow",
+          active ? "ring-1 ring-foreground ring-offset-1 ring-offset-background" : "border-border"
         )}
         style={{ backgroundColor: hex ?? "transparent" }}
       >

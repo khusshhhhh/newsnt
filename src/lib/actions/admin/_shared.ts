@@ -9,6 +9,10 @@ export function fail(message: string): { error: string } {
   return { error: message };
 }
 
+export function ok(id: string): { success: true; id: string } {
+  return { success: true, id };
+}
+
 /**
  * Invalidates every cached public catalog read (see catalog.ts) after any
  * admin write. `updateTag` (rather than `revalidateTag`) expires it

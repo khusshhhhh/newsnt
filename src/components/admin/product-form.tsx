@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { upsertProduct } from "@/lib/actions/admin/products";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +28,17 @@ export function ProductForm({
   categories: Category[];
   defaultDepartment?: Department;
 }) {
+  const router = useRouter();
+  const isNew = !product;
   const [state, formAction, pending] = useActionState(upsertProduct, null);
+
+  useEffect(() => {
+    if (state && "success" in state && state.success) {
+      toast.success(isNew ? "Product created" : "Product saved");
+      router.push(`/admin/products/${state.id}`);
+    }
+  }, [state, isNew, router]);
+
   const [specs, setSpecs] = useState<[string, string][]>(
     Object.entries(product?.specs ?? ({} as ProductSpecs)).length
       ? Object.entries(product?.specs ?? {})
@@ -264,10 +276,10 @@ export function ProductForm({
         </div>
       </div>
 
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state && "error" in state && <p className="text-sm text-destructive">{state.error}</p>}
 
       <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? "Saving…" : "Save product"}
+        {pending ? (isNew ? "Creating…" : "Saving…") : isNew ? "Create product" : "Save product"}
       </Button>
     </form>
   );

@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { AnimatePresence, motion } from "motion/react";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 
 const SLIDE_INTERVAL_MS = 3500;
 
 /**
- * Auto-advancing crossfade slider for an image gallery (category cards,
- * series hero banners). Pauses on hover so the image under the cursor
- * doesn't change mid-look, and degrades to a single static image when
- * there's nothing to rotate through.
+ * Auto-advancing slider for an image gallery (category cards, series hero
+ * banners): each new image pushes in from the right as the current one
+ * exits to the left. Pauses on hover so the image under the cursor doesn't
+ * change mid-look, and degrades to a single static image when there's
+ * nothing to rotate through.
  */
 export function ImageSlider({
   images,
@@ -36,25 +38,31 @@ export function ImageSlider({
 
   return (
     <div
-      className="absolute inset-0"
+      className="absolute inset-0 overflow-hidden"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      {images.map((src, i) => (
-        <Image
-          key={src}
-          src={src}
-          alt={alt}
-          fill
-          sizes={sizes}
-          priority={priority && i === 0}
-          placeholder="blur"
-          blurDataURL={BLUR_DATA_URL}
-          className={`object-cover transition-[opacity,transform] duration-1000 ease-in-out group-hover:scale-105 ${
-            i === index ? "opacity-100" : "opacity-0"
-          }`}
-        />
-      ))}
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={index}
+          initial={{ x: "100%" }}
+          animate={{ x: "0%" }}
+          exit={{ x: "-100%" }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute inset-0"
+        >
+          <Image
+            src={images[index]}
+            alt={alt}
+            fill
+            sizes={sizes}
+            priority={priority && index === 0}
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
+            className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+          />
+        </motion.div>
+      </AnimatePresence>
 
       {dots && images.length > 1 && (
         <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center gap-1.5">

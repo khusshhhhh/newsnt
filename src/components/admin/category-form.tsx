@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { upsertCategory } from "@/lib/actions/admin/categories";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +21,16 @@ export function CategoryForm({
   images?: string[];
   defaultDepartment?: Department;
 }) {
+  const router = useRouter();
+  const isNew = !category;
   const [state, formAction, pending] = useActionState(upsertCategory, null);
+
+  useEffect(() => {
+    if (state && "success" in state && state.success) {
+      toast.success(isNew ? "Category created" : "Category saved");
+      router.push("/admin/categories");
+    }
+  }, [state, isNew, router]);
 
   return (
     <form action={formAction} className="flex max-w-md flex-col gap-5">
@@ -60,10 +71,10 @@ export function CategoryForm({
         />
       </div>
 
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state && "error" in state && <p className="text-sm text-destructive">{state.error}</p>}
 
       <Button type="submit" disabled={pending} className="w-fit">
-        {pending ? "Saving…" : "Save category"}
+        {pending ? (isNew ? "Creating…" : "Saving…") : isNew ? "Create category" : "Save category"}
       </Button>
     </form>
   );

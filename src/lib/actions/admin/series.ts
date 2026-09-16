@@ -1,12 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slugify";
 import { logActivity } from "@/lib/data/activity";
-import { departmentSchema, fail, revalidateCatalog } from "./_shared";
+import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
 
 const seriesSchema = z.object({
   department: departmentSchema,
@@ -84,7 +83,7 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
   revalidateCatalog();
   revalidatePath("/admin/series");
   revalidatePath("/", "layout");
-  redirect("/admin/series");
+  return ok(seriesId);
 }
 
 export async function deleteSeries(id: string) {

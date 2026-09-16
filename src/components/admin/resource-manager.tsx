@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { Download, FileText } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { documentUrl, DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
 import { addProductResource, deleteProductResource } from "@/lib/actions/admin/resources";
@@ -64,6 +65,7 @@ export function ResourceManager({
 
     if (uploadError) {
       setError(uploadError.message);
+      toast.error(uploadError.message);
       setUploading(false);
       return;
     }
@@ -75,10 +77,15 @@ export function ResourceManager({
       formData.set("file_name", file.name);
       formData.set("display_order", String(resources.length));
       const created = await addProductResource(productId, formData);
-      if (created) setResources((prev) => [...prev, created]);
+      if (created) {
+        setResources((prev) => [...prev, created]);
+        toast.success(`${created.name} added`);
+      }
       setName("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save resource");
+      const message = e instanceof Error ? e.message : "Failed to save resource";
+      setError(message);
+      toast.error(message);
     }
 
     setUploading(false);
@@ -87,8 +94,13 @@ export function ResourceManager({
 
   function remove(resource: ProductResource) {
     setResources((prev) => prev.filter((r) => r.id !== resource.id));
-    startTransition(() => {
-      deleteProductResource(resource.id, productId);
+    startTransition(async () => {
+      try {
+        await deleteProductResource(resource.id, productId);
+        toast.success(`${resource.name} removed`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to remove resource");
+      }
     });
   }
 

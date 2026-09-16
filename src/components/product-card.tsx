@@ -4,10 +4,14 @@ import type { ProductWithRelations } from "@/lib/supabase/types";
 import { productImageUrl } from "@/lib/supabase/storage";
 import { productHref } from "@/lib/department";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { getDefaultVariant } from "@/lib/colors";
 
 export function ProductCard({ product }: { product: ProductWithRelations }) {
-  const image = product.product_images?.[0];
   const variants = product.variants ?? [];
+  // Falls back to the default color's (Matte Black, or the first available)
+  // photos when the product has no general gallery of its own.
+  const defaultVariant = getDefaultVariant(variants);
+  const image = product.product_images?.[0] ?? defaultVariant?.product_images?.[0];
 
   return (
     <Link

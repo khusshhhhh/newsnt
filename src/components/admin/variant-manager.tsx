@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { addProductVariant, deleteProductVariant } from "@/lib/actions/admin/variants";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
 import { Button } from "@/components/ui/button";
@@ -47,17 +48,26 @@ export function VariantManager({
         setVariants((prev) => [...prev, { ...created, product_images: [] }]);
         formRef.current?.reset();
         setColorName("");
+        toast.success(`${created.color_name} added`);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to add color");
+        const message = e instanceof Error ? e.message : "Failed to add color";
+        setError(message);
+        toast.error(message);
       }
     });
   }
 
   function removeVariant(id: string) {
     if (!window.confirm("Remove this color? Its photos will be deleted too.")) return;
+    const removed = variants.find((v) => v.id === id);
     setVariants((prev) => prev.filter((v) => v.id !== id));
-    startTransition(() => {
-      deleteProductVariant(id, productId);
+    startTransition(async () => {
+      try {
+        await deleteProductVariant(id, productId);
+        toast.success(removed ? `${removed.color_name} removed` : "Color removed");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to remove color");
+      }
     });
   }
 

@@ -1,12 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slugify";
 import { logActivity } from "@/lib/data/activity";
-import { departmentSchema, fail, revalidateCatalog } from "./_shared";
+import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
 
 const productSchema = z.object({
   department: departmentSchema,
@@ -82,7 +81,7 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
     revalidateCatalog();
     revalidatePath("/admin/products");
     revalidatePath("/", "layout");
-    redirect(`/admin/products/${id}`);
+    return ok(id);
   }
 
   const { data, error } = await supabase.from("products").insert(payload).select("id").single();
@@ -98,7 +97,7 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
   revalidateCatalog();
   revalidatePath("/admin/products");
   revalidatePath("/", "layout");
-  redirect(`/admin/products/${data.id}`);
+  return ok(data.id);
 }
 
 export async function deleteProduct(id: string) {
