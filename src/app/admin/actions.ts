@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slugify";
+import { DEPARTMENTS } from "@/lib/department";
+
+const departmentSchema = z.enum(DEPARTMENTS);
 
 function fail(message: string): { error: string } {
   return { error: message };
@@ -29,6 +32,7 @@ export async function signOut() {
 }
 
 const seriesSchema = z.object({
+  department: departmentSchema,
   name: z.string().min(1, "Name is required"),
   slug: z.string().min(1, "Slug is required"),
   design_story: z.string().optional(),
@@ -46,6 +50,7 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
   const name = String(formData.get("name") ?? "");
 
   const parsed = seriesSchema.safeParse({
+    department: formData.get("department"),
     name,
     slug: rawSlug ? slugify(rawSlug) : slugify(name),
     design_story: formData.get("design_story") ?? undefined,
@@ -64,7 +69,7 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
   if (error) return fail(error.message);
 
   revalidatePath("/admin/series");
-  revalidatePath("/series");
+  revalidatePath("/", "layout");
   redirect("/admin/series");
 }
 
@@ -72,10 +77,11 @@ export async function deleteSeries(id: string) {
   const supabase = await createClient();
   await supabase.from("series").delete().eq("id", id);
   revalidatePath("/admin/series");
-  revalidatePath("/series");
+  revalidatePath("/", "layout");
 }
 
 const categorySchema = z.object({
+  department: departmentSchema,
   name: z.string().min(1, "Name is required"),
   slug: z.string().min(1, "Slug is required"),
   display_order: z.coerce.number().int().default(0),
@@ -87,6 +93,7 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
   const name = String(formData.get("name") ?? "");
 
   const parsed = categorySchema.safeParse({
+    department: formData.get("department"),
     name,
     slug: rawSlug ? slugify(rawSlug) : slugify(name),
     display_order: formData.get("display_order") ?? 0,
@@ -110,9 +117,11 @@ export async function deleteCategory(id: string) {
   const supabase = await createClient();
   await supabase.from("categories").delete().eq("id", id);
   revalidatePath("/admin/categories");
+  revalidatePath("/", "layout");
 }
 
 const productSchema = z.object({
+  department: departmentSchema,
   name: z.string().min(1, "Name is required"),
   slug: z.string().min(1, "Slug is required"),
   category_id: z.string().uuid("Category is required"),
@@ -144,11 +153,23 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
   const name = String(formData.get("name") ?? "");
   const seriesId = String(formData.get("series_id") ?? "");
   const priceRaw = String(formData.get("price") ?? "");
+  const categoryId = String(formData.get("category_id") ?? "");
+
+  const supabase = await createClient();
+
+  // A product's department always follows its category, so it's derived
+  // here rather than trusted from the form.
+  const { data: category } = await supabase
+    .from("categories")
+    .select("department")
+    .eq("id", categoryId)
+    .maybeSingle();
 
   const parsed = productSchema.safeParse({
+    department: category?.department,
     name,
     slug: rawSlug ? slugify(rawSlug) : slugify(name),
-    category_id: formData.get("category_id"),
+    category_id: categoryId,
     series_id: seriesId && seriesId !== "none" ? seriesId : null,
     price: priceRaw ? Number(priceRaw) : null,
     currency: formData.get("currency") || "INR",
@@ -160,8 +181,6 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
   });
 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
-
-  const supabase = await createClient();
 
   if (id) {
     const { error } = await supabase.from("products").update(parsed.data).eq("id", id);
@@ -194,13 +213,15 @@ export async function deleteProduct(id: string) {
 export async function addProductImage(
   productId: string,
   storagePath: string,
-  displayOrder: number
+  displayOrder: number,
+  variantId: string | null = null
 ) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("product_images")
     .insert({
       product_id: productId,
+      variant_id: variantId,
       storage_path: storagePath,
       display_order: displayOrder,
     })
@@ -211,6 +232,54 @@ export async function addProductImage(
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
   return data;
+}
+
+const variantSchema = z.object({
+  color_name: z.string().min(1, "Color name is required"),
+  color_hex: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v : null)),
+  display_order: z.coerce.number().int().default(0),
+});
+
+export async function addProductVariant(productId: string, formData: FormData) {
+  const parsed = variantSchema.safeParse({
+    color_name: formData.get("color_name"),
+    color_hex: formData.get("color_hex") ?? undefined,
+    display_order: formData.get("display_order") ?? 0,
+  });
+
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_variants")
+    .insert({ product_id: productId, ...parsed.data })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/", "layout");
+  return data;
+}
+
+export async function deleteProductVariant(variantId: string, productId: string) {
+  const supabase = await createClient();
+  const { data: images } = await supabase
+    .from("product_images")
+    .select("storage_path")
+    .eq("variant_id", variantId);
+
+  await supabase.from("product_variants").delete().eq("id", variantId);
+
+  const paths = (images ?? []).map((i) => i.storage_path);
+  if (paths.length > 0) {
+    await supabase.storage.from("media").remove(paths);
+  }
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/", "layout");
 }
 
 export async function deleteProductImage(imageId: string, productId: string) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { upsertProduct } from "@/app/admin/actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,16 +13,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DEPARTMENTS, departmentCopy, type Department } from "@/lib/department";
 import type { Category, Product, ProductSpecs, Series } from "@/lib/supabase/types";
 
 export function ProductForm({
   product,
   series,
   categories,
+  defaultDepartment = "sanitary-tapware",
 }: {
   product?: Product;
   series: Series[];
   categories: Category[];
+  defaultDepartment?: Department;
 }) {
   const [state, formAction, pending] = useActionState(upsertProduct, null);
   const [specs, setSpecs] = useState<[string, string][]>(
@@ -31,9 +34,55 @@ export function ProductForm({
       : [["", ""]]
   );
 
+  const initialDepartment =
+    categories.find((c) => c.id === product?.category_id)?.department ?? defaultDepartment;
+  const [department, setDepartment] = useState<Department>(initialDepartment);
+  const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
+  const [seriesId, setSeriesId] = useState(product?.series_id ?? "none");
+
+  const categoriesInDepartment = useMemo(
+    () => categories.filter((c) => c.department === department),
+    [categories, department]
+  );
+  const seriesInDepartment = useMemo(
+    () => series.filter((s) => s.department === department),
+    [series, department]
+  );
+
+  function handleDepartmentChange(next: Department | null) {
+    if (!next) return;
+    setDepartment(next);
+    if (!categories.some((c) => c.id === categoryId && c.department === next)) {
+      setCategoryId("");
+    }
+    if (seriesId !== "none" && !series.some((s) => s.id === seriesId && s.department === next)) {
+      setSeriesId("none");
+    }
+  }
+
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-5">
       {product && <input type="hidden" name="id" value={product.id} />}
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="department_filter">Department</Label>
+        <Select value={department} onValueChange={handleDepartmentChange}>
+          <SelectTrigger id="department_filter" className="w-full sm:w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DEPARTMENTS.map((d) => (
+              <SelectItem key={d} value={d}>
+                {departmentCopy(d).label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Filters the category and series lists below — the product&apos;s actual department
+          follows whichever category you pick.
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
@@ -54,28 +103,38 @@ export function ProductForm({
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="category_id">Category</Label>
-          <Select name="category_id" defaultValue={product?.category_id ?? undefined} required>
+          <Select
+            name="category_id"
+            value={categoryId}
+            onValueChange={(v) => setCategoryId(v ?? "")}
+            required
+          >
             <SelectTrigger id="category_id" className="w-full">
               <SelectValue placeholder="Choose a category" />
             </SelectTrigger>
             <SelectContent>
-              {categories.map((c) => (
+              {categoriesInDepartment.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
                 </SelectItem>
               ))}
+              {categoriesInDepartment.length === 0 && (
+                <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                  No categories in this department yet
+                </p>
+              )}
             </SelectContent>
           </Select>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="series_id">Series (optional)</Label>
-          <Select name="series_id" defaultValue={product?.series_id ?? "none"}>
+          <Label htmlFor="series_id">{departmentCopy(department).seriesLabel} (optional)</Label>
+          <Select name="series_id" value={seriesId} onValueChange={(v) => setSeriesId(v ?? "none")}>
             <SelectTrigger id="series_id" className="w-full">
-              <SelectValue placeholder="No series" />
+              <SelectValue placeholder="None" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No series</SelectItem>
-              {series.map((s) => (
+              <SelectItem value="none">None</SelectItem>
+              {seriesInDepartment.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
                 </SelectItem>

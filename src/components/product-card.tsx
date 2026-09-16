@@ -3,14 +3,16 @@ import Link from "next/link";
 import type { ProductWithRelations } from "@/lib/supabase/types";
 import { productImageUrl } from "@/lib/supabase/storage";
 import { formatPrice } from "@/lib/format";
+import { productHref } from "@/lib/department";
 
 export function ProductCard({ product }: { product: ProductWithRelations }) {
   const image = product.product_images?.[0];
+  const variants = product.variants ?? [];
 
   return (
     <Link
-      href={`/product/${product.slug}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-border/70 bg-card transition-shadow hover:shadow-lg"
+      href={productHref(product)}
+      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
     >
       <div className="relative aspect-square w-full overflow-hidden bg-muted">
         {image ? (
@@ -19,7 +21,7 @@ export function ProductCard({ product }: { product: ProductWithRelations }) {
             alt={image.alt_text ?? product.name}
             fill
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            className="object-contain p-8 transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -27,16 +29,33 @@ export function ProductCard({ product }: { product: ProductWithRelations }) {
           </div>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-4">
+      <div className="flex flex-1 flex-col gap-1 border-t border-border p-4">
         {product.series && (
-          <span className="text-xs uppercase tracking-wide text-primary">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">
             {product.series.name}
           </span>
         )}
         <h3 className="font-heading text-base text-foreground">{product.name}</h3>
-        <p className="mt-auto pt-2 text-sm text-muted-foreground">
-          {formatPrice(product.price, product.currency)}
-        </p>
+        <div className="mt-auto flex items-center justify-between pt-2">
+          <p className="text-sm text-muted-foreground">
+            {formatPrice(product.price, product.currency)}
+          </p>
+          {variants.length > 1 && (
+            <div className="flex items-center gap-1">
+              {variants.slice(0, 4).map((v) => (
+                <span
+                  key={v.id}
+                  title={v.color_name}
+                  className="size-3 rounded-full border border-border"
+                  style={{ backgroundColor: v.color_hex ?? "transparent" }}
+                />
+              ))}
+              {variants.length > 4 && (
+                <span className="text-xs text-muted-foreground">+{variants.length - 4}</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </Link>
   );

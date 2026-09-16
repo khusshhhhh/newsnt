@@ -2,32 +2,35 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProductBySlug } from "@/lib/data/catalog";
-import { ProductGallery } from "@/components/product-gallery";
+import { ProductMedia } from "@/components/product-media";
 import { formatPrice } from "@/lib/format";
 import { Separator } from "@/components/ui/separator";
+import { Container } from "@/components/container";
+import { Reveal } from "@/components/reveal";
+import { isDepartment, seriesHref, seriesIndexHref, type Department } from "@/lib/department";
 
-type Params = { productSlug: string };
+type Params = { department: string; productSlug: string };
 
 export async function generateMetadata({
   params,
 }: {
   params: Promise<Params>;
 }): Promise<Metadata> {
-  const { productSlug } = await params;
-  const product = await getProductBySlug(productSlug);
+  const { department, productSlug } = await params;
+  if (!isDepartment(department)) return {};
+  const product = await getProductBySlug(department, productSlug);
   return {
     title: product?.name ?? "Product",
     description: product?.description ?? undefined,
   };
 }
 
-export default async function ProductPage({
-  params,
-}: {
-  params: Promise<Params>;
-}) {
-  const { productSlug } = await params;
-  const product = await getProductBySlug(productSlug);
+export default async function ProductPage({ params }: { params: Promise<Params> }) {
+  const { department: raw, productSlug } = await params;
+  if (!isDepartment(raw)) notFound();
+  const department: Department = raw;
+
+  const product = await getProductBySlug(department, productSlug);
   if (!product) notFound();
 
   const specs = Object.entries(product.specs ?? {});
@@ -39,18 +42,15 @@ export default async function ProductPage({
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+    <Container className="py-12">
       <div className="mb-8 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/series" className="hover:text-foreground">
+        <Link href={seriesIndexHref(department)} className="transition-colors hover:text-foreground">
           Series
         </Link>
         {product.series && (
           <>
             <span>/</span>
-            <Link
-              href={`/series/${product.series.slug}`}
-              className="hover:text-foreground"
-            >
+            <Link href={seriesHref(product.series)} className="transition-colors hover:text-foreground">
               {product.series.name}
             </Link>
           </>
@@ -59,15 +59,18 @@ export default async function ProductPage({
         <span className="text-foreground">{product.name}</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-        <ProductGallery
-          images={product.product_images ?? []}
-          productName={product.name}
-        />
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
+        <Reveal>
+          <ProductMedia
+            productName={product.name}
+            generalImages={product.product_images}
+            variants={product.variants}
+          />
+        </Reveal>
 
-        <div>
+        <Reveal delay={0.1}>
           {product.series && (
-            <span className="text-xs uppercase tracking-wide text-primary">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
               {product.series.name} · {product.category.name}
             </span>
           )}
@@ -79,12 +82,12 @@ export default async function ProductPage({
           </p>
 
           {product.description && (
-            <p className="mt-6 text-muted-foreground">{product.description}</p>
+            <p className="mt-6 leading-relaxed text-muted-foreground">{product.description}</p>
           )}
 
           <a
             href={`mailto:${process.env.NEXT_PUBLIC_ENQUIRY_EMAIL ?? ""}?subject=${enquirySubject}&body=${enquiryBody}`}
-            className="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-8 py-3 text-sm text-primary-foreground transition-opacity hover:opacity-90"
+            className="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-8 py-3 text-sm text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             Enquire about this product
           </a>
@@ -92,12 +95,13 @@ export default async function ProductPage({
           {specs.length > 0 && (
             <>
               <Separator className="my-8" />
-              <h2 className="mb-4 font-heading text-lg text-foreground">
-                Specifications
-              </h2>
+              <h2 className="mb-4 font-heading text-lg text-foreground">Specifications</h2>
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
                 {specs.map(([key, value]) => (
-                  <div key={key} className="flex justify-between border-b border-border/60 pb-2 text-sm sm:flex-col sm:justify-start sm:border-0 sm:pb-0">
+                  <div
+                    key={key}
+                    className="flex justify-between border-b border-border pb-2 text-sm sm:flex-col sm:justify-start sm:border-0 sm:pb-0"
+                  >
                     <dt className="text-muted-foreground">{key}</dt>
                     <dd className="text-foreground">{value}</dd>
                   </div>
@@ -105,8 +109,8 @@ export default async function ProductPage({
               </dl>
             </>
           )}
-        </div>
+        </Reveal>
       </div>
-    </div>
+    </Container>
   );
 }

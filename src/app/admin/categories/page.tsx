@@ -1,31 +1,54 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { DeleteButton } from "@/components/admin/delete-button";
+import { DepartmentTabs } from "@/components/admin/department-tabs";
 import { deleteCategory } from "@/app/admin/actions";
+import { departmentCopy, isDepartment, type Department } from "@/lib/department";
 
-export default async function AdminCategoriesPage() {
+export default async function AdminCategoriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ department?: string }>;
+}) {
+  const { department: rawDepartment } = await searchParams;
+  const department: Department | undefined =
+    rawDepartment && isDepartment(rawDepartment) ? rawDepartment : undefined;
+
   const supabase = await createClient();
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("*")
-    .order("display_order", { ascending: true });
+  let query = supabase.from("categories").select("*").order("display_order", { ascending: true });
+  if (department) query = query.eq("department", department);
+  const { data: categories } = await query;
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="font-heading text-2xl text-foreground">Categories</h1>
-        <Link href="/admin/categories/new" className={buttonVariants()}>
+        <Link
+          href={
+            department ? `/admin/categories/new?department=${department}` : "/admin/categories/new"
+          }
+          className={buttonVariants()}
+        >
           New category
         </Link>
       </div>
 
-      <div className="mt-8 divide-y divide-border/70 rounded-xl border border-border/70">
+      <div className="mt-4">
+        <DepartmentTabs basePath="/admin/categories" active={department} />
+      </div>
+
+      <div className="mt-6 divide-y divide-border rounded-xl border border-border">
         {categories?.map((c) => (
-          <div key={c.id} className="flex items-center justify-between px-4 py-3">
+          <div
+            key={c.id}
+            className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50"
+          >
             <div className="flex items-center gap-3">
               <span className="text-foreground">{c.name}</span>
               <span className="text-xs text-muted-foreground">/{c.slug}</span>
+              <Badge variant="secondary">{departmentCopy(c.department).shortLabel}</Badge>
             </div>
             <div className="flex items-center gap-2">
               <Link

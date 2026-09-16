@@ -1,7 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { ProductForm } from "@/components/admin/product-form";
+import { isDepartment } from "@/lib/department";
 
-export default async function NewProductPage() {
+export default async function NewProductPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ department?: string }>;
+}) {
+  const { department } = await searchParams;
   const supabase = await createClient();
   const [{ data: series }, { data: categories }] = await Promise.all([
     supabase.from("series").select("*").order("display_order", { ascending: true }),
@@ -15,7 +21,11 @@ export default async function NewProductPage() {
         Save the product first, then add photos on the next screen.
       </p>
       <div className="mt-8">
-        <ProductForm series={series ?? []} categories={categories ?? []} />
+        <ProductForm
+          series={series ?? []}
+          categories={categories ?? []}
+          defaultDepartment={department && isDepartment(department) ? department : undefined}
+        />
       </div>
     </div>
   );

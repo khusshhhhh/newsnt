@@ -10,10 +10,14 @@ import { cn } from "@/lib/utils";
 
 export function ProductImageManager({
   productId,
+  variantId = null,
   images: initialImages,
+  compact = false,
 }: {
   productId: string;
+  variantId?: string | null;
   images: ProductImage[];
+  compact?: boolean;
 }) {
   const [images, setImages] = useState(initialImages);
   const [uploading, setUploading] = useState(false);
@@ -27,9 +31,12 @@ export function ProductImageManager({
     setError(null);
 
     const supabase = createClient();
+    const prefix = variantId
+      ? `products/${productId}/variants/${variantId}`
+      : `products/${productId}`;
 
     for (const file of Array.from(files)) {
-      const path = `products/${productId}/${crypto.randomUUID()}-${file.name}`;
+      const path = `${prefix}/${crypto.randomUUID()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from(MEDIA_BUCKET)
         .upload(path, file, { upsert: false });
@@ -40,7 +47,7 @@ export function ProductImageManager({
       }
 
       try {
-        const inserted = await addProductImage(productId, path, images.length);
+        const inserted = await addProductImage(productId, path, images.length, variantId);
         if (inserted) setImages((prev) => [...prev, inserted]);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to save image");
@@ -58,6 +65,8 @@ export function ProductImageManager({
     });
   }
 
+  const thumbSize = compact ? "h-20 w-20" : "h-28 w-28";
+
   return (
     <div className="flex flex-col gap-3">
       {images.length > 0 && (
@@ -65,9 +74,17 @@ export function ProductImageManager({
           {images.map((image) => (
             <div
               key={image.id}
-              className="group relative h-28 w-28 overflow-hidden rounded-lg border border-border/70"
+              className={cn(
+                "group relative overflow-hidden rounded-lg border border-border bg-muted",
+                thumbSize
+              )}
             >
-              <Image src={mediaUrl(image.storage_path)} alt="" fill className="object-cover" />
+              <Image
+                src={mediaUrl(image.storage_path)}
+                alt=""
+                fill
+                className="object-contain p-2"
+              />
               <button
                 type="button"
                 onClick={() => remove(image)}
@@ -87,11 +104,12 @@ export function ProductImageManager({
           handleFiles(e.dataTransfer.files);
         }}
         className={cn(
-          "flex h-24 w-full max-w-xs items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground",
+          "flex items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground",
+          compact ? "h-20 w-full max-w-52" : "h-24 w-full max-w-xs",
           uploading && "opacity-60"
         )}
       >
-        <label className="flex h-full w-full cursor-pointer items-center justify-center">
+        <label className="flex h-full w-full cursor-pointer items-center justify-center px-2 text-center">
           {uploading ? "Uploading…" : "Drop images or click to upload"}
           <input
             ref={inputRef}

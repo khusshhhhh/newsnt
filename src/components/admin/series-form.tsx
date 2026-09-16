@@ -7,14 +7,24 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ImageUploader } from "@/components/admin/image-uploader";
+import { DepartmentField } from "@/components/admin/department-field";
 import type { Series } from "@/lib/supabase/types";
+import type { Department } from "@/lib/department";
 
-export function SeriesForm({ series }: { series?: Series }) {
+export function SeriesForm({
+  series,
+  defaultDepartment = "sanitary-tapware",
+}: {
+  series?: Series;
+  defaultDepartment?: Department;
+}) {
   const [state, formAction, pending] = useActionState(upsertSeries, null);
 
   return (
     <form action={formAction} className="flex max-w-xl flex-col gap-5">
       {series && <input type="hidden" name="id" value={series.id} />}
+
+      <DepartmentField defaultValue={series?.department ?? defaultDepartment} />
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name">Name</Label>

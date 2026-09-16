@@ -5,14 +5,24 @@ import { upsertCategory } from "@/app/admin/actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { DepartmentField } from "@/components/admin/department-field";
 import type { Category } from "@/lib/supabase/types";
+import type { Department } from "@/lib/department";
 
-export function CategoryForm({ category }: { category?: Category }) {
+export function CategoryForm({
+  category,
+  defaultDepartment = "sanitary-tapware",
+}: {
+  category?: Category;
+  defaultDepartment?: Department;
+}) {
   const [state, formAction, pending] = useActionState(upsertCategory, null);
 
   return (
     <form action={formAction} className="flex max-w-md flex-col gap-5">
       {category && <input type="hidden" name="id" value={category.id} />}
+
+      <DepartmentField defaultValue={category?.department ?? defaultDepartment} />
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name">Name</Label>

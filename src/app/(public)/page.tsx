@@ -1,85 +1,105 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getFeaturedProducts, getPublishedSeries } from "@/lib/data/catalog";
-import { ProductCard } from "@/components/product-card";
+import type { Metadata } from "next";
+import { createClient } from "@/lib/supabase/server";
+import { departmentCopy, departmentHref, type Department } from "@/lib/department";
 import { mediaUrl } from "@/lib/supabase/storage";
+import { SiteFooter } from "@/components/site-footer";
+import { Reveal } from "@/components/reveal";
 
-export default async function HomePage() {
-  const [series, featured] = await Promise.all([
-    getPublishedSeries(),
-    getFeaturedProducts(8),
+export const metadata: Metadata = {
+  title: "Aakar — Tapware, Sanitaryware & Door Hardware",
+};
+
+async function getHeroImage(department: Department) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("series")
+    .select("hero_image_url")
+    .eq("department", department)
+    .eq("is_published", true)
+    .not("hero_image_url", "is", null)
+    .order("display_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data?.hero_image_url ?? null;
+}
+
+export default async function GatewayPage() {
+  const [tapwareHero, hardwareHero] = await Promise.all([
+    getHeroImage("sanitary-tapware"),
+    getHeroImage("door-hardware"),
   ]);
 
   return (
-    <div>
-      <section className="border-b border-border/70 bg-secondary/40">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-24 sm:px-6 md:py-32">
-          <span className="text-sm uppercase tracking-[0.2em] text-primary">
-            Tapware &amp; Sanitaryware
-          </span>
-          <h1 className="max-w-2xl font-heading text-4xl leading-tight text-foreground sm:text-5xl md:text-6xl">
-            Six series. One design language, refined six ways.
-          </h1>
-          <p className="max-w-xl text-base text-muted-foreground sm:text-lg">
-            Basin mixers, kitchen mixers, taps and showers — each series
-            carries its own design story, consistent across every finish.
-          </p>
-          <div className="flex gap-4 pt-2">
-            <Link
-              href="/series"
-              className="rounded-full bg-primary px-6 py-3 text-sm text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              Browse the series
-            </Link>
-          </div>
-        </div>
-      </section>
+    <div className="flex min-h-full flex-col">
+      <header className="absolute inset-x-0 top-0 z-10 flex h-20 items-center justify-center">
+        <span className="font-heading text-xl tracking-[0.2em] text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
+          AAKAR
+        </span>
+      </header>
 
-      {series && series.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <div className="mb-8 flex items-end justify-between">
-            <h2 className="font-heading text-2xl text-foreground">Series</h2>
-            <Link href="/series" className="text-sm text-primary hover:underline">
-              View all
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {series.slice(0, 6).map((s) => (
-              <Link
-                key={s.id}
-                href={`/series/${s.slug}`}
-                className="group relative flex aspect-[4/3] flex-col justify-end overflow-hidden rounded-xl border border-border/70 bg-muted p-6"
-              >
-                {s.hero_image_url && (
-                  <Image
-                    src={mediaUrl(s.hero_image_url)}
-                    alt={s.name}
-                    fill
-                    sizes="(min-width: 1024px) 33vw, 100vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                )}
-                <div className="relative z-10 bg-gradient-to-t from-black/70 via-black/10 to-transparent p-4 pt-16 -m-6">
-                  <h3 className="font-heading text-xl text-white">{s.name}</h3>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+      <main className="flex min-h-screen flex-col sm:flex-row">
+        <GatewayPanel
+          department="sanitary-tapware"
+          heroImage={tapwareHero}
+          eyebrow="01"
+        />
+        <GatewayPanel
+          department="door-hardware"
+          heroImage={hardwareHero}
+          eyebrow="02"
+        />
+      </main>
 
-      {featured.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <h2 className="mb-8 font-heading text-2xl text-foreground">
-            Featured products
-          </h2>
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
-            {featured.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </section>
-      )}
+      <SiteFooter />
     </div>
+  );
+}
+
+function GatewayPanel({
+  department,
+  heroImage,
+  eyebrow,
+}: {
+  department: Department;
+  heroImage: string | null;
+  eyebrow: string;
+}) {
+  const copy = departmentCopy(department);
+
+  return (
+    <Link
+      href={departmentHref(department)}
+      className="group relative flex min-h-[60vh] flex-1 flex-col justify-end overflow-hidden bg-foreground sm:min-h-screen"
+    >
+      {heroImage ? (
+        <Image
+          src={mediaUrl(heroImage)}
+          alt=""
+          fill
+          priority
+          sizes="(min-width: 640px) 50vw, 100vw"
+          className="object-cover opacity-90 transition-transform duration-700 ease-out group-hover:scale-105"
+        />
+      ) : (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.08),transparent_60%)]"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
+
+      <Reveal className="relative z-10 p-8 pb-16 sm:p-12 sm:pb-20">
+        <span className="text-xs tracking-[0.3em] text-white/50">{eyebrow}</span>
+        <h2 className="mt-3 font-heading text-4xl leading-[1.05] text-white sm:text-5xl">
+          {copy.label}
+        </h2>
+        <p className="mt-3 max-w-sm text-white/70">{copy.tagline}</p>
+        <span className="mt-6 inline-flex items-center gap-2 text-sm text-white transition-transform group-hover:translate-x-1">
+          Enter <span aria-hidden>→</span>
+        </span>
+      </Reveal>
+    </Link>
   );
 }
