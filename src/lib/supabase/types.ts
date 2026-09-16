@@ -21,6 +21,16 @@ export type Category = {
   created_at: string;
 };
 
+export type CategoryImage = {
+  id: string;
+  category_id: string;
+  storage_path: string;
+  display_order: number;
+  created_at: string;
+};
+
+export type CategoryWithImages = Category & { images: CategoryImage[] };
+
 export type ProductSpecs = Record<string, string>;
 
 export type Product = {
@@ -104,6 +114,20 @@ export type Database = {
         Insert: Partial<Category> & { name: string; slug: string; department: Department };
         Update: Partial<Category>;
         Relationships: [];
+      };
+      category_images: {
+        Row: CategoryImage;
+        Insert: Partial<CategoryImage> & { category_id: string; storage_path: string };
+        Update: Partial<CategoryImage>;
+        Relationships: [
+          {
+            foreignKeyName: "category_images_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       products: {
         Row: Product;

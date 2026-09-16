@@ -6,14 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { DepartmentField } from "@/components/admin/department-field";
+import { ImageUploader } from "@/components/admin/image-uploader";
 import type { Category } from "@/lib/supabase/types";
 import type { Department } from "@/lib/department";
 
 export function CategoryForm({
   category,
+  images = [],
   defaultDepartment = "sanitary-tapware",
 }: {
   category?: Category;
+  images?: string[];
   defaultDepartment?: Department;
 }) {
   const [state, formAction, pending] = useActionState(upsertCategory, null);
@@ -37,6 +40,14 @@ export function CategoryForm({
           defaultValue={category?.slug}
           placeholder="auto-generated from name if left blank"
         />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Images</Label>
+        <p className="text-xs text-muted-foreground">
+          Up to 6 images, shown as an auto-rotating slider on the series page.
+        </p>
+        <ImageUploader folder="categories" value={images} fieldName="images" max={6} />
       </div>
 
       <div className="flex flex-col gap-1.5">

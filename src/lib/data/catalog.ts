@@ -1,7 +1,14 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import type { Department } from "@/lib/department";
-import type { ProductImage, ProductVariantWithImages, ProductWithRelations } from "@/lib/supabase/types";
+import type {
+  Category,
+  CategoryImage,
+  CategoryWithImages,
+  ProductImage,
+  ProductVariantWithImages,
+  ProductWithRelations,
+} from "@/lib/supabase/types";
 
 const PRODUCT_SELECT =
   "*, series(*), category:categories(*), product_images(*), variants:product_variants(*, product_images(*))";
@@ -87,17 +94,27 @@ export const getSeriesBySlug = unstable_cache(
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );
 
+/**
+ * Narrows a raw embedded category row's `category_images` into a sorted,
+ * capped `images` array — the cap mirrors the admin form's 6-image limit as a
+ * defense in depth in case older rows ever exceed it.
+ */
+function shapeCategory(raw: unknown): CategoryWithImages {
+  const { category_images, ...category } = raw as Category & { category_images: CategoryImage[] };
+  return { ...category, images: [...(category_images ?? [])].sort(byDisplayOrder).slice(0, 6) };
+}
+
 export const getCategories = unstable_cache(
-  async (department: Department) => {
+  async (department: Department): Promise<CategoryWithImages[]> => {
     const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("categories")
-      .select("*")
+      .select("*, category_images(*)")
       .eq("department", department)
       .order("display_order", { ascending: true });
 
     if (error) throw error;
-    return data;
+    return (data ?? []).map(shapeCategory);
   },
   ["categories"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }

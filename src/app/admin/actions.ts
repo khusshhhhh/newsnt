@@ -109,10 +109,17 @@ const categorySchema = z.object({
   display_order: z.coerce.number().int().default(0),
 });
 
+const MAX_CATEGORY_IMAGES = 6;
+
 export async function upsertCategory(_prevState: unknown, formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const rawSlug = String(formData.get("slug") ?? "");
   const name = String(formData.get("name") ?? "");
+  const images = formData
+    .getAll("images")
+    .map(String)
+    .filter(Boolean)
+    .slice(0, MAX_CATEGORY_IMAGES);
 
   const parsed = categorySchema.safeParse({
     department: formData.get("department"),
@@ -124,11 +131,33 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
 
   const supabase = await createClient();
-  const { error } = id
-    ? await supabase.from("categories").update(parsed.data).eq("id", id)
-    : await supabase.from("categories").insert(parsed.data);
+  const { data: category, error } = id
+    ? await supabase.from("categories").update(parsed.data).eq("id", id).select("id").single()
+    : await supabase.from("categories").insert(parsed.data).select("id").single();
 
   if (error) return fail(error.message);
+  const categoryId = category.id;
+
+  // Reconcile the gallery: drop storage objects for images the admin
+  // removed, then replace the row set with the submitted order so
+  // `display_order` always matches the order shown in the uploader.
+  const { data: existingImages } = await supabase
+    .from("category_images")
+    .select("storage_path")
+    .eq("category_id", categoryId);
+  const removedPaths = (existingImages ?? [])
+    .map((img) => img.storage_path)
+    .filter((path) => !images.includes(path));
+
+  if (removedPaths.length > 0) {
+    await supabase.storage.from("media").remove(removedPaths);
+  }
+  await supabase.from("category_images").delete().eq("category_id", categoryId);
+  if (images.length > 0) {
+    await supabase
+      .from("category_images")
+      .insert(images.map((storage_path, index) => ({ category_id: categoryId, storage_path, display_order: index })));
+  }
 
   await logActivity({
     action: id ? "update" : "create",
@@ -148,7 +177,17 @@ export async function deleteCategory(id: string) {
     .select("name")
     .eq("id", id)
     .maybeSingle();
+  const { data: images } = await supabase
+    .from("category_images")
+    .select("storage_path")
+    .eq("category_id", id);
+
   await supabase.from("categories").delete().eq("id", id);
+
+  const paths = (images ?? []).map((img) => img.storage_path);
+  if (paths.length > 0) {
+    await supabase.storage.from("media").remove(paths);
+  }
 
   await logActivity({
     action: "delete",
