@@ -34,7 +34,7 @@ export async function SiteHeader({ department }: { department: Department }) {
         <div className="flex items-center gap-8">
           <Link
             href={departmentHref(department)}
-            className="font-heading text-xl tracking-[0.15em] text-foreground"
+            className="font-heading text-xl font-black tracking-[0.06em] text-foreground"
           >
             AAKAR
           </Link>

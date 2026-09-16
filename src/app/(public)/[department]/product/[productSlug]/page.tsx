@@ -87,7 +87,7 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
 
           <a
             href={`mailto:${process.env.NEXT_PUBLIC_ENQUIRY_EMAIL ?? ""}?subject=${enquirySubject}&body=${enquiryBody}`}
-            className="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-8 py-3 text-sm text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            className="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             Enquire about this product
           </a>

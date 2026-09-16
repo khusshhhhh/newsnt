@@ -41,12 +41,12 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
         />
         <Container className="relative flex flex-col gap-6 py-24 md:py-36">
           <Reveal>
-            <span className="text-sm uppercase tracking-[0.3em] text-muted-foreground">
+            <span className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
               {copy.label}
             </span>
           </Reveal>
           <Reveal delay={0.08}>
-            <h1 className="max-w-3xl font-heading text-5xl leading-[1.05] text-foreground sm:text-6xl md:text-7xl">
+            <h1 className="max-w-3xl font-heading text-5xl font-black leading-[0.95] tracking-tight text-foreground sm:text-7xl md:text-8xl">
               {copy.heroLine}
             </h1>
           </Reveal>
@@ -59,7 +59,7 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
             <div className="flex gap-4 pt-2">
               <Link
                 href={seriesIndexHref(department)}
-                className="rounded-full bg-primary px-7 py-3 text-sm text-primary-foreground transition-transform hover:scale-[1.03] active:scale-[0.98]"
+                className="rounded-full bg-primary px-7 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.03] active:scale-[0.98]"
               >
                 Browse {copy.seriesLabel.toLowerCase()}
               </Link>

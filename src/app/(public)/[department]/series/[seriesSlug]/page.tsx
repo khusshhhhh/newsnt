@@ -51,7 +51,9 @@ export default async function SeriesDetailPage({ params }: { params: Promise<Par
         )}
         <div className="relative z-10 w-full bg-gradient-to-t from-black/85 via-black/25 to-transparent py-10">
           <Container>
-            <h1 className="font-heading text-4xl text-white sm:text-5xl">{series.name}</h1>
+            <h1 className="font-heading text-4xl font-black tracking-tight text-white sm:text-5xl md:text-6xl">
+              {series.name}
+            </h1>
             {series.design_story && (
               <p className="mt-3 max-w-xl text-white/85">{series.design_story}</p>
             )}

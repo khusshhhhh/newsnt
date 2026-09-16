@@ -127,4 +127,8 @@
   html {
     @apply font-sans;
   }
+  .font-heading {
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
 }

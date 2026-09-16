@@ -34,7 +34,7 @@ export default async function GatewayPage() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="absolute inset-x-0 top-0 z-10 flex h-20 items-center justify-center">
-        <span className="font-heading text-xl tracking-[0.2em] text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
+        <span className="font-heading text-xl font-black tracking-[0.08em] text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
           AAKAR
         </span>
       </header>
@@ -91,8 +91,8 @@ function GatewayPanel({
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
 
       <Reveal className="relative z-10 p-8 pb-16 sm:p-12 sm:pb-20">
-        <span className="text-xs tracking-[0.3em] text-white/50">{eyebrow}</span>
-        <h2 className="mt-3 font-heading text-4xl leading-[1.05] text-white sm:text-5xl">
+        <span className="text-xs font-semibold tracking-[0.3em] text-white/50">{eyebrow}</span>
+        <h2 className="mt-3 font-heading text-4xl font-black leading-[0.98] tracking-tight text-white sm:text-5xl md:text-6xl">
           {copy.label}
         </h2>
         <p className="mt-3 max-w-sm text-white/70">{copy.tagline}</p>

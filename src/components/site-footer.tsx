@@ -47,7 +47,7 @@ export function SiteFooter({ department }: { department?: Department }) {
 
         <div className="grid grid-cols-2 gap-8 pt-10 sm:grid-cols-4">
           <div className="col-span-2 sm:col-span-1">
-            <p className="font-heading text-lg tracking-[0.15em] text-background">AAKAR</p>
+            <p className="font-heading text-lg font-black tracking-[0.06em] text-background">AAKAR</p>
             <p className="mt-2 text-sm text-background/60">
               Tapware, sanitaryware &amp; door hardware.
             </p>

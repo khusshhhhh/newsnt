@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div>
           <Link
             href="/admin"
-            className="mb-8 block font-heading text-lg tracking-[0.15em] text-sidebar-foreground"
+            className="mb-8 block font-heading text-lg font-black tracking-[0.06em] text-sidebar-foreground"
           >
             AAKAR
           </Link>
