@@ -164,6 +164,12 @@
     font-weight: 700;
     letter-spacing: -0.02em;
   }
+  /* Loaded via the Adobe Fonts kit link in layout.tsx's <head>. Logo wordmark only. */
+  .font-logo {
+    font-family: "flegrei", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+  }
   .no-scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;

@@ -53,6 +53,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable} ${satoshi.variable} h-full antialiased`}
     >
+      <head>
+        {/* Adobe Fonts kit: Flegrei, used for the logo wordmark only (see .font-logo in globals.css). */}
+        <link rel="stylesheet" href="https://use.typekit.net/xfy5mdx.css" />
+      </head>
       <body className="min-h-full flex flex-col">
         <NextTopLoader color="#171717" height={2} showSpinner={false} shadow={false} />
         <a

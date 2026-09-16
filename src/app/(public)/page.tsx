@@ -27,8 +27,8 @@ export default async function GatewayPage() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="absolute inset-x-0 top-0 z-10 flex h-20 items-center justify-center">
-        <span className="text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
+      <header className="absolute inset-x-0 top-0 z-10 flex h-20 items-center px-6 sm:px-8 lg:px-12">
+        <span className="text-white">
           <Logo size="lg" />
         </span>
       </header>
