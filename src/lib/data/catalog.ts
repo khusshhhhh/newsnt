@@ -186,9 +186,13 @@ export const getProducts = unstable_cache(
  * Lightweight, unpaginated lookup of which categories have at least one
  * product in a series — used to decide which category-filter pills to show,
  * independent of `getProducts`' pagination window.
+ *
+ * Returns a plain array rather than a Set: `unstable_cache` serializes its
+ * result as JSON, and a Set doesn't survive that round-trip (it comes back
+ * as `{}`, which has no `.has()`) — build the Set at the call site instead.
  */
 export const getProductCategoryIds = unstable_cache(
-  async (department: Department, filter: { seriesSlug?: string }): Promise<Set<string>> => {
+  async (department: Department, filter: { seriesSlug?: string }): Promise<string[]> => {
     const supabase = createPublicClient();
     let query = supabase
       .from("products")
@@ -198,13 +202,13 @@ export const getProductCategoryIds = unstable_cache(
 
     if (filter.seriesSlug) {
       const series = await getSeriesBySlug(department, filter.seriesSlug);
-      if (!series) return new Set();
+      if (!series) return [];
       query = query.eq("series_id", series.id);
     }
 
     const { data, error } = await query;
     if (error) throw error;
-    return new Set((data ?? []).map((r) => r.category_id));
+    return [...new Set((data ?? []).map((r) => r.category_id))];
   },
   ["product-category-ids"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }

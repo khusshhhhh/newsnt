@@ -52,11 +52,12 @@ export default async function SeriesDetailPage({
   const { page: rawPage } = await searchParams;
   const page = Math.max(1, Number(rawPage) || 1);
 
-  const [categories, { items: products, pageCount }, categoriesWithProducts] = await Promise.all([
+  const [categories, { items: products, pageCount }, categoryIdsWithProducts] = await Promise.all([
     getCategories(department),
     getProducts(department, { seriesSlug }, page),
     getProductCategoryIds(department, { seriesSlug }),
   ]);
+  const categoriesWithProducts = new Set(categoryIdsWithProducts);
 
   return (
     <div>

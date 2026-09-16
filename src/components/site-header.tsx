@@ -12,7 +12,7 @@ import {
 } from "@/lib/department";
 import { Container } from "@/components/container";
 import { MegaMenu } from "@/components/mega-menu";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { Logo } from "@/components/logo";
 import {
   Dialog,
   DialogClose,
@@ -34,11 +34,8 @@ export async function SiteHeader({ department }: { department: Department }) {
     <header className="sticky top-0 z-40 h-16 border-b border-border bg-background">
       <Container className="flex h-16 items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link
-            href={departmentHref(department)}
-            className="font-heading text-xl font-black tracking-[0.06em] text-foreground"
-          >
-            AAKAR
+          <Link href={departmentHref(department)} className="text-foreground">
+            <Logo />
           </Link>
           <nav className="hidden md:block">
             <MegaMenu department={department} series={series ?? []} categories={categories ?? []} />
@@ -55,7 +52,6 @@ export async function SiteHeader({ department }: { department: Department }) {
           </Link>
 
           <DepartmentSwitcher current={department} />
-          <ThemeToggle />
 
           <Dialog>
             <DialogTrigger

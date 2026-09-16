@@ -5,6 +5,7 @@ import { getDepartmentHeroImage } from "@/lib/data/catalog";
 import { departmentCopy, departmentHref, type Department } from "@/lib/department";
 import { mediaUrl } from "@/lib/supabase/storage";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { Logo } from "@/components/logo";
 import { Reveal } from "@/components/reveal";
 
 export const metadata: Metadata = {
@@ -27,8 +28,8 @@ export default async function GatewayPage() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="absolute inset-x-0 top-0 z-10 flex h-20 items-center justify-center">
-        <span className="font-heading text-xl font-black tracking-[0.08em] text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
-          AAKAR
+        <span className="text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.4)]">
+          <Logo size="lg" />
         </span>
       </header>
 

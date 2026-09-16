@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { Container } from "@/components/container";
+import { Logo } from "@/components/logo";
 import { buttonVariants } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="flex h-20 items-center justify-center">
-        <Link href="/" className="font-heading text-xl font-black tracking-[0.08em] text-foreground">
-          AAKAR
+        <Link href="/" className="text-foreground">
+          <Logo />
         </Link>
       </header>
       <Container
