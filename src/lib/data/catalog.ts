@@ -127,6 +127,33 @@ export async function getProducts(
   return (data ?? []).map(shapeProduct);
 }
 
+/** Strip characters that would break PostgREST's `.or()` mini-syntax. */
+function sanitizeSearchTerm(query: string) {
+  return query.replace(/[,()]/g, " ").trim();
+}
+
+export async function searchProducts(
+  department: Department,
+  query: string
+): Promise<ProductWithRelations[]> {
+  const term = sanitizeSearchTerm(query);
+  if (!term) return [];
+
+  const pattern = `%${term}%`;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .eq("department", department)
+    .eq("is_published", true)
+    .or(`name.ilike.${pattern},sku.ilike.${pattern},description.ilike.${pattern}`)
+    .order("display_order", { ascending: true })
+    .limit(24);
+
+  if (error) throw error;
+  return (data ?? []).map(shapeProduct);
+}
+
 export async function getProductBySlug(
   department: Department,
   slug: string

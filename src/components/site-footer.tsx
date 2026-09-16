@@ -15,7 +15,7 @@ export function SiteFooter({ department }: { department?: Department }) {
   const other = department ? otherDepartment(department) : undefined;
 
   return (
-    <footer className="mt-24 border-t border-border bg-foreground text-background">
+    <footer className="border-t border-border bg-foreground text-background">
       <Container className="py-14">
         <div className="flex flex-col justify-between gap-8 border-b border-background/15 pb-10 sm:flex-row sm:items-end">
           <div>

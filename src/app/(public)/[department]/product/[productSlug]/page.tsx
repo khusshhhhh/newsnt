@@ -92,11 +92,17 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
             Enquire about this product
           </a>
 
-          {specs.length > 0 && (
+          {(product.sku || specs.length > 0) && (
             <>
               <Separator className="my-8" />
               <h2 className="mb-4 font-heading text-lg text-foreground">Specifications</h2>
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                {product.sku && (
+                  <div className="flex justify-between border-b border-border pb-2 text-sm sm:flex-col sm:justify-start sm:border-0 sm:pb-0">
+                    <dt className="text-muted-foreground">SKU</dt>
+                    <dd className="text-foreground">{product.sku}</dd>
+                  </div>
+                )}
                 {specs.map(([key, value]) => (
                   <div
                     key={key}

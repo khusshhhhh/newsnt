@@ -43,6 +43,11 @@ export function seriesIndexHref(department: Department) {
   return `/${department}/series`;
 }
 
+export function searchHref(department: Department, query?: string) {
+  const base = `/${department}/search`;
+  return query ? `${base}?q=${encodeURIComponent(query)}` : base;
+}
+
 export function seriesHref(series: { department: Department; slug: string }) {
   return `/${series.department}/series/${series.slug}`;
 }

@@ -124,6 +124,10 @@ const productSchema = z.object({
   department: departmentSchema,
   name: z.string().min(1, "Name is required"),
   slug: z.string().min(1, "Slug is required"),
+  sku: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.trim() || null : null)),
   category_id: z.string().uuid("Category is required"),
   series_id: z.string().uuid().nullable(),
   price: z.coerce.number().nonnegative().nullable(),
@@ -169,6 +173,7 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
     department: category?.department,
     name,
     slug: rawSlug ? slugify(rawSlug) : slugify(name),
+    sku: formData.get("sku") ?? undefined,
     category_id: categoryId,
     series_id: seriesId && seriesId !== "none" ? seriesId : null,
     price: priceRaw ? Number(priceRaw) : null,

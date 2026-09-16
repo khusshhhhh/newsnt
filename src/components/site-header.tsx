@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { getCategories, getPublishedSeries } from "@/lib/data/catalog";
 import {
   departmentCopy,
   departmentHref,
   otherDepartment,
+  searchHref,
   seriesHref,
   categoryHref,
   type Department,
@@ -44,6 +45,14 @@ export async function SiteHeader({ department }: { department: Department }) {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href={searchHref(department)}
+            aria-label="Search"
+            className={buttonVariants({ variant: "ghost", size: "icon" })}
+          >
+            <Search className="size-4" />
+          </Link>
+
           <DepartmentSwitcher current={department} />
 
           <Dialog>
@@ -56,6 +65,13 @@ export async function SiteHeader({ department }: { department: Department }) {
             <DialogContent className="sm:max-w-xs">
               <DialogTitle className="font-heading text-lg">Menu</DialogTitle>
               <nav className="flex flex-col gap-1 text-sm">
+                <DialogClose
+                  render={<Link href={searchHref(department)} />}
+                  nativeButton={false}
+                  className="mb-2 flex items-center gap-2 rounded-md px-1 py-2 text-foreground hover:bg-accent"
+                >
+                  <Search className="size-4" /> Search
+                </DialogClose>
                 <p className="mt-2 px-1 text-xs uppercase tracking-wide text-muted-foreground">
                   {departmentCopy(department).seriesLabel}
                 </p>
@@ -113,7 +129,7 @@ function DepartmentSwitcher({ current }: { current: Department }) {
       <Link
         href={departmentHref(other)}
         className={cn(
-          "rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          "rounded-full px-3 py-1.5 text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground"
         )}
       >
         {departmentCopy(other).shortLabel}

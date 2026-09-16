@@ -102,6 +102,13 @@ export function ProductForm({
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
+          <Label htmlFor="sku">SKU (optional)</Label>
+          <Input id="sku" name="sku" defaultValue={product?.sku ?? ""} placeholder="NR9030BZ" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="category_id">Category</Label>
           <Select
             name="category_id"
