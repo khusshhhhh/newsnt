@@ -173,7 +173,7 @@ export function ProductDetailSkeleton() {
         <Skeleton className="h-4 w-24" />
       </div>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
         <div className="flex flex-col gap-3">
           <Skeleton className="aspect-square w-full rounded-xl" />
           <div className="flex gap-2">
@@ -185,18 +185,25 @@ export function ProductDetailSkeleton() {
 
         <div>
           <Skeleton className="h-3 w-32" />
-          <Skeleton className="mt-3 h-10 w-3/4" />
-          <Skeleton className="mt-3 h-6 w-24" />
+          <Skeleton className="mt-3 h-11 w-3/4" />
           <Skeleton className="mt-6 h-4 w-full" />
           <Skeleton className="mt-2 h-4 w-5/6" />
-          <Skeleton className="mt-8 h-12 w-56 rounded-full" />
-          <div className="mt-8 grid grid-cols-2 gap-4 border-t border-border pt-8">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex flex-col gap-2">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-4 w-20" />
-              </div>
-            ))}
+
+          <div className="mt-8 rounded-2xl border border-border p-6">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-12" />
+              <Skeleton className="h-7 w-20" />
+            </div>
+            <Skeleton className="mt-5 h-12 w-full rounded-full" />
+          </div>
+
+          <div className="mt-10 border-t border-border pt-8">
+            <Skeleton className="mb-5 h-5 w-32" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-xl" />
+              ))}
+            </div>
           </div>
         </div>
       </div>

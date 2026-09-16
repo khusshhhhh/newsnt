@@ -141,7 +141,7 @@ function Lightbox({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="fixed inset-0 top-0 left-0 flex h-dvh max-h-none w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center rounded-none border-none bg-background/95 p-4 ring-0 backdrop-blur-sm sm:p-10"
+        className="fixed inset-0 top-0 left-0 flex h-dvh max-h-none w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center rounded-none border-none bg-background/95 p-4 ring-0 backdrop-blur-sm sm:max-w-none sm:p-10"
       >
         <DialogTitle className="sr-only">{productName} — full-size image</DialogTitle>
 

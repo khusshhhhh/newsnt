@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { Mail } from "lucide-react";
 import { getProductBySlug } from "@/lib/data/catalog";
 import { ProductMedia } from "@/components/product-media";
 import { formatPrice } from "@/lib/format";
 import { productImageUrl } from "@/lib/supabase/storage";
 import { productHref, isDepartment, seriesHref, seriesIndexHref, type Department } from "@/lib/department";
 import { SITE_URL } from "@/lib/site";
-import { Separator } from "@/components/ui/separator";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
 
@@ -94,8 +94,8 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
         <span className="text-foreground">{product.name}</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
-        <Reveal>
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
+        <Reveal className="lg:sticky lg:top-24 lg:self-start">
           <ProductMedia
             productName={product.name}
             generalImages={product.product_images}
@@ -103,54 +103,65 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
           />
         </Reveal>
 
-        <Reveal delay={0.1}>
-          {product.series && (
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              {product.series.name} · {product.category.name}
-            </span>
-          )}
-          <h1 className="mt-2 font-heading text-3xl text-foreground sm:text-4xl">
-            {product.name}
-          </h1>
-          <p className="mt-3 text-xl text-foreground">
-            {formatPrice(product.price, product.currency)}
-          </p>
+        <div>
+          <Reveal delay={0.1}>
+            {product.series && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                {product.series.name}
+                <span aria-hidden className="size-1 rounded-full bg-muted-foreground/50" />
+                {product.category.name}
+              </span>
+            )}
+            <h1 className="mt-3 font-heading text-4xl font-black leading-[0.98] tracking-tight text-foreground sm:text-5xl">
+              {product.name}
+            </h1>
 
-          {product.description && (
-            <p className="mt-6 leading-relaxed text-muted-foreground">{product.description}</p>
-          )}
+            {product.description && (
+              <p className="mt-6 max-w-md border-l-2 border-border pl-4 leading-relaxed text-muted-foreground">
+                {product.description}
+              </p>
+            )}
+          </Reveal>
 
-          <a
-            href={`mailto:${process.env.NEXT_PUBLIC_ENQUIRY_EMAIL ?? ""}?subject=${enquirySubject}&body=${enquiryBody}`}
-            className="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            Enquire about this product
-          </a>
+          <Reveal delay={0.18} className="mt-8 rounded-2xl border border-border bg-card p-6">
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Price</span>
+              <span className="font-heading text-2xl text-foreground">
+                {formatPrice(product.price, product.currency)}
+              </span>
+            </div>
+            <a
+              href={`mailto:${process.env.NEXT_PUBLIC_ENQUIRY_EMAIL ?? ""}?subject=${enquirySubject}&body=${enquiryBody}`}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Mail className="size-4" />
+              Enquire about this product
+            </a>
+          </Reveal>
 
           {(product.sku || specs.length > 0) && (
-            <>
-              <Separator className="my-8" />
-              <h2 className="mb-4 font-heading text-lg text-foreground">Specifications</h2>
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+            <Reveal delay={0.24} className="mt-10 border-t border-border pt-8">
+              <div className="mb-5 flex items-baseline gap-3">
+                <span className="font-heading text-sm font-black text-muted-foreground/40">02</span>
+                <h2 className="font-heading text-lg text-foreground">Specifications</h2>
+              </div>
+              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {product.sku && (
-                  <div className="flex justify-between border-b border-border pb-2 text-sm sm:flex-col sm:justify-start sm:border-0 sm:pb-0">
-                    <dt className="text-muted-foreground">SKU</dt>
-                    <dd className="text-foreground">{product.sku}</dd>
+                  <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">SKU</dt>
+                    <dd className="mt-1 font-heading text-sm text-foreground">{product.sku}</dd>
                   </div>
                 )}
                 {specs.map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="flex justify-between border-b border-border pb-2 text-sm sm:flex-col sm:justify-start sm:border-0 sm:pb-0"
-                  >
-                    <dt className="text-muted-foreground">{key}</dt>
-                    <dd className="text-foreground">{value}</dd>
+                  <div key={key} className="rounded-xl border border-border/60 bg-card px-4 py-3">
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">{key}</dt>
+                    <dd className="mt-1 font-heading text-sm text-foreground">{value}</dd>
                   </div>
                 ))}
               </dl>
-            </>
+            </Reveal>
           )}
-        </Reveal>
+        </div>
       </div>
     </Container>
   );
