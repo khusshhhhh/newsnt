@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { DepartmentTabs } from "@/components/admin/department-tabs";
-import { deleteSeries } from "@/app/admin/actions";
+import { deleteSeries } from "@/lib/actions/admin/series";
 import { departmentCopy, isDepartment, type Department } from "@/lib/department";
 
 export default async function AdminSeriesPage({

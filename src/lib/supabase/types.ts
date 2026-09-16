@@ -75,6 +75,7 @@ export type ProductVariant = {
   product_id: string;
   color_name: string;
   color_hex: string | null;
+  sku: string | null;
   display_order: number;
   created_at: string;
 };
@@ -83,11 +84,22 @@ export type ProductVariantWithImages = ProductVariant & {
   product_images: ProductImage[];
 };
 
+export type ProductResource = {
+  id: string;
+  product_id: string;
+  name: string;
+  storage_path: string;
+  file_name: string | null;
+  display_order: number;
+  created_at: string;
+};
+
 export type ProductWithRelations = Product & {
   series: Series | null;
   category: Category;
   product_images: ProductImage[];
   variants: ProductVariantWithImages[];
+  resources: ProductResource[];
 };
 
 export type NewsletterSubscriber = {
@@ -207,6 +219,20 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "product_variants_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_resources: {
+        Row: ProductResource;
+        Insert: Partial<ProductResource> & { product_id: string; name: string; storage_path: string };
+        Update: Partial<ProductResource>;
+        Relationships: [
+          {
+            foreignKeyName: "product_resources_product_id_fkey";
             columns: ["product_id"];
             isOneToOne: false;
             referencedRelation: "products";

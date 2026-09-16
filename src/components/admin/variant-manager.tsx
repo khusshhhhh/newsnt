@@ -1,10 +1,17 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { addProductVariant, deleteProductVariant } from "@/app/admin/actions";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { addProductVariant, deleteProductVariant } from "@/lib/actions/admin/variants";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PRODUCT_COLORS } from "@/lib/colors";
 import type { ProductVariantWithImages } from "@/lib/supabase/types";
 
 export function VariantManager({
@@ -17,7 +24,20 @@ export function VariantManager({
   const [variants, setVariants] = useState(initialVariants);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [colorName, setColorName] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+
+  const availableColors = useMemo(
+    () => PRODUCT_COLORS.filter((c) => !variants.some((v) => v.color_name === c.name)),
+    [variants]
+  );
+  // Base UI's <Select.Value> shows the raw `value` unless given an `items`
+  // label map — harmless here since value === label, but kept consistent
+  // with the other selects so a future non-identity value doesn't regress it.
+  const colorItems = useMemo(
+    () => Object.fromEntries(availableColors.map((c) => [c.name, c.name])),
+    [availableColors]
+  );
 
   function addVariant(formData: FormData) {
     setError(null);
@@ -26,6 +46,7 @@ export function VariantManager({
         const created = await addProductVariant(productId, formData);
         setVariants((prev) => [...prev, { ...created, product_images: [] }]);
         formRef.current?.reset();
+        setColorName("");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to add color");
       }
@@ -43,7 +64,7 @@ export function VariantManager({
   return (
     <div className="flex flex-col gap-6">
       {variants.map((variant) => (
-        <div key={variant.id} className="rounded-lg border border-border p-4">
+        <div key={variant.id} className="animate-fade-in rounded-lg border border-border p-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span
@@ -51,6 +72,11 @@ export function VariantManager({
                 style={{ backgroundColor: variant.color_hex ?? "transparent" }}
               />
               <span className="text-sm text-foreground">{variant.color_name}</span>
+              {variant.sku && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  {variant.sku}
+                </span>
+              )}
             </div>
             <Button
               type="button"
@@ -71,33 +97,48 @@ export function VariantManager({
         </div>
       ))}
 
-      <form
-        ref={formRef}
-        action={addVariant}
-        className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-border p-4"
-      >
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="color_name" className="text-xs text-muted-foreground">
-            Color name
-          </label>
-          <Input id="color_name" name="color_name" placeholder="Matte Black" required className="w-44" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="color_hex" className="text-xs text-muted-foreground">
-            Swatch
-          </label>
-          <input
-            id="color_hex"
-            name="color_hex"
-            type="color"
-            defaultValue="#1a1a1a"
-            className="h-9 w-14 cursor-pointer rounded-md border border-input bg-transparent p-1"
-          />
-        </div>
-        <Button type="submit" disabled={pending} variant="outline">
-          {pending ? "Adding…" : "Add color"}
-        </Button>
-      </form>
+      {availableColors.length > 0 ? (
+        <form
+          ref={formRef}
+          action={addVariant}
+          className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-border p-4"
+        >
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="color_name" className="text-xs text-muted-foreground">
+              Color
+            </label>
+            <Select
+              name="color_name"
+              value={colorName}
+              onValueChange={(v) => setColorName(v ?? "")}
+              items={colorItems}
+              required
+            >
+              <SelectTrigger id="color_name" className="w-52">
+                <SelectValue placeholder="Choose a finish" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableColors.map((c) => (
+                  <SelectItem key={c.name} value={c.name}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="size-3.5 shrink-0 rounded-full border border-border"
+                        style={{ backgroundColor: c.hex }}
+                      />
+                      {c.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button type="submit" disabled={pending || !colorName} variant="outline">
+            {pending ? "Adding…" : "Add color"}
+          </Button>
+        </form>
+      ) : (
+        <p className="text-sm text-muted-foreground">All available finishes have been added.</p>
+      )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>

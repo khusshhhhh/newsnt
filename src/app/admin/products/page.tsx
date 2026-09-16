@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { DepartmentTabs } from "@/components/admin/department-tabs";
-import { deleteProduct } from "@/app/admin/actions";
+import { deleteProduct } from "@/lib/actions/admin/products";
 import { formatPrice } from "@/lib/format";
 import { mediaUrl } from "@/lib/supabase/storage";
 import { departmentCopy, isDepartment, type Department } from "@/lib/department";
@@ -80,7 +80,7 @@ export default async function AdminProductsPage({
                   <p className="truncate text-xs text-muted-foreground">
                     {p.category?.name}
                     {p.series?.name ? ` · ${p.series.name}` : ""} ·{" "}
-                    {formatPrice(p.price, p.currency)}
+                    {formatPrice(p.price)}
                   </p>
                 </div>
               </div>

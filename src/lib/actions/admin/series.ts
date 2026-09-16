@@ -1,0 +1,109 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
+import { slugify } from "@/lib/slugify";
+import { logActivity } from "@/lib/data/activity";
+import { departmentSchema, fail, revalidateCatalog } from "./_shared";
+
+const seriesSchema = z.object({
+  department: departmentSchema,
+  name: z.string().min(1, "Name is required"),
+  slug: z.string().min(1, "Slug is required"),
+  design_story: z.string().optional(),
+  hero_image_url: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v : null)),
+  display_order: z.coerce.number().int().default(0),
+  is_published: z.coerce.boolean().default(false),
+});
+
+const MAX_SERIES_IMAGES = 6;
+
+export async function upsertSeries(_prevState: unknown, formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const rawSlug = String(formData.get("slug") ?? "");
+  const name = String(formData.get("name") ?? "");
+  const images = formData
+    .getAll("hero_images")
+    .map(String)
+    .filter(Boolean)
+    .slice(0, MAX_SERIES_IMAGES);
+
+  const parsed = seriesSchema.safeParse({
+    department: formData.get("department"),
+    name,
+    slug: rawSlug ? slugify(rawSlug) : slugify(name),
+    design_story: formData.get("design_story") ?? undefined,
+    // Derived from the gallery rather than a separate field: the first
+    // uploaded image doubles as the homepage carousel/OG cover image.
+    hero_image_url: images[0] ?? undefined,
+    display_order: formData.get("display_order") ?? 0,
+    is_published: formData.get("is_published") === "on",
+  });
+
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
+
+  const supabase = await createClient();
+  const { data: series, error } = id
+    ? await supabase.from("series").update(parsed.data).eq("id", id).select("id").single()
+    : await supabase.from("series").insert(parsed.data).select("id").single();
+
+  if (error) return fail(error.message);
+  const seriesId = series.id;
+
+  // Reconcile the gallery: drop storage objects for images the admin
+  // removed, then replace the row set with the submitted order so
+  // `display_order` always matches the order shown in the uploader.
+  const { data: existingImages } = await supabase
+    .from("series_images")
+    .select("storage_path")
+    .eq("series_id", seriesId);
+  const removedPaths = (existingImages ?? [])
+    .map((img) => img.storage_path)
+    .filter((path) => !images.includes(path));
+
+  if (removedPaths.length > 0) {
+    await supabase.storage.from("media").remove(removedPaths);
+  }
+  await supabase.from("series_images").delete().eq("series_id", seriesId);
+  if (images.length > 0) {
+    await supabase
+      .from("series_images")
+      .insert(images.map((storage_path, index) => ({ series_id: seriesId, storage_path, display_order: index })));
+  }
+
+  await logActivity({
+    action: id ? "update" : "create",
+    entity_type: "series",
+    entity_name: parsed.data.name,
+  });
+  revalidateCatalog();
+  revalidatePath("/admin/series");
+  revalidatePath("/", "layout");
+  redirect("/admin/series");
+}
+
+export async function deleteSeries(id: string) {
+  const supabase = await createClient();
+  const { data: series } = await supabase.from("series").select("name").eq("id", id).maybeSingle();
+  const { data: images } = await supabase
+    .from("series_images")
+    .select("storage_path")
+    .eq("series_id", id);
+
+  await supabase.from("series").delete().eq("id", id);
+
+  const paths = (images ?? []).map((img) => img.storage_path);
+  if (paths.length > 0) {
+    await supabase.storage.from("media").remove(paths);
+  }
+
+  await logActivity({ action: "delete", entity_type: "series", entity_id: id, entity_name: series?.name });
+  revalidateCatalog();
+  revalidatePath("/admin/series");
+  revalidatePath("/", "layout");
+}

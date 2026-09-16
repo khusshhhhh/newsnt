@@ -9,10 +9,12 @@ import {
 import { DEPARTMENTS, departmentCopy, type Department } from "@/lib/department";
 
 export function DepartmentField({ defaultValue }: { defaultValue: Department }) {
+  const items = Object.fromEntries(DEPARTMENTS.map((d) => [d, departmentCopy(d).label]));
+
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor="department">Department</Label>
-      <Select name="department" defaultValue={defaultValue} required>
+      <Select name="department" defaultValue={defaultValue} items={items} required>
         <SelectTrigger id="department" className="w-full">
           <SelectValue />
         </SelectTrigger>

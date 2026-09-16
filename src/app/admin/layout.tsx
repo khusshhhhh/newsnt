@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { signOut } from "@/app/admin/actions";
+import { signOut } from "@/lib/actions/admin/auth";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 

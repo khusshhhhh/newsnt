@@ -1,10 +1,9 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { upsertProduct } from "@/app/admin/actions";
+import { upsertProduct } from "@/lib/actions/admin/products";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -49,6 +48,22 @@ export function ProductForm({
     [series, department]
   );
 
+  // Base UI's <Select.Value> shows the raw `value` unless the root is given
+  // an `items` label map — otherwise a category/series select would display
+  // its uuid instead of its name.
+  const departmentItems = useMemo(
+    () => Object.fromEntries(DEPARTMENTS.map((d) => [d, departmentCopy(d).label])),
+    []
+  );
+  const categoryItems = useMemo(
+    () => Object.fromEntries(categoriesInDepartment.map((c) => [c.id, c.name])),
+    [categoriesInDepartment]
+  );
+  const seriesItems = useMemo(
+    () => ({ none: "None", ...Object.fromEntries(seriesInDepartment.map((s) => [s.id, s.name])) }),
+    [seriesInDepartment]
+  );
+
   function handleDepartmentChange(next: Department | null) {
     if (!next) return;
     setDepartment(next);
@@ -66,7 +81,7 @@ export function ProductForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="department_filter">Department</Label>
-        <Select value={department} onValueChange={handleDepartmentChange}>
+        <Select value={department} onValueChange={handleDepartmentChange} items={departmentItems}>
           <SelectTrigger id="department_filter" className="w-full sm:w-64">
             <SelectValue />
           </SelectTrigger>
@@ -102,8 +117,11 @@ export function ProductForm({
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sku">SKU (optional)</Label>
-          <Input id="sku" name="sku" defaultValue={product?.sku ?? ""} placeholder="NR9030BZ" />
+          <Label htmlFor="sku">SKU prefix</Label>
+          <Input id="sku" name="sku" defaultValue={product?.sku ?? ""} placeholder="AKRLTS001" required />
+          <p className="text-xs text-muted-foreground">
+            Each color gets its own SKU built from this prefix, e.g. {"{prefix}"}MB for Matte Black.
+          </p>
         </div>
       </div>
 
@@ -114,6 +132,7 @@ export function ProductForm({
             name="category_id"
             value={categoryId}
             onValueChange={(v) => setCategoryId(v ?? "")}
+            items={categoryItems}
             required
           >
             <SelectTrigger id="category_id" className="w-full">
@@ -135,7 +154,12 @@ export function ProductForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="series_id">{departmentCopy(department).seriesLabel} (optional)</Label>
-          <Select name="series_id" value={seriesId} onValueChange={(v) => setSeriesId(v ?? "none")}>
+          <Select
+            name="series_id"
+            value={seriesId}
+            onValueChange={(v) => setSeriesId(v ?? "none")}
+            items={seriesItems}
+          >
             <SelectTrigger id="series_id" className="w-full">
               <SelectValue placeholder="None" />
             </SelectTrigger>
@@ -164,19 +188,11 @@ export function ProductForm({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="currency">Currency</Label>
-          <Input id="currency" name="currency" defaultValue={product?.currency ?? "INR"} />
+          <Label>Currency</Label>
+          <div className="flex h-9 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+            AUD — fixed for every product
+          </div>
         </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          name="description"
-          rows={4}
-          defaultValue={product?.description ?? ""}
-        />
       </div>
 
       <div className="flex flex-col gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { upsertSeries } from "@/app/admin/actions";
+import { upsertSeries } from "@/lib/actions/admin/series";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";

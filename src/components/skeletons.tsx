@@ -288,6 +288,43 @@ export function AdminDashboardSkeleton() {
   );
 }
 
+/** Mirrors an admin new/edit form page: title over a single-column field stack. */
+export function AdminFormSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div>
+      <Skeleton className="h-8 w-48" />
+      <div className="mt-8 flex max-w-2xl flex-col gap-5">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-1.5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+        ))}
+        <Skeleton className="h-9 w-32 rounded-md" />
+      </div>
+    </div>
+  );
+}
+
+/** Mirrors the product edit page: the form plus the photos/colors/resources sections below it. */
+export function AdminProductFormSkeleton() {
+  return (
+    <div>
+      <AdminFormSkeleton rows={6} />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="mt-10 max-w-2xl border-t border-border pt-10">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="mt-2 h-3 w-64" />
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Skeleton className="h-20 w-20 rounded-lg" />
+            <Skeleton className="h-20 w-52 rounded-lg" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Mirrors the two-panel gateway (very first) home page while hero images resolve. */
 export function GatewaySkeleton() {
   return (

@@ -6,6 +6,7 @@ import type {
   CategoryImage,
   CategoryWithImages,
   ProductImage,
+  ProductResource,
   ProductVariantWithImages,
   ProductWithRelations,
   Series,
@@ -17,7 +18,7 @@ import type {
 const MAX_GALLERY_IMAGES = 6;
 
 const PRODUCT_SELECT =
-  "*, series(*), category:categories(*), product_images(*), variants:product_variants(*, product_images(*))";
+  "*, series(*), category:categories(*), product_images(*), variants:product_variants(*, product_images(*)), resources:product_resources(*)";
 
 export const PAGE_SIZE = 24;
 
@@ -61,8 +62,9 @@ function shapeProduct(raw: unknown): ProductWithRelations {
   const variants: ProductVariantWithImages[] = (row.variants ?? [])
     .map((v) => ({ ...v, product_images: [...(v.product_images ?? [])].sort(byDisplayOrder) }))
     .sort(byDisplayOrder);
+  const resources: ProductResource[] = [...(row.resources ?? [])].sort(byDisplayOrder);
 
-  return { ...row, product_images: generalImages, variants };
+  return { ...row, product_images: generalImages, variants, resources };
 }
 
 export const getPublishedSeries = unstable_cache(
@@ -282,7 +284,7 @@ export async function searchProducts(
     .select(PRODUCT_SELECT, { count: "exact" })
     .eq("department", department)
     .eq("is_published", true)
-    .or(`name.ilike.${pattern},sku.ilike.${pattern},description.ilike.${pattern}`)
+    .or(`name.ilike.${pattern},sku.ilike.${pattern}`)
     .order("display_order", { ascending: true })
     .range(from, from + PAGE_SIZE - 1);
 

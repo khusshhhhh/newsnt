@@ -152,7 +152,7 @@ export default async function AdminDashboardPage() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {formatPrice(p.price, p.currency)}
+                    {formatPrice(p.price)}
                   </p>
                 </div>
               </Link>

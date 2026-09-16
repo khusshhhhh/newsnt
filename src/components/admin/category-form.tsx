@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { upsertCategory } from "@/app/admin/actions";
+import { upsertCategory } from "@/lib/actions/admin/categories";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";

@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { mediaUrl, MEDIA_BUCKET } from "@/lib/supabase/storage";
-import { addProductImage, deleteProductImage } from "@/app/admin/actions";
+import { addProductImage, deleteProductImage } from "@/lib/actions/admin/images";
 import type { ProductImage } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
