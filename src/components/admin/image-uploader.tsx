@@ -12,6 +12,15 @@ import { cn } from "@/lib/utils";
  * resulting storage path(s) via a hidden form field so the surrounding
  * <form action={serverAction}> picks them up on submit.
  */
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // matches the `media` bucket's file_size_limit
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"]);
+
+/** Strips anything but alphanumerics/dot/dash/underscore so the storage path stays predictable. */
+function sanitizeFilename(name: string) {
+  const trimmed = name.trim().replace(/[^a-zA-Z0-9._-]/g, "-");
+  return trimmed.slice(-100) || "upload";
+}
+
 export function ImageUploader({
   folder,
   fieldName,
@@ -37,7 +46,16 @@ export function ImageUploader({
     const uploaded: string[] = [];
 
     for (const file of Array.from(files).slice(0, max - paths.length)) {
-      const path = `${folder}/${crypto.randomUUID()}-${file.name}`;
+      if (!ALLOWED_TYPES.has(file.type)) {
+        setError(`${file.name}: unsupported file type (use JPEG, PNG, WebP, AVIF, or GIF).`);
+        continue;
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        setError(`${file.name}: file is too large (max ${MAX_FILE_BYTES / (1024 * 1024)} MB).`);
+        continue;
+      }
+
+      const path = `${folder}/${crypto.randomUUID()}-${sanitizeFilename(file.name)}`;
       const { error: uploadError } = await supabase.storage
         .from(MEDIA_BUCKET)
         .upload(path, file, { upsert: false });

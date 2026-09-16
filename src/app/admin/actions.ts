@@ -1,16 +1,28 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slugify";
 import { DEPARTMENTS } from "@/lib/department";
+import { CATALOG_TAG } from "@/lib/data/catalog";
+import { logActivity } from "@/lib/data/activity";
 
 const departmentSchema = z.enum(DEPARTMENTS);
 
 function fail(message: string): { error: string } {
   return { error: message };
+}
+
+/**
+ * Invalidates every cached public catalog read (see catalog.ts) after any
+ * admin write. `updateTag` (rather than `revalidateTag`) expires it
+ * immediately so the admin sees their own change on the next page, instead
+ * of stale-while-revalidate serving the old value for a while.
+ */
+function revalidateCatalog() {
+  updateTag(CATALOG_TAG);
 }
 
 export async function signIn(_prevState: unknown, formData: FormData) {
@@ -68,6 +80,12 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
 
   if (error) return fail(error.message);
 
+  await logActivity({
+    action: id ? "update" : "create",
+    entity_type: "series",
+    entity_name: parsed.data.name,
+  });
+  revalidateCatalog();
   revalidatePath("/admin/series");
   revalidatePath("/", "layout");
   redirect("/admin/series");
@@ -75,7 +93,11 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
 
 export async function deleteSeries(id: string) {
   const supabase = await createClient();
+  const { data: series } = await supabase.from("series").select("name").eq("id", id).maybeSingle();
   await supabase.from("series").delete().eq("id", id);
+
+  await logActivity({ action: "delete", entity_type: "series", entity_id: id, entity_name: series?.name });
+  revalidateCatalog();
   revalidatePath("/admin/series");
   revalidatePath("/", "layout");
 }
@@ -108,6 +130,12 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
 
   if (error) return fail(error.message);
 
+  await logActivity({
+    action: id ? "update" : "create",
+    entity_type: "category",
+    entity_name: parsed.data.name,
+  });
+  revalidateCatalog();
   revalidatePath("/admin/categories");
   revalidatePath("/", "layout");
   redirect("/admin/categories");
@@ -115,7 +143,20 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
 
 export async function deleteCategory(id: string) {
   const supabase = await createClient();
+  const { data: category } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
   await supabase.from("categories").delete().eq("id", id);
+
+  await logActivity({
+    action: "delete",
+    entity_type: "category",
+    entity_id: id,
+    entity_name: category?.name,
+  });
+  revalidateCatalog();
   revalidatePath("/admin/categories");
   revalidatePath("/", "layout");
 }
@@ -190,6 +231,9 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
   if (id) {
     const { error } = await supabase.from("products").update(parsed.data).eq("id", id);
     if (error) return fail(error.message);
+
+    await logActivity({ action: "update", entity_type: "product", entity_id: id, entity_name: parsed.data.name });
+    revalidateCatalog();
     revalidatePath("/admin/products");
     revalidatePath("/", "layout");
     redirect(`/admin/products/${id}`);
@@ -203,6 +247,13 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
 
   if (error) return fail(error.message);
 
+  await logActivity({
+    action: "create",
+    entity_type: "product",
+    entity_id: data.id,
+    entity_name: parsed.data.name,
+  });
+  revalidateCatalog();
   revalidatePath("/admin/products");
   revalidatePath("/", "layout");
   redirect(`/admin/products/${data.id}`);
@@ -210,7 +261,16 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
 
 export async function deleteProduct(id: string) {
   const supabase = await createClient();
+  const { data: product } = await supabase.from("products").select("name").eq("id", id).maybeSingle();
   await supabase.from("products").delete().eq("id", id);
+
+  await logActivity({
+    action: "delete",
+    entity_type: "product",
+    entity_id: id,
+    entity_name: product?.name,
+  });
+  revalidateCatalog();
   revalidatePath("/admin/products");
   revalidatePath("/", "layout");
 }
@@ -234,6 +294,7 @@ export async function addProductImage(
     .single();
 
   if (error) throw new Error(error.message);
+  revalidateCatalog();
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
   return data;
@@ -265,6 +326,7 @@ export async function addProductVariant(productId: string, formData: FormData) {
     .single();
 
   if (error) throw new Error(error.message);
+  revalidateCatalog();
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
   return data;
@@ -283,6 +345,7 @@ export async function deleteProductVariant(variantId: string, productId: string)
   if (paths.length > 0) {
     await supabase.storage.from("media").remove(paths);
   }
+  revalidateCatalog();
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
 }
@@ -299,6 +362,7 @@ export async function deleteProductImage(imageId: string, productId: string) {
   if (image?.storage_path) {
     await supabase.storage.from("media").remove([image.storage_path]);
   }
+  revalidateCatalog();
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");
 }

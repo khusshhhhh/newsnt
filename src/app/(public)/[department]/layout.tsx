@@ -16,7 +16,9 @@ export default async function DepartmentLayout({
   return (
     <>
       <SiteHeader department={department} />
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1">
+        {children}
+      </main>
       <SiteFooter department={department} />
     </>
   );

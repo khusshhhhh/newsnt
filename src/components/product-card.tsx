@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ProductWithRelations } from "@/lib/supabase/types";
 import { productImageUrl } from "@/lib/supabase/storage";
 import { productHref } from "@/lib/department";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 
 export function ProductCard({ product }: { product: ProductWithRelations }) {
   const image = product.product_images?.[0];
@@ -20,6 +21,8 @@ export function ProductCard({ product }: { product: ProductWithRelations }) {
             alt={image.alt_text ?? product.name}
             fill
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
             className="object-contain p-8 transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (

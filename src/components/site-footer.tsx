@@ -1,8 +1,10 @@
 "use client";
 
+import { useActionState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Container } from "@/components/container";
+import { subscribeNewsletter } from "@/lib/actions/newsletter";
 import {
   departmentCopy,
   departmentHref,
@@ -13,6 +15,18 @@ import {
 
 export function SiteFooter({ department }: { department?: Department }) {
   const other = department ? otherDepartment(department) : undefined;
+  const [state, formAction, pending] = useActionState(subscribeNewsletter, null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (!state) return;
+    if (state.success) {
+      toast.success("Thanks — you're on the list.");
+      formRef.current?.reset();
+    } else if (state.error) {
+      toast.error(state.error);
+    }
+  }, [state]);
 
   return (
     <footer className="border-t border-border bg-foreground text-background">
@@ -25,22 +39,24 @@ export function SiteFooter({ department }: { department?: Department }) {
             </p>
           </div>
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const form = e.currentTarget;
-              toast.success("Thanks — you're on the list.");
-              form.reset();
-            }}
+            ref={formRef}
+            action={formAction}
             className="flex w-full max-w-sm items-center gap-3 border-b border-background/30 pb-2 sm:w-auto"
           >
+            {department && <input type="hidden" name="department" value={department} />}
             <input
               type="email"
+              name="email"
               required
               placeholder="Enter your email"
               className="w-full bg-transparent text-sm text-background placeholder:text-background/40 focus:outline-none"
             />
-            <button type="submit" className="shrink-0 text-sm text-background hover:opacity-80">
-              Subscribe →
+            <button
+              type="submit"
+              disabled={pending}
+              className="shrink-0 text-sm text-background hover:opacity-80 disabled:opacity-50"
+            >
+              {pending ? "Subscribing…" : "Subscribe →"}
             </button>
           </form>
         </div>

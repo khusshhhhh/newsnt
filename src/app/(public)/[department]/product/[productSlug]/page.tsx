@@ -4,10 +4,12 @@ import type { Metadata } from "next";
 import { getProductBySlug } from "@/lib/data/catalog";
 import { ProductMedia } from "@/components/product-media";
 import { formatPrice } from "@/lib/format";
+import { productImageUrl } from "@/lib/supabase/storage";
+import { productHref, isDepartment, seriesHref, seriesIndexHref, type Department } from "@/lib/department";
+import { SITE_URL } from "@/lib/site";
 import { Separator } from "@/components/ui/separator";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
-import { isDepartment, seriesHref, seriesIndexHref, type Department } from "@/lib/department";
 
 type Params = { department: string; productSlug: string };
 
@@ -19,9 +21,18 @@ export async function generateMetadata({
   const { department, productSlug } = await params;
   if (!isDepartment(department)) return {};
   const product = await getProductBySlug(department, productSlug);
+  if (!product) return { title: "Product" };
+
+  const image = product.product_images[0];
+
   return {
-    title: product?.name ?? "Product",
-    description: product?.description ?? undefined,
+    title: product.name,
+    description: product.description ?? undefined,
+    openGraph: {
+      title: product.name,
+      description: product.description ?? undefined,
+      images: image ? [{ url: productImageUrl(image.storage_path) }] : undefined,
+    },
   };
 }
 
@@ -41,8 +52,32 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
     }.`
   );
 
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description ?? undefined,
+    sku: product.sku ?? undefined,
+    image: product.product_images.map((img) => productImageUrl(img.storage_path)),
+    brand: { "@type": "Brand", name: "Aakar" },
+    ...(product.price != null && {
+      offers: {
+        "@type": "Offer",
+        price: product.price,
+        priceCurrency: product.currency,
+        availability: "https://schema.org/InStock",
+        url: `${SITE_URL}${productHref(product)}`,
+      },
+    }),
+  };
+
   return (
     <Container className="py-12">
+      <script
+        type="application/ld+json"
+        // Escape "<" so admin-entered text can't break out of the script tag.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c") }}
+      />
       <div className="mb-8 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <Link href={seriesIndexHref(department)} className="transition-colors hover:text-foreground">
           Series

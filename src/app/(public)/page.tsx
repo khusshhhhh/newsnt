@@ -1,29 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { getDepartmentHeroImage } from "@/lib/data/catalog";
 import { departmentCopy, departmentHref, type Department } from "@/lib/department";
 import { mediaUrl } from "@/lib/supabase/storage";
-import { SiteFooter } from "@/components/site-footer";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { Reveal } from "@/components/reveal";
 
 export const metadata: Metadata = {
   title: "Aakar — Tapware, Sanitaryware & Door Hardware",
 };
-
-async function getHeroImage(department: Department) {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("series")
-    .select("hero_image_url")
-    .eq("department", department)
-    .eq("is_published", true)
-    .not("hero_image_url", "is", null)
-    .order("display_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  return data?.hero_image_url ?? null;
-}
 
 // Static fallbacks for departments with no admin-uploaded hero yet — AI-generated
 // mood photography matching the site's monochrome, architectural aesthetic.
@@ -34,8 +20,8 @@ const FALLBACK_HERO: Record<Department, string | null> = {
 
 export default async function GatewayPage() {
   const [tapwareHero, hardwareHero] = await Promise.all([
-    getHeroImage("sanitary-tapware"),
-    getHeroImage("door-hardware"),
+    getDepartmentHeroImage("sanitary-tapware"),
+    getDepartmentHeroImage("door-hardware"),
   ]);
 
   return (
@@ -46,7 +32,7 @@ export default async function GatewayPage() {
         </span>
       </header>
 
-      <main className="flex min-h-screen flex-col sm:flex-row">
+      <main id="main-content" className="flex min-h-screen flex-col sm:flex-row">
         <GatewayPanel
           department="sanitary-tapware"
           heroImage={tapwareHero ? mediaUrl(tapwareHero) : FALLBACK_HERO["sanitary-tapware"]}
@@ -58,8 +44,6 @@ export default async function GatewayPage() {
           eyebrow="02"
         />
       </main>
-
-      <SiteFooter />
     </div>
   );
 }
@@ -88,6 +72,8 @@ function GatewayPanel({
             fill
             priority
             sizes="(min-width: 640px) 50vw, 100vw"
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
             className="animate-ken-burns object-cover opacity-90"
           />
         ) : (

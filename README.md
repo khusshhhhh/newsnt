@@ -20,10 +20,25 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
    - [`0002_seed.sql`](supabase/migrations/0002_seed.sql) — optional sample categories/series
    - [`0003_product_variants.sql`](supabase/migrations/0003_product_variants.sql) — color/finish variants per product
    - [`0004_departments.sql`](supabase/migrations/0004_departments.sql) — splits the catalog into the two departments below
-3. In Supabase → Authentication, create your own admin user (email + password). Anyone
-   who can sign in can manage the catalog — there's no separate roles table.
+   - [`0005_product_sku.sql`](supabase/migrations/0005_product_sku.sql) — optional product SKU field
+   - [`0006_newsletter_subscribers.sql`](supabase/migrations/0006_newsletter_subscribers.sql) — footer newsletter signups
+   - [`0007_admin_roles.sql`](supabase/migrations/0007_admin_roles.sql) — restricts catalog writes to an
+     `admins` allowlist instead of any authenticated user (see step 3 below — **run this last**)
+   - [`0008_activity_log.sql`](supabase/migrations/0008_activity_log.sql) — audit trail for admin writes,
+     viewable at `/admin/activity`
+   - [`0009_media_bucket_limits.sql`](supabase/migrations/0009_media_bucket_limits.sql) — server-side file
+     size/type limits on the `media` storage bucket
+3. In Supabase → Authentication, create your own admin user (email + password), then add
+   them to the `admins` table so `0007_admin_roles.sql`'s write policies let them in:
+   ```sql
+   insert into admins (user_id)
+   select id from auth.users where email = 'you@example.com';
+   ```
+   Do this **before or immediately after** running `0007_admin_roles.sql` — until an admin
+   row exists, nobody (including a previously-working session) can write to the catalog.
 4. Copy `.env.local.example` to `.env.local` and fill in your project's URL and anon key
-   (Project Settings → API).
+   (Project Settings → API), plus `NEXT_PUBLIC_SITE_URL` (used for the sitemap, robots.txt,
+   and Open Graph image URLs).
 5. Install dependencies and run the dev server:
 
    ```bash
@@ -66,6 +81,16 @@ gallery. Managed from the "Colors" section on a product's admin edit page.
 - `/admin` — dashboard (protected; redirects to `/admin/login` if signed out)
 - `/admin/series`, `/admin/categories`, `/admin/products` — CRUD, each with `/new` and
   `/[id]`, filterable by department (`?department=door-hardware`)
+- `/admin/activity` — recent create/update/delete audit trail (see `0008_activity_log.sql`)
+
+## Caching
+
+Public catalog reads (`src/lib/data/catalog.ts`) are wrapped in `unstable_cache` with a
+one-hour revalidation and a single `catalog` tag, using a cookie-free anon Supabase client
+so they're eligible for caching at all. Every admin write calls `updateTag("catalog")`
+afterwards, which expires the cache immediately (read-your-own-writes) rather than serving
+stale content — so published changes are visible on the live site right away, not after an
+hour. `searchProducts` is intentionally left uncached (search terms are unbounded).
 
 ## Deploying
 

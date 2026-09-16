@@ -12,6 +12,7 @@ import {
 } from "@/lib/department";
 import { Container } from "@/components/container";
 import { MegaMenu } from "@/components/mega-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Dialog,
   DialogClose,
@@ -54,6 +55,7 @@ export async function SiteHeader({ department }: { department: Department }) {
           </Link>
 
           <DepartmentSwitcher current={department} />
+          <ThemeToggle />
 
           <Dialog>
             <DialogTrigger

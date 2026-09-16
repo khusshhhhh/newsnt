@@ -2,14 +2,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getCategories, getProducts, getSeriesBySlug } from "@/lib/data/catalog";
+import { getCategories, getProductCategoryIds, getProducts, getSeriesBySlug } from "@/lib/data/catalog";
 import { mediaUrl } from "@/lib/supabase/storage";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { ProductCard } from "@/components/product-card";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
+import { Pagination } from "@/components/pagination";
 import { isDepartment, seriesCategoryHref, type Department } from "@/lib/department";
 
 type Params = { department: string; seriesSlug: string };
+type SearchParams = { page?: string };
 
 export async function generateMetadata({
   params,
@@ -19,10 +22,26 @@ export async function generateMetadata({
   const { department, seriesSlug } = await params;
   if (!isDepartment(department)) return {};
   const series = await getSeriesBySlug(department, seriesSlug);
-  return { title: series?.name ?? "Series" };
+  if (!series) return { title: "Series" };
+
+  return {
+    title: series.name,
+    description: series.design_story ?? undefined,
+    openGraph: {
+      title: series.name,
+      description: series.design_story ?? undefined,
+      images: series.hero_image_url ? [{ url: mediaUrl(series.hero_image_url) }] : undefined,
+    },
+  };
 }
 
-export default async function SeriesDetailPage({ params }: { params: Promise<Params> }) {
+export default async function SeriesDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<Params>;
+  searchParams: Promise<SearchParams>;
+}) {
   const { department: raw, seriesSlug } = await params;
   if (!isDepartment(raw)) notFound();
   const department: Department = raw;
@@ -30,12 +49,14 @@ export default async function SeriesDetailPage({ params }: { params: Promise<Par
   const series = await getSeriesBySlug(department, seriesSlug);
   if (!series) notFound();
 
-  const [categories, products] = await Promise.all([
-    getCategories(department),
-    getProducts(department, { seriesSlug }),
-  ]);
+  const { page: rawPage } = await searchParams;
+  const page = Math.max(1, Number(rawPage) || 1);
 
-  const categoriesWithProducts = new Set(products.map((p) => p.category_id));
+  const [categories, { items: products, pageCount }, categoriesWithProducts] = await Promise.all([
+    getCategories(department),
+    getProducts(department, { seriesSlug }, page),
+    getProductCategoryIds(department, { seriesSlug }),
+  ]);
 
   return (
     <div>
@@ -46,6 +67,8 @@ export default async function SeriesDetailPage({ params }: { params: Promise<Par
             alt={series.name}
             fill
             priority
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
             className="object-cover"
           />
         )}
@@ -89,6 +112,12 @@ export default async function SeriesDetailPage({ params }: { params: Promise<Par
         ) : (
           <p className="text-muted-foreground">No products published in this series yet.</p>
         )}
+
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          buildHref={(p) => `/${department}/series/${seriesSlug}?page=${p}`}
+        />
       </Container>
     </div>
   );

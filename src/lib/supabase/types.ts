@@ -70,6 +70,26 @@ export type ProductWithRelations = Product & {
   variants: ProductVariantWithImages[];
 };
 
+export type NewsletterSubscriber = {
+  id: string;
+  email: string;
+  department: Department | null;
+  created_at: string;
+};
+
+export type ActivityAction = "create" | "update" | "delete";
+export type ActivityEntityType = "product" | "series" | "category";
+
+export type ActivityLogEntry = {
+  id: string;
+  actor_email: string | null;
+  action: ActivityAction;
+  entity_type: ActivityEntityType;
+  entity_id: string | null;
+  entity_name: string | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -145,6 +165,21 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      newsletter_subscribers: {
+        Row: NewsletterSubscriber;
+        Insert: Partial<NewsletterSubscriber> & { email: string };
+        Update: Partial<NewsletterSubscriber>;
+        Relationships: [];
+      };
+      activity_log: {
+        Row: ActivityLogEntry;
+        Insert: Partial<ActivityLogEntry> & {
+          action: ActivityAction;
+          entity_type: ActivityEntityType;
+        };
+        Update: Partial<ActivityLogEntry>;
+        Relationships: [];
       };
     };
     Views: Record<string, never>;

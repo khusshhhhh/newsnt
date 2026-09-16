@@ -5,9 +5,11 @@ import { getCategoryBySlug, getProducts, getSeriesBySlug } from "@/lib/data/cata
 import { ProductCard } from "@/components/product-card";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
+import { Pagination } from "@/components/pagination";
 import { isDepartment, seriesIndexHref, seriesHref, type Department } from "@/lib/department";
 
 type Params = { department: string; seriesSlug: string; categorySlug: string };
+type SearchParams = { page?: string };
 
 export async function generateMetadata({
   params,
@@ -23,7 +25,13 @@ export async function generateMetadata({
   return { title: `${category?.name ?? ""} — ${series?.name ?? ""}` };
 }
 
-export default async function SeriesCategoryPage({ params }: { params: Promise<Params> }) {
+export default async function SeriesCategoryPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<Params>;
+  searchParams: Promise<SearchParams>;
+}) {
   const { department: raw, seriesSlug, categorySlug } = await params;
   if (!isDepartment(raw)) notFound();
   const department: Department = raw;
@@ -34,7 +42,13 @@ export default async function SeriesCategoryPage({ params }: { params: Promise<P
   ]);
   if (!series || !category) notFound();
 
-  const products = await getProducts(department, { seriesSlug, categorySlug });
+  const { page: rawPage } = await searchParams;
+  const page = Math.max(1, Number(rawPage) || 1);
+  const { items: products, pageCount } = await getProducts(
+    department,
+    { seriesSlug, categorySlug },
+    page
+  );
 
   return (
     <Container className="py-12">
@@ -67,6 +81,12 @@ export default async function SeriesCategoryPage({ params }: { params: Promise<P
           No {category.name.toLowerCase()} published in {series.name} yet.
         </p>
       )}
+
+      <Pagination
+        page={page}
+        pageCount={pageCount}
+        buildHref={(p) => `/${department}/series/${seriesSlug}/${categorySlug}?page=${p}`}
+      />
     </Container>
   );
 }

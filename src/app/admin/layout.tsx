@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { signOut } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -34,6 +35,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           >
             View site <ExternalLink className="size-3" />
           </Link>
+          <div className="flex items-center justify-between px-3">
+            <span className="text-xs text-sidebar-foreground/60">Theme</span>
+            <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent" />
+          </div>
           <div className="border-t border-sidebar-border pt-3">
             <p className="truncate px-3 text-xs text-sidebar-foreground/60">{user.email}</p>
             <form action={signOut} className="mt-2">
@@ -49,7 +54,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
       </aside>
-      <main className="overflow-y-auto p-8">
+      <main id="main-content" className="overflow-y-auto p-8">
         <div className="mx-auto max-w-5xl">{children}</div>
       </main>
     </div>

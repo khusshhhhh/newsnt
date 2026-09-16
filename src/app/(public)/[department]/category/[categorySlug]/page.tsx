@@ -5,9 +5,11 @@ import { getCategoryBySlug, getProducts } from "@/lib/data/catalog";
 import { ProductCard } from "@/components/product-card";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
-import { isDepartment, seriesHref, type Department } from "@/lib/department";
+import { Pagination } from "@/components/pagination";
+import { departmentHref, isDepartment, seriesHref, type Department } from "@/lib/department";
 
 type Params = { department: string; categorySlug: string };
+type SearchParams = { page?: string };
 
 export async function generateMetadata({
   params,
@@ -20,7 +22,13 @@ export async function generateMetadata({
   return { title: category?.name ?? "Category" };
 }
 
-export default async function CategoryPage({ params }: { params: Promise<Params> }) {
+export default async function CategoryPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<Params>;
+  searchParams: Promise<SearchParams>;
+}) {
   const { department: raw, categorySlug } = await params;
   if (!isDepartment(raw)) notFound();
   const department: Department = raw;
@@ -28,10 +36,20 @@ export default async function CategoryPage({ params }: { params: Promise<Params>
   const category = await getCategoryBySlug(department, categorySlug);
   if (!category) notFound();
 
-  const products = await getProducts(department, { categorySlug });
+  const { page: rawPage } = await searchParams;
+  const page = Math.max(1, Number(rawPage) || 1);
+  const { items: products, pageCount } = await getProducts(department, { categorySlug }, page);
 
   return (
     <Container className="py-12">
+      <div className="mb-8 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <Link href={departmentHref(department)} className="transition-colors hover:text-foreground">
+          Home
+        </Link>
+        <span>/</span>
+        <span className="text-foreground">{category.name}</span>
+      </div>
+
       <div className="mb-8">
         <h1 className="font-heading text-3xl text-foreground">{category.name}</h1>
         <p className="mt-2 text-muted-foreground">Across every series.</p>
@@ -62,6 +80,12 @@ export default async function CategoryPage({ params }: { params: Promise<Params>
           No {category.name.toLowerCase()} published yet.
         </p>
       )}
+
+      <Pagination
+        page={page}
+        pageCount={pageCount}
+        buildHref={(p) => `/${department}/category/${categorySlug}?page=${p}`}
+      />
     </Container>
   );
 }

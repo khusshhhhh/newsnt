@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getFeaturedProducts, getPublishedSeries } from "@/lib/data/catalog";
+import { mediaUrl } from "@/lib/supabase/storage";
 import { ProductCard } from "@/components/product-card";
 import { SeriesCarousel } from "@/components/series-carousel";
 import { Container } from "@/components/container";
@@ -17,7 +18,19 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { department } = await params;
   if (!isDepartment(department)) return {};
-  return { title: departmentCopy(department).label };
+  const copy = departmentCopy(department);
+  const series = await getPublishedSeries(department);
+  const heroImage = series?.find((s) => s.hero_image_url)?.hero_image_url;
+
+  return {
+    title: copy.label,
+    description: copy.tagline,
+    openGraph: {
+      title: copy.label,
+      description: copy.tagline,
+      images: heroImage ? [{ url: mediaUrl(heroImage) }] : undefined,
+    },
+  };
 }
 
 export default async function DepartmentHomePage({ params }: { params: Promise<Params> }) {
