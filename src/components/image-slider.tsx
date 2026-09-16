@@ -7,11 +7,24 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 const SLIDE_INTERVAL_MS = 3500;
 
 /**
- * Auto-advancing crossfade slider for a category's image gallery. Pauses on
- * hover/focus so the image under the cursor doesn't change mid-look, and
- * degrades to a single static image when there's nothing to rotate through.
+ * Auto-advancing crossfade slider for an image gallery (category cards,
+ * series hero banners). Pauses on hover so the image under the cursor
+ * doesn't change mid-look, and degrades to a single static image when
+ * there's nothing to rotate through.
  */
-export function CategoryImageSlider({ images, alt }: { images: string[]; alt: string }) {
+export function ImageSlider({
+  images,
+  alt,
+  sizes = "(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw",
+  priority = false,
+  dots = true,
+}: {
+  images: string[];
+  alt: string;
+  sizes?: string;
+  priority?: boolean;
+  dots?: boolean;
+}) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
@@ -33,7 +46,8 @@ export function CategoryImageSlider({ images, alt }: { images: string[]; alt: st
           src={src}
           alt={alt}
           fill
-          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          sizes={sizes}
+          priority={priority && i === 0}
           placeholder="blur"
           blurDataURL={BLUR_DATA_URL}
           className={`object-cover transition-[opacity,transform] duration-1000 ease-in-out group-hover:scale-105 ${
@@ -42,7 +56,7 @@ export function CategoryImageSlider({ images, alt }: { images: string[]; alt: st
         />
       ))}
 
-      {images.length > 1 && (
+      {dots && images.length > 1 && (
         <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center gap-1.5">
           {images.map((_, i) => (
             <span

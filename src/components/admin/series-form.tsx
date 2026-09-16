@@ -13,9 +13,11 @@ import type { Department } from "@/lib/department";
 
 export function SeriesForm({
   series,
+  images = [],
   defaultDepartment = "sanitary-tapware",
 }: {
   series?: Series;
+  images?: string[];
   defaultDepartment?: Department;
 }) {
   const [state, formAction, pending] = useActionState(upsertSeries, null);
@@ -52,13 +54,12 @@ export function SeriesForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label>Hero image</Label>
-        <ImageUploader
-          folder="series"
-          value={series?.hero_image_url ? [series.hero_image_url] : []}
-          fieldName="hero_image_url"
-          max={1}
-        />
+        <Label>Hero images</Label>
+        <p className="text-xs text-muted-foreground">
+          Up to 6 images, shown as an auto-rotating slider at the top of the series page. The
+          first image also becomes the series&apos; cover thumbnail.
+        </p>
+        <ImageUploader folder="series" value={images} fieldName="hero_images" max={6} />
       </div>
 
       <div className="flex flex-col gap-1.5">

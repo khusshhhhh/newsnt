@@ -1,12 +1,10 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCategories, getProductCategoryIds, getProducts, getSeriesBySlug } from "@/lib/data/catalog";
 import { mediaUrl } from "@/lib/supabase/storage";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { ProductCard } from "@/components/product-card";
-import { CategoryImageSlider } from "@/components/category-image-slider";
+import { ImageSlider } from "@/components/image-slider";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
 import { Pagination } from "@/components/pagination";
@@ -60,18 +58,24 @@ export default async function SeriesDetailPage({
   ]);
   const categoriesWithProducts = new Set(categoryIdsWithProducts);
 
+  // Falls back to the single legacy `hero_image_url` for series saved
+  // before the gallery uploader existed and never re-saved since.
+  const heroImages = series.images.length > 0
+    ? series.images.map((image) => mediaUrl(image.storage_path))
+    : series.hero_image_url
+      ? [mediaUrl(series.hero_image_url)]
+      : [];
+
   return (
     <div>
-      <section className="relative flex h-[45vh] min-h-80 items-end overflow-hidden border-b border-border bg-background">
-        {series.hero_image_url && (
-          <Image
-            src={mediaUrl(series.hero_image_url)}
+      <section className="relative flex h-[65vh] min-h-[480px] items-end overflow-hidden border-b border-border bg-background">
+        {heroImages.length > 0 && (
+          <ImageSlider
+            images={heroImages}
             alt={series.name}
-            fill
+            sizes="100vw"
             priority
-            placeholder="blur"
-            blurDataURL={BLUR_DATA_URL}
-            className="object-cover"
+            dots={heroImages.length > 1}
           />
         )}
         <div className="relative z-10 w-full bg-gradient-to-t from-black/85 via-black/25 to-transparent py-10">
@@ -98,7 +102,7 @@ export default async function SeriesDetailPage({
                   className="group relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-2xl border border-border/60 bg-card"
                 >
                   {c.images.length > 0 ? (
-                    <CategoryImageSlider
+                    <ImageSlider
                       images={c.images.map((image) => mediaUrl(image.storage_path))}
                       alt={c.name}
                     />

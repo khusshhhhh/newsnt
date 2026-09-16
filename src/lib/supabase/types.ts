@@ -12,6 +12,16 @@ export type Series = {
   created_at: string;
 };
 
+export type SeriesImage = {
+  id: string;
+  series_id: string;
+  storage_path: string;
+  display_order: number;
+  created_at: string;
+};
+
+export type SeriesWithImages = Series & { images: SeriesImage[] };
+
 export type Category = {
   id: string;
   department: Department;
@@ -108,6 +118,20 @@ export type Database = {
         Insert: Partial<Series> & { name: string; slug: string; department: Department };
         Update: Partial<Series>;
         Relationships: [];
+      };
+      series_images: {
+        Row: SeriesImage;
+        Insert: Partial<SeriesImage> & { series_id: string; storage_path: string };
+        Update: Partial<SeriesImage>;
+        Relationships: [
+          {
+            foreignKeyName: "series_images_series_id_fkey";
+            columns: ["series_id"];
+            isOneToOne: false;
+            referencedRelation: "series";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       categories: {
         Row: Category;

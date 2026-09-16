@@ -8,7 +8,13 @@ import type {
   ProductImage,
   ProductVariantWithImages,
   ProductWithRelations,
+  Series,
+  SeriesImage,
+  SeriesWithImages,
 } from "@/lib/supabase/types";
+
+/** Matches the admin uploader's cap for both category and series galleries. */
+const MAX_GALLERY_IMAGES = 6;
 
 const PRODUCT_SELECT =
   "*, series(*), category:categories(*), product_images(*), variants:product_variants(*, product_images(*))";
@@ -76,19 +82,32 @@ export const getPublishedSeries = unstable_cache(
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );
 
+/**
+ * Narrows a raw embedded series row's `series_images` into a sorted, capped
+ * `images` array — the cap mirrors the admin form's 6-image limit as a
+ * defense in depth in case older rows ever exceed it.
+ */
+function shapeSeries(raw: unknown): SeriesWithImages {
+  const { series_images, ...series } = raw as Series & { series_images: SeriesImage[] };
+  return {
+    ...series,
+    images: [...(series_images ?? [])].sort(byDisplayOrder).slice(0, MAX_GALLERY_IMAGES),
+  };
+}
+
 export const getSeriesBySlug = unstable_cache(
-  async (department: Department, slug: string) => {
+  async (department: Department, slug: string): Promise<SeriesWithImages | null> => {
     const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("series")
-      .select("*")
+      .select("*, series_images(*)")
       .eq("department", department)
       .eq("slug", slug)
       .eq("is_published", true)
       .maybeSingle();
 
     if (error) throw error;
-    return data;
+    return data ? shapeSeries(data) : null;
   },
   ["series-by-slug"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
@@ -101,7 +120,10 @@ export const getSeriesBySlug = unstable_cache(
  */
 function shapeCategory(raw: unknown): CategoryWithImages {
   const { category_images, ...category } = raw as Category & { category_images: CategoryImage[] };
-  return { ...category, images: [...(category_images ?? [])].sort(byDisplayOrder).slice(0, 6) };
+  return {
+    ...category,
+    images: [...(category_images ?? [])].sort(byDisplayOrder).slice(0, MAX_GALLERY_IMAGES),
+  };
 }
 
 export const getCategories = unstable_cache(
