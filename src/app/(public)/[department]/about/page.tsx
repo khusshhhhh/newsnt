@@ -166,7 +166,7 @@ export default async function AboutPage({ params }: { params: Promise<Params> })
                       sizes="(min-width: 640px) 33vw, 90vw"
                       placeholder="blur"
                       blurDataURL={BLUR_DATA_URL}
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                      className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-110"
                     />
                   ) : (
                     <>
