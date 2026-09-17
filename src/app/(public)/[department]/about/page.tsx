@@ -43,6 +43,7 @@ const FOUNDERS: Array<{
     initials: "VV",
     role: "Sales",
     note: "",
+    photo: "/images/vivekpro.png",
   },
 ];
 
