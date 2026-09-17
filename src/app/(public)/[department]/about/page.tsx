@@ -17,22 +17,22 @@ type Params = { department: string };
 
 const FOUNDERS: Array<{ name: string; initials: string; role: string; note: string }> = [
   {
-    name: "Khush Patel",
-    initials: "KP",
-    role: "Co-Founder, Product & Design",
-    note: "Shapes the design language every series has to earn its way into — form first, then finish.",
-  },
-  {
     name: "Hiral Mahida",
     initials: "HM",
-    role: "Co-Founder, Operations & Manufacturing",
+    role: "Founder, Operations & Manufacturing",
     note: "Turns a drawing into a product that survives daily use, on time, at the tolerance it was drawn to.",
+  },
+  {
+    name: "Khush Patel",
+    initials: "KP",
+    role: "Administration",
+    note: "",
   },
   {
     name: "Vivek Virani",
     initials: "VV",
-    role: "Co-Founder, Brand & Growth",
-    note: "Makes sure the restraint in the room comes through just as clearly on a screen.",
+    role: "Sales",
+    note: "",
   },
 ];
 
