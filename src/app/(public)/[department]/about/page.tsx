@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getCategories, getPublishedSeries } from "@/lib/data/catalog";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import {
   DEPARTMENTS,
   departmentCopy,
@@ -15,12 +17,19 @@ import {
 
 type Params = { department: string };
 
-const FOUNDERS: Array<{ name: string; initials: string; role: string; note: string }> = [
+const FOUNDERS: Array<{
+  name: string;
+  initials: string;
+  role: string;
+  note: string;
+  photo?: string;
+}> = [
   {
     name: "Hiral Mahida",
     initials: "HM",
     role: "Founder, Operations & Manufacturing",
     note: "Turns a drawing into a product that survives daily use, on time, at the tolerance it was drawn to.",
+    photo: "/images/hiralpro.png",
   },
   {
     name: "Khush Patel",
@@ -142,15 +151,33 @@ export default async function AboutPage({ params }: { params: Promise<Params> })
 
           <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-3">
             {FOUNDERS.map((founder, i) => (
-              <Reveal key={founder.name} delay={i * 0.08} className="flex flex-col gap-5">
+              <Reveal
+                key={founder.name}
+                delay={i * 0.08}
+                className="group flex flex-col gap-5"
+              >
                 <div className="relative aspect-square w-full overflow-hidden rounded-[1.75rem] bg-foreground">
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,color-mix(in_oklch,white,transparent_82%),transparent_60%)]"
-                  />
-                  <span className="absolute inset-0 flex items-center justify-center font-heading text-6xl font-black text-background sm:text-7xl">
-                    {founder.initials}
-                  </span>
+                  {founder.photo ? (
+                    <Image
+                      src={founder.photo}
+                      alt={founder.name}
+                      fill
+                      sizes="(min-width: 640px) 33vw, 90vw"
+                      placeholder="blur"
+                      blurDataURL={BLUR_DATA_URL}
+                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                    />
+                  ) : (
+                    <>
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,color-mix(in_oklch,white,transparent_82%),transparent_60%)] transition-transform duration-700 ease-out group-hover:scale-110"
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center font-heading text-6xl font-black text-background transition-transform duration-700 ease-out group-hover:scale-110 sm:text-7xl">
+                        {founder.initials}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div>
                   <h3 className="font-heading text-xl font-bold text-foreground">{founder.name}</h3>
