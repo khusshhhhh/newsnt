@@ -6,7 +6,7 @@ import { ProductCard } from "@/components/product-card";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
 import { Pagination } from "@/components/pagination";
-import { departmentHref, isDepartment, seriesHref, type Department } from "@/lib/department";
+import { departmentHref, isDepartment, type Department } from "@/lib/department";
 
 type Params = { department: string; categorySlug: string };
 type SearchParams = { page?: string };
@@ -58,20 +58,8 @@ export default async function CategoryPage({
       {products.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
           {products.map((product, i) => (
-            <Reveal
-              key={product.id}
-              delay={Math.min(i, 6) * 0.05}
-              className="flex flex-col gap-2"
-            >
+            <Reveal key={product.id} delay={Math.min(i, 6) * 0.05}>
               <ProductCard product={product} />
-              {product.series && (
-                <Link
-                  href={seriesHref(product.series)}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {product.series.name}
-                </Link>
-              )}
             </Reveal>
           ))}
         </div>
