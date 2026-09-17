@@ -36,6 +36,7 @@ const FOUNDERS: Array<{
     initials: "KP",
     role: "Administration",
     note: "",
+    photo: "/images/khushpro.jpg",
   },
   {
     name: "Vivek Virani",
