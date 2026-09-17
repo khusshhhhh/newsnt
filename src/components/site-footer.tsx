@@ -7,6 +7,7 @@ import { Container } from "@/components/container";
 import { Logo } from "@/components/logo";
 import { subscribeNewsletter } from "@/lib/actions/newsletter";
 import {
+  aboutHref,
   departmentCopy,
   departmentHref,
   otherDepartment,
@@ -52,6 +53,7 @@ export function SiteFooter({ department }: { department?: Department }) {
             </FooterColumn>
 
             <FooterColumn title="More">
+              {department && <FooterLink href={aboutHref(department)}>About</FooterLink>}
               {department && other && (
                 <FooterLink href={departmentHref(other)}>
                   Shop {departmentCopy(other).shortLabel}
