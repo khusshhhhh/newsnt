@@ -2,9 +2,15 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { addProductVariant, deleteProductVariant } from "@/lib/actions/admin/variants";
+import { Pencil } from "lucide-react";
+import {
+  addProductVariant,
+  deleteProductVariant,
+  updateProductVariantPrice,
+} from "@/lib/actions/admin/variants";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -13,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PRODUCT_COLORS } from "@/lib/colors";
+import { formatPrice } from "@/lib/format";
 import type { ProductVariantWithImages } from "@/lib/supabase/types";
 
 export function VariantManager({
@@ -26,6 +33,7 @@ export function VariantManager({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [colorName, setColorName] = useState("");
+  const [price, setPrice] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   const availableColors = useMemo(
@@ -48,6 +56,7 @@ export function VariantManager({
         setVariants((prev) => [...prev, { ...created, product_images: [] }]);
         formRef.current?.reset();
         setColorName("");
+        setPrice("");
         toast.success(`${created.color_name} added`);
       } catch (e) {
         const message = e instanceof Error ? e.message : "Failed to add color";
@@ -71,11 +80,15 @@ export function VariantManager({
     });
   }
 
+  function handlePriceSaved(variantId: string, nextPrice: number | null) {
+    setVariants((prev) => prev.map((v) => (v.id === variantId ? { ...v, price: nextPrice } : v)));
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {variants.map((variant) => (
         <div key={variant.id} className="animate-fade-in rounded-lg border border-border p-4">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span
                 className="size-5 shrink-0 rounded-full border border-border"
@@ -88,15 +101,23 @@ export function VariantManager({
                 </span>
               )}
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              onClick={() => removeVariant(variant.id)}
-            >
-              Remove
-            </Button>
+            <div className="flex items-center gap-3">
+              <VariantPriceEditor
+                productId={productId}
+                variantId={variant.id}
+                price={variant.price}
+                onSaved={(next) => handlePriceSaved(variant.id, next)}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => removeVariant(variant.id)}
+              >
+                Remove
+              </Button>
+            </div>
           </div>
           <ProductImageManager
             productId={productId}
@@ -142,8 +163,24 @@ export function VariantManager({
               </SelectContent>
             </Select>
           </div>
-          <Button type="submit" disabled={pending || !colorName} variant="outline">
-            {pending ? "Adding…" : "Add color"}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="variant_price" className="text-xs text-muted-foreground">
+              Price (optional)
+            </label>
+            <Input
+              id="variant_price"
+              name="price"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="On enquiry"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="w-32"
+            />
+          </div>
+          <Button type="submit" loading={pending} loadingText="Adding…" disabled={!colorName} variant="outline">
+            Add color
           </Button>
         </form>
       ) : (
@@ -152,5 +189,80 @@ export function VariantManager({
 
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
+  );
+}
+
+function VariantPriceEditor({
+  productId,
+  variantId,
+  price,
+  onSaved,
+}: {
+  productId: string;
+  variantId: string;
+  price: number | null;
+  onSaved: (price: number | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(price != null ? String(price) : "");
+  const [pending, startTransition] = useTransition();
+
+  function save() {
+    const nextPrice = value.trim() ? Number(value) : null;
+    if (nextPrice != null && (Number.isNaN(nextPrice) || nextPrice < 0)) {
+      toast.error("Enter a valid price");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await updateProductVariantPrice(variantId, productId, nextPrice);
+        onSaved(nextPrice);
+        setEditing(false);
+        toast.success("Price updated");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to update price");
+      }
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          autoFocus
+          placeholder="On enquiry"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="h-7 w-24 text-xs"
+        />
+        <Button type="button" size="xs" loading={pending} loadingText="" onClick={save}>
+          Save
+        </Button>
+        <Button type="button" size="xs" variant="ghost" disabled={pending} onClick={() => setEditing(false)}>
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setValue(price != null ? String(price) : "");
+        setEditing(true);
+      }}
+      className="flex items-center gap-1.5 rounded-full border border-transparent px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+    >
+      {formatPrice(price)}
+      <Pencil className="size-3" />
+    </button>
   );
 }

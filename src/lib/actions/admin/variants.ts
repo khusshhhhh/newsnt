@@ -8,12 +8,15 @@ import { revalidateCatalog } from "./_shared";
 
 const variantSchema = z.object({
   color_name: z.enum(PRODUCT_COLOR_NAMES),
+  price: z.coerce.number().nonnegative().nullable(),
   display_order: z.coerce.number().int().default(0),
 });
 
 export async function addProductVariant(productId: string, formData: FormData) {
+  const priceRaw = String(formData.get("price") ?? "");
   const parsed = variantSchema.safeParse({
     color_name: formData.get("color_name"),
+    price: priceRaw ? Number(priceRaw) : null,
     display_order: formData.get("display_order") ?? 0,
   });
 
@@ -30,7 +33,7 @@ export async function addProductVariant(productId: string, formData: FormData) {
     throw new Error("Set a SKU prefix on the product before adding colors.");
   }
 
-  const { color_name, display_order } = parsed.data;
+  const { color_name, price, display_order } = parsed.data;
   const { data, error } = await supabase
     .from("product_variants")
     .insert({
@@ -38,6 +41,7 @@ export async function addProductVariant(productId: string, formData: FormData) {
       color_name,
       color_hex: colorHex(color_name),
       sku: computeVariantSku(product.sku, color_name),
+      price,
       display_order,
     })
     .select()
@@ -48,6 +52,30 @@ export async function addProductVariant(productId: string, formData: FormData) {
       error.code === "23505" ? `${color_name} has already been added to this product.` : error.message
     );
   }
+  revalidateCatalog();
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/", "layout");
+  return data;
+}
+
+export async function updateProductVariantPrice(
+  variantId: string,
+  productId: string,
+  price: number | null
+) {
+  if (price != null && (!Number.isFinite(price) || price < 0)) {
+    throw new Error("Enter a valid price");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_variants")
+    .update({ price })
+    .eq("id", variantId)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
   revalidateCatalog();
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath("/", "layout");

@@ -27,8 +27,8 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         />
       </div>
       {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
-      <Button type="submit" disabled={pending} className="mt-2">
-        {pending ? "Signing in…" : "Sign in"}
+      <Button type="submit" loading={pending} loadingText="Signing in…" className="mt-2">
+        Sign in
       </Button>
     </form>
   );

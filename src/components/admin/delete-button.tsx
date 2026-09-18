@@ -21,7 +21,8 @@ export function DeleteButton({
       type="button"
       variant="ghost"
       size="sm"
-      disabled={pending}
+      loading={pending}
+      loadingText="Deleting…"
       className="text-destructive hover:text-destructive"
       onClick={() => {
         if (!window.confirm(`${label}? This cannot be undone.`)) return;
@@ -35,7 +36,7 @@ export function DeleteButton({
         });
       }}
     >
-      {pending ? "Deleting…" : "Delete"}
+      Delete
     </Button>
   );
 }

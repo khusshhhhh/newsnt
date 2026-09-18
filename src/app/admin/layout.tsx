@@ -3,7 +3,8 @@ import { ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { signOut } from "@/lib/actions/admin/auth";
-import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/admin/sign-out-button";
+import { IdleLogout } from "@/components/admin/idle-logout";
 import { Logo } from "@/components/logo";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="grid min-h-screen grid-cols-[240px_1fr] bg-background">
+      <IdleLogout />
       <aside className="flex flex-col justify-between border-r border-sidebar-border bg-sidebar px-4 py-6">
         <div>
           <Link href="/admin" className="mb-8 block text-sidebar-foreground">
@@ -35,14 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <div className="border-t border-sidebar-border pt-3">
             <p className="truncate px-3 text-xs text-sidebar-foreground/60">{user.email}</p>
             <form action={signOut} className="mt-2">
-              <Button
-                type="submit"
-                variant="outline"
-                size="sm"
-                className="w-full border-sidebar-border bg-transparent text-sidebar-foreground hover:bg-sidebar-accent"
-              >
-                Sign out
-              </Button>
+              <SignOutButton />
             </form>
           </div>
         </div>

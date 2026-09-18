@@ -11,7 +11,6 @@ import { Reveal } from "@/components/reveal";
 import {
   departmentCopy,
   isDepartment,
-  seriesHref,
   seriesIndexHref,
   type Department,
 } from "@/lib/department";
@@ -142,22 +141,6 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
             />
           </Reveal>
         </Container>
-
-        {series && series.length > 0 && (
-          <div className="relative border-t border-border py-4">
-            <div className="no-scrollbar flex w-max animate-marquee gap-10 whitespace-nowrap px-6 hover:[animation-play-state:paused]">
-              {[...series, ...series].map((s, i) => (
-                <Link
-                  key={`${s.id}-${i}`}
-                  href={seriesHref(s)}
-                  className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {s.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
       </section>
 
       {series && series.length > 0 && (

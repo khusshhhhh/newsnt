@@ -75,7 +75,7 @@ export function ProductDetail({ product }: { product: ProductWithRelations }) {
             <div>
               <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Price</span>
               <p className="mt-1 font-heading text-2xl font-medium text-foreground">
-                {formatPrice(product.price)}
+                {formatPrice(selectedVariant?.price ?? product.price)}
               </p>
             </div>
             <a
