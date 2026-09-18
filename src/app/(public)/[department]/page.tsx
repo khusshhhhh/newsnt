@@ -97,7 +97,7 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
 
   return (
     <div>
-      <section className="relative overflow-hidden border-b border-border bg-background">
+      <section className={cn("relative overflow-hidden bg-background", !hasFilm && "border-b border-border")}>
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,color-mix(in_oklch,var(--foreground),transparent_94%),transparent_60%)]"
@@ -201,7 +201,7 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
       </section>
 
       {hasFilm && (
-        <section id="concept-film" className="scroll-mt-24 border-b border-border bg-muted/30 py-16 md:py-24">
+        <section id="concept-film" className="scroll-mt-24 bg-background py-16 md:py-24">
           <Container>
             <Reveal className="mx-auto mb-10 max-w-2xl text-center">
               <span className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
