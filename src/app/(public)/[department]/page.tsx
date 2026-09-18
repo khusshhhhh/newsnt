@@ -215,8 +215,6 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
               <HeroMedia
                 videoSrc={media.video}
                 imageAlt={media.alt}
-                caption={media.caption}
-                chapters={media.chapters}
                 lazyPlay
                 className="aspect-video w-full rounded-[1.5rem] sm:aspect-video md:aspect-video md:rounded-[2rem]"
               />
