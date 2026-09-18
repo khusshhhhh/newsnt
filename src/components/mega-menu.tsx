@@ -22,15 +22,29 @@ export function MegaMenu({
   department,
   series,
   categories,
+  categoryIdsBySeries = {},
 }: {
   department: Department;
   series: Series[];
   categories: Category[];
+  categoryIdsBySeries?: Record<string, string[]>;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const copy = departmentCopy(department);
   const featured = series.find((s) => s.hero_image_url) ?? series[0];
+
+  const categoriesById = new Map(categories.map((c) => [c.id, c]));
+  const seriesGroups = series
+    .map((s) => ({
+      series: s,
+      categories: (categoryIdsBySeries[s.id] ?? [])
+        .map((id) => categoriesById.get(id))
+        .filter((c): c is Category => Boolean(c)),
+    }))
+    .filter((g) => g.categories.length > 0);
+  const groupedCategoryIds = new Set(seriesGroups.flatMap((g) => g.categories.map((c) => c.id)));
+  const ungroupedCategories = categories.filter((c) => !groupedCategoryIds.has(c.id));
 
   useEffect(() => {
     if (!open) return;
@@ -110,25 +124,74 @@ export function MegaMenu({
                 </Link>
               </div>
 
-              <div className="border-x border-border/60 px-10">
+              <div className="max-h-[60vh] overflow-y-auto border-x border-border/60 px-10">
                 <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   Shop by category
                 </p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                  {categories.map((c) => (
-                    <Link
-                      key={c.id}
-                      href={categoryHref(c)}
-                      onClick={() => setOpen(false)}
-                      className="text-foreground/85 transition-colors hover:text-foreground"
-                    >
-                      {c.name}
-                    </Link>
-                  ))}
-                  {categories.length === 0 && (
-                    <p className="col-span-2 text-muted-foreground">Coming soon</p>
-                  )}
-                </div>
+
+                {seriesGroups.length > 0 ? (
+                  <div className="flex flex-col gap-5">
+                    {seriesGroups.map(({ series: s, categories: cats }) => (
+                      <div key={s.id}>
+                        <Link
+                          href={seriesHref(s)}
+                          onClick={() => setOpen(false)}
+                          className="text-xs font-semibold text-foreground/70 transition-colors hover:text-foreground"
+                        >
+                          {s.name}
+                        </Link>
+                        <div className="mt-1.5 grid grid-cols-2 gap-x-6 gap-y-1.5">
+                          {cats.map((c) => (
+                            <Link
+                              key={c.id}
+                              href={seriesCategoryHref(s, c)}
+                              onClick={() => setOpen(false)}
+                              className="text-foreground/85 transition-colors hover:text-foreground"
+                            >
+                              {c.name}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                    {categories.map((c) => (
+                      <Link
+                        key={c.id}
+                        href={categoryHref(c)}
+                        onClick={() => setOpen(false)}
+                        className="text-foreground/85 transition-colors hover:text-foreground"
+                      >
+                        {c.name}
+                      </Link>
+                    ))}
+                    {categories.length === 0 && (
+                      <p className="col-span-2 text-muted-foreground">Coming soon</p>
+                    )}
+                  </div>
+                )}
+
+                {ungroupedCategories.length > 0 && seriesGroups.length > 0 && (
+                  <>
+                    <p className="mb-1.5 mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                      Other categories
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+                      {ungroupedCategories.map((c) => (
+                        <Link
+                          key={c.id}
+                          href={categoryHref(c)}
+                          onClick={() => setOpen(false)}
+                          className="text-foreground/85 transition-colors hover:text-foreground"
+                        >
+                          {c.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </>
+                )}
 
                 {series.length > 0 && categories.length > 0 && (
                   <>

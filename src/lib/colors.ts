@@ -1,37 +1,15 @@
 /**
- * The fixed finish palette every product variant is chosen from. Locked to
- * these six (no free-typed colors) so each one maps to a predictable
- * 2-letter code for SKU generation.
+ * The finish palette itself now lives in the `finishes` table (admin-managed
+ * at /admin/finishes, since the lineup changes roughly monthly) rather than
+ * a hardcoded array — see supabase/migrations/0018_finishes.sql, seeded with
+ * the 6 finishes this file used to hardcode. This file keeps only the
+ * variant-selection logic that doesn't depend on the specific palette.
  */
-export const PRODUCT_COLORS = [
-  { name: "Matte Black", code: "MB", hex: "#1C1C1C" },
-  { name: "Brushed Gold", code: "BG", hex: "#B08D57" },
-  { name: "Brushed Bronze", code: "BB", hex: "#7C5A43" },
-  { name: "Brushed Nickel", code: "BN", hex: "#9C9C94" },
-  { name: "Satin Chrome", code: "SC", hex: "#C9CDD1" },
-  { name: "Gun Metal", code: "GM", hex: "#3A3D40" },
-] as const;
 
-export type ProductColorName = (typeof PRODUCT_COLORS)[number]["name"];
+export const DEFAULT_COLOR_NAME = "Matte Black";
 
-export const PRODUCT_COLOR_NAMES = PRODUCT_COLORS.map((c) => c.name) as [
-  ProductColorName,
-  ...ProductColorName[],
-];
-
-export const DEFAULT_COLOR_NAME: ProductColorName = "Matte Black";
-
-export function colorCode(name: string): string | null {
-  return PRODUCT_COLORS.find((c) => c.name === name)?.code ?? null;
-}
-
-export function colorHex(name: string): string | null {
-  return PRODUCT_COLORS.find((c) => c.name === name)?.hex ?? null;
-}
-
-/** Builds a color variant's SKU from the product's SKU prefix, e.g. "AKRLTS001" + "Matte Black" -> "AKRLTS001MB". */
-export function computeVariantSku(prefix: string, colorName: string): string {
-  const code = colorCode(colorName) ?? "";
+/** Builds a color variant's SKU from the product's SKU prefix and the finish's code, e.g. "AKRLTS001" + "MB" -> "AKRLTS001MB". */
+export function computeVariantSku(prefix: string, code: string): string {
   return `${prefix}${code}`;
 }
 

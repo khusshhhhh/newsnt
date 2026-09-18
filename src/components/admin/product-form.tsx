@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { DEPARTMENTS, departmentCopy, type Department } from "@/lib/department";
 import { cn } from "@/lib/utils";
+import { STOCK_STATUSES, STOCK_STATUS_LABEL } from "@/lib/stock-status";
 import type { Category, Product, ProductSpecs, Series } from "@/lib/supabase/types";
 
 function FormSection({
@@ -343,6 +344,24 @@ export function ProductForm({
               type="number"
               defaultValue={product?.display_order ?? 0}
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="stock_status">Stock status</Label>
+            <select
+              id="stock_status"
+              name="stock_status"
+              defaultValue={product?.stock_status ?? "in_stock"}
+              className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {STOCK_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {STOCK_STATUS_LABEL[status]}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              A color under &quot;Colors&quot; below can override this individually.
+            </p>
           </div>
           <div className="flex flex-col justify-end gap-2 pb-1">
             <label className="flex items-center gap-2 text-sm">

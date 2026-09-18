@@ -3,11 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { PRODUCT_COLOR_NAMES, colorHex, computeVariantSku } from "@/lib/colors";
+import { computeVariantSku } from "@/lib/colors";
 import { revalidateCatalog } from "./_shared";
+import type { StockStatus } from "@/lib/supabase/types";
+
+const STOCK_STATUSES: StockStatus[] = ["in_stock", "made_to_order", "out_of_stock", "discontinued"];
 
 const variantSchema = z.object({
-  color_name: z.enum(PRODUCT_COLOR_NAMES),
+  color_name: z.string().trim().min(1, "Choose a finish"),
   price: z.coerce.number().nonnegative().nullable(),
   display_order: z.coerce.number().int().default(0),
 });
@@ -23,14 +26,20 @@ export async function addProductVariant(productId: string, formData: FormData) {
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid color");
 
   const supabase = await createClient();
-  const { data: product } = await supabase
-    .from("products")
-    .select("sku")
-    .eq("id", productId)
-    .maybeSingle();
+  const [{ data: product }, { data: finish }] = await Promise.all([
+    supabase.from("products").select("sku").eq("id", productId).maybeSingle(),
+    supabase
+      .from("finishes")
+      .select("name, code, hex")
+      .eq("name", parsed.data.color_name)
+      .maybeSingle(),
+  ]);
 
   if (!product?.sku) {
     throw new Error("Set a SKU prefix on the product before adding colors.");
+  }
+  if (!finish) {
+    throw new Error("That finish no longer exists — pick another one.");
   }
 
   const { color_name, price, display_order } = parsed.data;
@@ -39,8 +48,8 @@ export async function addProductVariant(productId: string, formData: FormData) {
     .insert({
       product_id: productId,
       color_name,
-      color_hex: colorHex(color_name),
-      sku: computeVariantSku(product.sku, color_name),
+      color_hex: finish.hex,
+      sku: computeVariantSku(product.sku, finish.code),
       price,
       display_order,
     })
@@ -71,6 +80,30 @@ export async function updateProductVariantPrice(
   const { data, error } = await supabase
     .from("product_variants")
     .update({ price })
+    .eq("id", variantId)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  revalidateCatalog();
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/", "layout");
+  return data;
+}
+
+export async function updateProductVariantStock(
+  variantId: string,
+  productId: string,
+  stockStatus: StockStatus | null
+) {
+  if (stockStatus != null && !STOCK_STATUSES.includes(stockStatus)) {
+    throw new Error("Invalid stock status");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_variants")
+    .update({ stock_status: stockStatus })
     .eq("id", variantId)
     .select()
     .single();

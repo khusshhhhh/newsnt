@@ -26,6 +26,7 @@ const productSchema = z.object({
   display_order: z.coerce.number().int().default(0),
   meta_title: z.string().trim().max(70).nullable(),
   meta_description: z.string().trim().max(160).nullable(),
+  stock_status: z.enum(["in_stock", "made_to_order", "out_of_stock", "discontinued"]).default("in_stock"),
 });
 
 function parseSpecs(formData: FormData) {
@@ -74,6 +75,7 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
     display_order: formData.get("display_order") ?? 0,
     meta_title: metaTitleRaw || null,
     meta_description: metaDescriptionRaw || null,
+    stock_status: formData.get("stock_status") || "in_stock",
   });
 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
@@ -175,10 +177,12 @@ export async function duplicateProduct(id: string) {
     .single();
   if (productError || !product) throw new Error(productError?.message ?? "Product not found");
 
-  const [{ data: variants }, { data: images }] = await Promise.all([
+  const [{ data: variants }, { data: images }, { data: finishes }] = await Promise.all([
     supabase.from("product_variants").select("*").eq("product_id", id),
     supabase.from("product_images").select("*").eq("product_id", id),
+    supabase.from("finishes").select("name, code"),
   ]);
+  const finishCodeByName = new Map((finishes ?? []).map((f) => [f.name, f.code]));
 
   const newSlug = await uniqueSlug(supabase, product.slug);
   const newSku = product.sku ? await uniqueSku(supabase, product.sku) : product.sku;
@@ -201,6 +205,7 @@ export async function duplicateProduct(id: string) {
       display_order: product.display_order,
       meta_title: product.meta_title,
       meta_description: product.meta_description,
+      stock_status: product.stock_status,
     })
     .select("id")
     .single();
@@ -214,8 +219,12 @@ export async function duplicateProduct(id: string) {
         product_id: newProduct.id,
         color_name: variant.color_name,
         color_hex: variant.color_hex,
-        sku: newSku ? computeVariantSku(newSku, variant.color_name) : null,
+        sku:
+          newSku && finishCodeByName.has(variant.color_name)
+            ? computeVariantSku(newSku, finishCodeByName.get(variant.color_name)!)
+            : null,
         price: variant.price,
+        stock_status: variant.stock_status,
         display_order: variant.display_order,
       })
       .select("id")

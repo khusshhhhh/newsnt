@@ -8,14 +8,23 @@ import { Logo } from "@/components/logo";
 import { subscribeNewsletter } from "@/lib/actions/newsletter";
 import {
   aboutHref,
+  categoryHref,
   departmentCopy,
   departmentHref,
   otherDepartment,
+  projectsHref,
   seriesIndexHref,
   type Department,
 } from "@/lib/department";
+import type { Category } from "@/lib/supabase/types";
 
-export function SiteFooter({ department }: { department?: Department }) {
+export function SiteFooter({
+  department,
+  categoriesByDepartment = {},
+}: {
+  department?: Department;
+  categoriesByDepartment?: Partial<Record<Department, Category[]>>;
+}) {
   const other = department ? otherDepartment(department) : undefined;
   const [state, formAction, pending] = useActionState(subscribeNewsletter, null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -45,15 +54,26 @@ export function SiteFooter({ department }: { department?: Department }) {
             <FooterColumn title="Sanitary & Tapware">
               <FooterLink href={departmentHref("sanitary-tapware")}>Overview</FooterLink>
               <FooterLink href={seriesIndexHref("sanitary-tapware")}>Series</FooterLink>
+              {(categoriesByDepartment["sanitary-tapware"] ?? []).map((c) => (
+                <FooterLink key={c.id} href={categoryHref(c)}>
+                  {c.name}
+                </FooterLink>
+              ))}
             </FooterColumn>
 
             <FooterColumn title="Door Hardware">
               <FooterLink href={departmentHref("door-hardware")}>Overview</FooterLink>
               <FooterLink href={seriesIndexHref("door-hardware")}>Collections</FooterLink>
+              {(categoriesByDepartment["door-hardware"] ?? []).map((c) => (
+                <FooterLink key={c.id} href={categoryHref(c)}>
+                  {c.name}
+                </FooterLink>
+              ))}
             </FooterColumn>
 
             <FooterColumn title="More">
               {department && <FooterLink href={aboutHref(department)}>About</FooterLink>}
+              {department && <FooterLink href={projectsHref(department)}>Projects</FooterLink>}
               {department && other && (
                 <FooterLink href={departmentHref(other)}>
                   Shop {departmentCopy(other).shortLabel}

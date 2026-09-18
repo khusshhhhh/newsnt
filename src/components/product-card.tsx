@@ -6,6 +6,7 @@ import { productHref } from "@/lib/department";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { getDefaultVariant } from "@/lib/colors";
 import { formatPrice } from "@/lib/format";
+import { STOCK_STATUS_LABEL } from "@/lib/stock-status";
 
 /** "From {min}" when colors are priced differently, the single shared price when they match, or the product's fallback price. */
 function priceLabel(product: ProductWithRelations) {
@@ -26,6 +27,7 @@ export function ProductCard({ product }: { product: ProductWithRelations }) {
   // photos when the product has no general gallery of its own.
   const defaultVariant = getDefaultVariant(variants);
   const image = product.product_images?.[0] ?? defaultVariant?.product_images?.[0];
+  const stockStatus = defaultVariant?.stock_status ?? product.stock_status;
 
   return (
     <Link
@@ -57,6 +59,11 @@ export function ProductCard({ product }: { product: ProductWithRelations }) {
         )}
         <h3 className="font-heading text-base text-foreground">{product.name}</h3>
         <p className="text-sm text-muted-foreground">{priceLabel(product)}</p>
+        {stockStatus !== "in_stock" && (
+          <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+            {STOCK_STATUS_LABEL[stockStatus]}
+          </span>
+        )}
         {variants.length > 1 && (
           <div className="mt-auto flex items-center gap-1 pt-2">
             {variants.slice(0, 4).map((v) => (

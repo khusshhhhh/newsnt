@@ -2,14 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Download, FileText, Mail } from "lucide-react";
+import { toast } from "sonner";
+import { Download, FileText, Mail, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import { documentUrl } from "@/lib/supabase/storage";
 import { getDefaultVariant } from "@/lib/colors";
+import { useQuoteBasket } from "@/lib/quote-basket";
+import { departmentCopy } from "@/lib/department";
+import { STOCK_STATUS_LABEL } from "@/lib/stock-status";
 import { ProductGallery } from "@/components/product-gallery";
+import { InquiryDialog } from "@/components/inquiry-dialog";
+import { ReviewsSection } from "@/components/reviews-section";
 import { Reveal } from "@/components/reveal";
-import type { ProductWithRelations } from "@/lib/supabase/types";
+import type { ProductWithRelations, Review } from "@/lib/supabase/types";
 
 /**
  * Owns the selected-color state and renders both columns of the product
@@ -17,7 +23,13 @@ import type { ProductWithRelations } from "@/lib/supabase/types";
  * color switch — sharing one client component is simpler than lifting
  * state through context for what's otherwise a server-rendered page.
  */
-export function ProductDetail({ product }: { product: ProductWithRelations }) {
+export function ProductDetail({
+  product,
+  reviews = [],
+}: {
+  product: ProductWithRelations;
+  reviews?: Review[];
+}) {
   const defaultVariant = useMemo(() => getDefaultVariant(product.variants), [product.variants]);
   const [selectedId, setSelectedId] = useState<string | null>(defaultVariant?.id ?? null);
   const selectedVariant = product.variants.find((v) => v.id === selectedId) ?? null;
@@ -33,13 +45,27 @@ export function ProductDetail({ product }: { product: ProductWithRelations }) {
   const sku = selectedVariant?.sku ?? product.sku;
   const hasSpecs = Boolean(sku) || specs.length > 0;
   const resources = product.resources ?? [];
+  const quoteBasket = useQuoteBasket();
+  const inBasket = quoteBasket.has(product.id);
+  const stockStatus = selectedVariant?.stock_status ?? product.stock_status;
 
-  const enquirySubject = encodeURIComponent(`Enquiry: ${product.name}`);
-  const enquiryBody = encodeURIComponent(
-    `Hi, I'd like to know more about ${product.name}${
-      selectedVariant ? ` in ${selectedVariant.color_name}` : ""
-    }${product.series ? ` (${product.series.name})` : ""}.`
-  );
+  const enquiryMessage = `Hi, I'd like to know more about ${product.name}${
+    selectedVariant ? ` in ${selectedVariant.color_name}` : ""
+  }${product.series ? ` (${product.series.name})` : ""}.`;
+
+  function addToQuote() {
+    const { replaced } = quoteBasket.addItem({
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      department: product.department,
+    });
+    if (replaced) {
+      toast.info(`Started a new quote request for ${departmentCopy(product.department).label}.`);
+    } else {
+      toast.success("Added to your quote request.");
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
@@ -77,14 +103,33 @@ export function ProductDetail({ product }: { product: ProductWithRelations }) {
               <p className="mt-1 font-heading text-2xl font-medium text-foreground">
                 {formatPrice(selectedVariant?.price ?? product.price)}
               </p>
+              {stockStatus !== "in_stock" && (
+                <span className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+                  {STOCK_STATUS_LABEL[stockStatus]}
+                </span>
+              )}
             </div>
-            <a
-              href={`mailto:${process.env.NEXT_PUBLIC_ENQUIRY_EMAIL ?? ""}?subject=${enquirySubject}&body=${enquiryBody}`}
-              className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Mail className="size-4" />
-              Enquire
-            </a>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={addToQuote}
+                disabled={inBasket}
+                className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                <Plus className="size-4" />
+                {inBasket ? "In quote" : "Add to quote"}
+              </button>
+              <InquiryDialog
+                department={product.department}
+                productIds={[product.id]}
+                title={`Enquire about ${product.name}`}
+                defaultMessage={enquiryMessage}
+                triggerClassName="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Mail className="size-4" />
+                Enquire
+              </InquiryDialog>
+            </div>
           </div>
         </Reveal>
 
@@ -150,6 +195,8 @@ export function ProductDetail({ product }: { product: ProductWithRelations }) {
             </div>
           </Reveal>
         )}
+
+        <ReviewsSection productId={product.id} reviews={reviews} />
       </div>
     </div>
   );

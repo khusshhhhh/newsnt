@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { Menu, Search } from "lucide-react";
-import { getCategories, getPublishedSeries } from "@/lib/data/catalog";
+import { getCategories, getProductCategoryIds, getPublishedSeries } from "@/lib/data/catalog";
 import {
   departmentCopy,
   departmentHref,
   otherDepartment,
+  projectsHref,
   searchHref,
   seriesHref,
   categoryHref,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/department";
 import { Container } from "@/components/container";
 import { MegaMenu } from "@/components/mega-menu";
+import { QuoteBasketButton } from "@/components/quote-basket-button";
 import { Logo } from "@/components/logo";
 import {
   Dialog,
@@ -30,6 +32,15 @@ export async function SiteHeader({ department }: { department: Department }) {
   ]);
   const other = otherDepartment(department);
 
+  // Category ids present in each series' products, so the mega-menu can
+  // nest "Shop by category" under the series it actually belongs to
+  // instead of one flat list.
+  const categoryIdsBySeries = Object.fromEntries(
+    await Promise.all(
+      (series ?? []).map(async (s) => [s.id, await getProductCategoryIds(department, { seriesSlug: s.slug })] as const)
+    )
+  );
+
   return (
     <header className="sticky top-0 z-40 h-16 border-b border-border bg-background">
       <Container className="flex h-16 items-center justify-between">
@@ -38,7 +49,12 @@ export async function SiteHeader({ department }: { department: Department }) {
             <Logo />
           </Link>
           <nav className="hidden md:block">
-            <MegaMenu department={department} series={series ?? []} categories={categories ?? []} />
+            <MegaMenu
+              department={department}
+              series={series ?? []}
+              categories={categories ?? []}
+              categoryIdsBySeries={categoryIdsBySeries}
+            />
           </nav>
         </div>
 
@@ -50,6 +66,8 @@ export async function SiteHeader({ department }: { department: Department }) {
           >
             <Search className="size-4" />
           </Link>
+
+          <QuoteBasketButton department={department} />
 
           <DepartmentSwitcher current={department} />
 
@@ -97,6 +115,13 @@ export async function SiteHeader({ department }: { department: Department }) {
                   </DialogClose>
                 ))}
                 <div className="mt-4 border-t border-border pt-4">
+                  <DialogClose
+                    render={<Link href={projectsHref(department)} />}
+                    nativeButton={false}
+                    className="rounded-md px-1 py-2 text-foreground hover:bg-accent"
+                  >
+                    Projects
+                  </DialogClose>
                   <DialogClose
                     render={<Link href={departmentHref(other)} />}
                     nativeButton={false}

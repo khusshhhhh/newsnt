@@ -43,6 +43,8 @@ export type CategoryWithImages = Category & { images: CategoryImage[] };
 
 export type ProductSpecs = Record<string, string>;
 
+export type StockStatus = "in_stock" | "made_to_order" | "out_of_stock" | "discontinued";
+
 export type Product = {
   id: string;
   department: Department;
@@ -60,6 +62,7 @@ export type Product = {
   display_order: number;
   meta_title: string | null;
   meta_description: string | null;
+  stock_status: StockStatus;
   created_at: string;
 };
 
@@ -79,6 +82,7 @@ export type ProductVariant = {
   color_hex: string | null;
   sku: string | null;
   price: number | null;
+  stock_status: StockStatus | null;
   display_order: number;
   created_at: string;
 };
@@ -105,6 +109,56 @@ export type ProductWithRelations = Product & {
   resources: ProductResource[];
 };
 
+export type Finish = {
+  id: string;
+  name: string;
+  code: string;
+  hex: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type InquiryStatus = "new" | "contacted" | "closed";
+
+export type Inquiry = {
+  id: string;
+  department: Department;
+  product_ids: string[] | null;
+  name: string;
+  email: string;
+  phone: string | null;
+  message: string;
+  status: InquiryStatus;
+  created_at: string;
+};
+
+export type ModerationStatus = "pending" | "approved" | "rejected";
+
+export type Review = {
+  id: string;
+  product_id: string;
+  reviewer_name: string;
+  reviewer_email: string;
+  rating: number;
+  body: string;
+  status: ModerationStatus;
+  created_at: string;
+};
+
+export type ProjectPhoto = {
+  id: string;
+  department: Department;
+  series_id: string | null;
+  storage_path: string;
+  caption: string | null;
+  submitter_name: string;
+  submitter_email: string;
+  status: ModerationStatus;
+  display_order: number;
+  created_at: string;
+};
+
 export type NewsletterSubscriber = {
   id: string;
   email: string;
@@ -113,7 +167,14 @@ export type NewsletterSubscriber = {
 };
 
 export type ActivityAction = "create" | "update" | "delete";
-export type ActivityEntityType = "product" | "series" | "category";
+export type ActivityEntityType =
+  | "product"
+  | "series"
+  | "category"
+  | "inquiry"
+  | "review"
+  | "project_photo"
+  | "finish";
 
 export type ActivityLogEntry = {
   id: string;
@@ -257,6 +318,57 @@ export type Database = {
         };
         Update: Partial<ActivityLogEntry>;
         Relationships: [];
+      };
+      finishes: {
+        Row: Finish;
+        Insert: Partial<Finish> & { name: string; code: string; hex: string };
+        Update: Partial<Finish>;
+        Relationships: [];
+      };
+      inquiries: {
+        Row: Inquiry;
+        Insert: Partial<Inquiry> & { department: Department; name: string; email: string; message: string };
+        Update: Partial<Inquiry>;
+        Relationships: [];
+      };
+      reviews: {
+        Row: Review;
+        Insert: Partial<Review> & {
+          product_id: string;
+          reviewer_name: string;
+          reviewer_email: string;
+          rating: number;
+          body: string;
+        };
+        Update: Partial<Review>;
+        Relationships: [
+          {
+            foreignKeyName: "reviews_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_photos: {
+        Row: ProjectPhoto;
+        Insert: Partial<ProjectPhoto> & {
+          department: Department;
+          storage_path: string;
+          submitter_name: string;
+          submitter_email: string;
+        };
+        Update: Partial<ProjectPhoto>;
+        Relationships: [
+          {
+            foreignKeyName: "project_photos_series_id_fkey";
+            columns: ["series_id"];
+            isOneToOne: false;
+            referencedRelation: "series";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<string, never>;

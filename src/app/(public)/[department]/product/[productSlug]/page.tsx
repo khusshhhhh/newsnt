@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getProductBySlug } from "@/lib/data/catalog";
+import { getApprovedReviews, getProductBySlug } from "@/lib/data/catalog";
 import { ProductDetail } from "@/components/product-detail";
 import { productImageUrl } from "@/lib/supabase/storage";
 import { getDefaultVariant } from "@/lib/colors";
@@ -51,6 +51,7 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
   const product = await getProductBySlug(department, productSlug);
   if (!product) notFound();
 
+  const reviews = await getApprovedReviews(product.id);
   const defaultVariant = getDefaultVariant(product.variants);
 
   const productJsonLd = {
@@ -65,7 +66,11 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
         "@type": "Offer",
         price: product.price,
         priceCurrency: "AUD",
-        availability: "https://schema.org/InStock",
+        availability: `https://schema.org/${
+          { in_stock: "InStock", made_to_order: "PreOrder", out_of_stock: "OutOfStock", discontinued: "Discontinued" }[
+            product.stock_status
+          ]
+        }`,
         url: `${SITE_URL}${productHref(product)}`,
       },
     }),
@@ -100,7 +105,7 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
         )}
       </div>
 
-      <ProductDetail product={product} />
+      <ProductDetail product={product} reviews={reviews} />
     </Container>
   );
 }

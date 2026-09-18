@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Layers, Package, Plus, Tags } from "lucide-react";
+import { Image as ImageIcon, Inbox, Layers, Package, Plus, Star, Tags } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,9 @@ export default async function AdminDashboardPage() {
     { count: categoryCount },
     { count: productCount },
     { count: draftCount },
+    { count: openInquiryCount },
+    { count: pendingReviewCount },
+    { count: pendingPhotoCount },
     { data: recentProducts },
     ...departmentCounts
   ] = await Promise.all([
@@ -27,6 +30,18 @@ export default async function AdminDashboardPage() {
       .from("products")
       .select("*", { count: "exact", head: true })
       .eq("is_published", false),
+    supabase
+      .from("inquiries")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "new"),
+    supabase
+      .from("reviews")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabase
+      .from("project_photos")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending"),
     supabase
       .from("products")
       .select("id, name, slug, price, currency, is_published, department, product_images(storage_path, display_order)")
@@ -41,6 +56,24 @@ export default async function AdminDashboardPage() {
     { label: "Products", count: productCount ?? 0, href: "/admin/products", icon: Package },
     { label: "Series", count: seriesCount ?? 0, href: "/admin/series", icon: Layers },
     { label: "Categories", count: categoryCount ?? 0, href: "/admin/categories", icon: Tags },
+    {
+      label: "New inquiries",
+      count: openInquiryCount ?? 0,
+      href: "/admin/inquiries?status=new",
+      icon: Inbox,
+    },
+    {
+      label: "Reviews to moderate",
+      count: pendingReviewCount ?? 0,
+      href: "/admin/reviews",
+      icon: Star,
+    },
+    {
+      label: "Photos to moderate",
+      count: pendingPhotoCount ?? 0,
+      href: "/admin/photos",
+      icon: ImageIcon,
+    },
   ];
 
   return (
@@ -86,7 +119,7 @@ export default async function AdminDashboardPage() {
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (

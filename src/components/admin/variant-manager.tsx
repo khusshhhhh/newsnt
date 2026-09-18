@@ -7,6 +7,7 @@ import {
   addProductVariant,
   deleteProductVariant,
   updateProductVariantPrice,
+  updateProductVariantStock,
 } from "@/lib/actions/admin/variants";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
 import { Button } from "@/components/ui/button";
@@ -18,16 +19,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PRODUCT_COLORS } from "@/lib/colors";
 import { formatPrice } from "@/lib/format";
-import type { ProductVariantWithImages } from "@/lib/supabase/types";
+import { STOCK_STATUS_LABEL, STOCK_STATUSES } from "@/lib/stock-status";
+import type { Finish, ProductVariantWithImages, StockStatus } from "@/lib/supabase/types";
 
 export function VariantManager({
   productId,
   variants: initialVariants,
+  finishes,
 }: {
   productId: string;
   variants: ProductVariantWithImages[];
+  finishes: Finish[];
 }) {
   const [variants, setVariants] = useState(initialVariants);
   const [pending, startTransition] = useTransition();
@@ -37,8 +40,8 @@ export function VariantManager({
   const formRef = useRef<HTMLFormElement>(null);
 
   const availableColors = useMemo(
-    () => PRODUCT_COLORS.filter((c) => !variants.some((v) => v.color_name === c.name)),
-    [variants]
+    () => finishes.filter((c) => !variants.some((v) => v.color_name === c.name)),
+    [variants, finishes]
   );
   // Base UI's <Select.Value> shows the raw `value` unless given an `items`
   // label map — harmless here since value === label, but kept consistent
@@ -84,6 +87,12 @@ export function VariantManager({
     setVariants((prev) => prev.map((v) => (v.id === variantId ? { ...v, price: nextPrice } : v)));
   }
 
+  function handleStockSaved(variantId: string, nextStatus: StockStatus | null) {
+    setVariants((prev) =>
+      prev.map((v) => (v.id === variantId ? { ...v, stock_status: nextStatus } : v))
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {variants.map((variant) => (
@@ -107,6 +116,12 @@ export function VariantManager({
                 variantId={variant.id}
                 price={variant.price}
                 onSaved={(next) => handlePriceSaved(variant.id, next)}
+              />
+              <VariantStockEditor
+                productId={productId}
+                variantId={variant.id}
+                stockStatus={variant.stock_status}
+                onSaved={(next) => handleStockSaved(variant.id, next)}
               />
               <Button
                 type="button"
@@ -264,5 +279,49 @@ function VariantPriceEditor({
       {formatPrice(price)}
       <Pencil className="size-3" />
     </button>
+  );
+}
+
+function VariantStockEditor({
+  productId,
+  variantId,
+  stockStatus,
+  onSaved,
+}: {
+  productId: string;
+  variantId: string;
+  stockStatus: StockStatus | null;
+  onSaved: (status: StockStatus | null) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  function handleChange(value: string) {
+    const next = (value || null) as StockStatus | null;
+    startTransition(async () => {
+      try {
+        await updateProductVariantStock(variantId, productId, next);
+        onSaved(next);
+        toast.success("Stock status updated");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to update stock status");
+      }
+    });
+  }
+
+  return (
+    <select
+      aria-label="Stock status for this color"
+      value={stockStatus ?? ""}
+      disabled={pending}
+      onChange={(e) => handleChange(e.target.value)}
+      className="h-7 rounded-full border border-border bg-transparent px-2 text-xs text-muted-foreground disabled:opacity-50"
+    >
+      <option value="">Same as product</option>
+      {STOCK_STATUSES.map((status) => (
+        <option key={status} value={status}>
+          {STOCK_STATUS_LABEL[status]}
+        </option>
+      ))}
+    </select>
   );
 }

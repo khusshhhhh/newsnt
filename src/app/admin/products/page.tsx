@@ -4,22 +4,33 @@ import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { DepartmentTabs } from "@/components/admin/department-tabs";
 import { ProductSearchBox } from "@/components/admin/product-search-box";
+import { ProductFilters } from "@/components/admin/product-filters";
 import { ProductList } from "@/components/admin/product-list";
 import { CsvImportForm } from "@/components/admin/csv-import-form";
 import { cn } from "@/lib/utils";
 import { isDepartment, type Department } from "@/lib/department";
+import type { StockStatus } from "@/lib/supabase/types";
 
 type StatusFilter = "published" | "draft";
+const STOCK_STATUSES: StockStatus[] = ["in_stock", "made_to_order", "out_of_stock", "discontinued"];
 
 function isStatusFilter(value: string): value is StatusFilter {
   return value === "published" || value === "draft";
 }
 
-function statusHref(basePath: string, department?: Department, q?: string, status?: StatusFilter) {
+function isStockStatus(value: string): value is StockStatus {
+  return (STOCK_STATUSES as string[]).includes(value);
+}
+
+function buildHref(
+  basePath: string,
+  current: Record<string, string | undefined>,
+  overrides: Record<string, string | undefined>
+) {
   const params = new URLSearchParams();
-  if (department) params.set("department", department);
-  if (q) params.set("q", q);
-  if (status) params.set("status", status);
+  for (const [key, value] of Object.entries({ ...current, ...overrides })) {
+    if (value) params.set(key, value);
+  }
   const qs = params.toString();
   return qs ? `${basePath}?${qs}` : basePath;
 }
@@ -27,15 +38,62 @@ function statusHref(basePath: string, department?: Department, q?: string, statu
 export default async function AdminProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ department?: string; q?: string; status?: string }>;
+  searchParams: Promise<{
+    department?: string;
+    q?: string;
+    status?: string;
+    series?: string;
+    category?: string;
+    finish?: string;
+    stock?: string;
+  }>;
 }) {
-  const { department: rawDepartment, q: rawQuery, status: rawStatus } = await searchParams;
+  const {
+    department: rawDepartment,
+    q: rawQuery,
+    status: rawStatus,
+    series: seriesId,
+    category: categoryId,
+    finish,
+    stock: rawStock,
+  } = await searchParams;
   const department: Department | undefined =
     rawDepartment && isDepartment(rawDepartment) ? rawDepartment : undefined;
   const q = rawQuery?.trim() ?? "";
   const status: StatusFilter | undefined = rawStatus && isStatusFilter(rawStatus) ? rawStatus : undefined;
+  const stock: StockStatus | undefined = rawStock && isStockStatus(rawStock) ? rawStock : undefined;
+  const currentParams = {
+    department,
+    q,
+    status,
+    series: seriesId,
+    category: categoryId,
+    finish,
+    stock,
+  };
 
   const supabase = await createClient();
+
+  const [{ data: seriesOptions }, { data: categoryOptions }, { data: finishOptions }] =
+    await Promise.all([
+      department
+        ? supabase.from("series").select("id, name").eq("department", department).order("name")
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      department
+        ? supabase.from("categories").select("id, name").eq("department", department).order("name")
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      supabase.from("finishes").select("id, name").order("display_order"),
+    ]);
+
+  let productIdsForFinish: string[] | null = null;
+  if (finish) {
+    const { data: variantRows } = await supabase
+      .from("product_variants")
+      .select("product_id")
+      .eq("color_name", finish);
+    productIdsForFinish = Array.from(new Set((variantRows ?? []).map((v) => v.product_id)));
+  }
+
   let query = supabase
     .from("products")
     .select(
@@ -45,6 +103,10 @@ export default async function AdminProductsPage({
   if (department) query = query.eq("department", department);
   if (status) query = query.eq("is_published", status === "published");
   if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%`);
+  if (seriesId) query = query.eq("series_id", seriesId);
+  if (categoryId) query = query.eq("category_id", categoryId);
+  if (stock) query = query.eq("stock_status", stock);
+  if (productIdsForFinish) query = query.in("id", productIdsForFinish);
   const { data: products } = await query;
 
   return (
@@ -74,7 +136,7 @@ export default async function AdminProductsPage({
             ).map((tab) => (
               <Link
                 key={tab.label}
-                href={statusHref("/admin/products", department, q, tab.value)}
+                href={buildHref("/admin/products", currentParams, { status: tab.value })}
                 className={cn(
                   "rounded-full px-3 py-1.5 transition-colors",
                   status === tab.value
@@ -88,6 +150,14 @@ export default async function AdminProductsPage({
           </div>
           <ProductSearchBox initialQuery={q} />
         </div>
+      </div>
+
+      <div className="mt-3">
+        <ProductFilters
+          seriesOptions={(seriesOptions ?? []).map((s) => ({ value: s.id, label: s.name }))}
+          categoryOptions={(categoryOptions ?? []).map((c) => ({ value: c.id, label: c.name }))}
+          finishOptions={(finishOptions ?? []).map((f) => ({ value: f.name, label: f.name }))}
+        />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border px-4 py-3">

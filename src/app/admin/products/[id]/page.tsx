@@ -22,6 +22,7 @@ export default async function EditProductPage({
     { data: images },
     { data: variants },
     { data: resources },
+    { data: finishes },
   ] = await Promise.all([
     supabase.from("products").select("*").eq("id", id).single(),
     supabase.from("series").select("*").order("display_order", { ascending: true }),
@@ -42,6 +43,7 @@ export default async function EditProductPage({
       .select("*")
       .eq("product_id", id)
       .order("display_order", { ascending: true }),
+    supabase.from("finishes").select("*").eq("is_active", true).order("display_order", { ascending: true }),
   ]);
 
   if (!product) notFound();
@@ -78,7 +80,7 @@ export default async function EditProductPage({
           Add the finishes this product comes in. Each color can have its own
           photos — shoppers switch between them on the product page.
         </p>
-        <VariantManager productId={product.id} variants={sortedVariants} />
+        <VariantManager productId={product.id} variants={sortedVariants} finishes={finishes ?? []} />
       </div>
 
       <Separator className="my-10 max-w-2xl" />

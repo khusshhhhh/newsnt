@@ -28,6 +28,22 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
      viewable at `/admin/activity`
    - [`0009_media_bucket_limits.sql`](supabase/migrations/0009_media_bucket_limits.sql) — server-side file
      size/type limits on the `media` storage bucket
+   - `0010`–`0016` — category/series photo galleries, per-color SKUs & pricing, product resources,
+     and SEO fields (see each file's own header comment)
+   - [`0017_fix_resources_rls.sql`](supabase/migrations/0017_fix_resources_rls.sql) — closes a write-RLS
+     gap on `product_resources`/the `documents` bucket left over from `0014`
+   - [`0018_finishes.sql`](supabase/migrations/0018_finishes.sql) — the color/finish palette, now an
+     admin-managed table (`/admin/finishes`) instead of a hardcoded list
+   - [`0019_inquiries.sql`](supabase/migrations/0019_inquiries.sql) — "Enquire" and quote-basket
+     submissions, viewable at `/admin/inquiries`
+   - [`0020_reviews.sql`](supabase/migrations/0020_reviews.sql) — customer product reviews, moderated
+     at `/admin/reviews` before they show publicly
+   - [`0021_project_photos.sql`](supabase/migrations/0021_project_photos.sql) — customer-submitted
+     installation photos, moderated at `/admin/photos`, shown at `/[department]/projects` once approved
+   - [`0022_stock_status.sql`](supabase/migrations/0022_stock_status.sql) — a lightweight
+     in-stock/made-to-order/out-of-stock/discontinued flag per product and per color
+   - [`0023_widen_activity_log.sql`](supabase/migrations/0023_widen_activity_log.sql) — extends the
+     audit trail to cover the entities above
 3. In Supabase → Authentication, create your own admin user (email + password), then add
    them to the `admins` table so `0007_admin_roles.sql`'s write policies let them in:
    ```sql
@@ -38,7 +54,12 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
    row exists, nobody (including a previously-working session) can write to the catalog.
 4. Copy `.env.local.example` to `.env.local` and fill in your project's URL and anon key
    (Project Settings → API), plus `NEXT_PUBLIC_SITE_URL` (used for the sitemap, robots.txt,
-   and Open Graph image URLs).
+   and Open Graph image URLs). Two more are needed for the features added after `0016`:
+   - `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API → `service_role` secret, **server-only**,
+     never `NEXT_PUBLIC_`) — reserved for admin user-management; not required just to run the app.
+   - `RESEND_API_KEY` + `EMAIL_FROM` + `INQUIRY_NOTIFICATION_EMAIL` (resend.com) — emails the team
+     when a new inquiry comes in. Leave blank in development: emails are skipped with a console
+     warning rather than failing, inquiries still save to the database either way.
 5. Install dependencies and run the dev server:
 
    ```bash
@@ -78,9 +99,14 @@ gallery. Managed from the "Colors" section on a product's admin edit page.
   `/[department]/series/[seriesSlug]/[categorySlug]`, `/[department]/category/[categorySlug]`,
   `/[department]/product/[productSlug]` — public catalog, `department` is
   `sanitary-tapware` or `door-hardware`
+- `/[department]/projects` — customer-submitted installation photos (approved ones only); has its
+  own submission dialog
 - `/admin` — dashboard (protected; redirects to `/admin/login` if signed out)
-- `/admin/series`, `/admin/categories`, `/admin/products` — CRUD, each with `/new` and
-  `/[id]`, filterable by department (`?department=door-hardware`)
+- `/admin/series`, `/admin/categories`, `/admin/products`, `/admin/finishes` — CRUD, each with
+  `/new` and `/[id]`, filterable by department where relevant (`?department=door-hardware`)
+- `/admin/inquiries` — "Enquire"/quote-basket submissions, status New/Contacted/Closed
+- `/admin/reviews`, `/admin/photos` — moderation queues (Pending/Approved/Rejected) for
+  customer-submitted reviews and project photos
 - `/admin/activity` — recent create/update/delete audit trail (see `0008_activity_log.sql`)
 
 ## Caching

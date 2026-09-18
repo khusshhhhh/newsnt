@@ -47,6 +47,10 @@ export function aboutHref(department: Department) {
   return `/${department}/about`;
 }
 
+export function projectsHref(department: Department) {
+  return `/${department}/projects`;
+}
+
 export function searchHref(department: Department, query?: string) {
   const base = `/${department}/search`;
   return query ? `${base}?q=${encodeURIComponent(query)}` : base;

@@ -5,10 +5,13 @@ import type {
   Category,
   CategoryImage,
   CategoryWithImages,
+  Finish,
   ProductImage,
   ProductResource,
   ProductVariantWithImages,
   ProductWithRelations,
+  ProjectPhoto,
+  Review,
   Series,
   SeriesImage,
   SeriesWithImages,
@@ -348,5 +351,76 @@ export const getProductBySlug = unstable_cache(
     return data ? shapeProduct(data) : null;
   },
   ["product-by-slug"],
+  { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
+);
+
+/**
+ * PGRST205 = PostgREST can't find the table — i.e. the migration that
+ * creates it (0018/0020/0021) hasn't been run yet. These three reads back
+ * new, purely additive product-page content (finishes, reviews, project
+ * photos), so degrading to "none yet" rather than throwing keeps the rest of
+ * an otherwise-working product page rendering during the window between
+ * deploying this code and running its migrations.
+ */
+function isMissingTable(error: { code?: string } | null): boolean {
+  return error?.code === "PGRST205";
+}
+
+export const getActiveFinishes = unstable_cache(
+  async (): Promise<Finish[]> => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("finishes")
+      .select("*")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
+
+    if (error) {
+      if (isMissingTable(error)) return [];
+      throw error;
+    }
+    return data ?? [];
+  },
+  ["active-finishes"],
+  { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
+);
+
+export const getApprovedReviews = unstable_cache(
+  async (productId: string): Promise<Review[]> => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("product_id", productId)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      if (isMissingTable(error)) return [];
+      throw error;
+    }
+    return data ?? [];
+  },
+  ["approved-reviews"],
+  { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
+);
+
+export const getApprovedProjectPhotos = unstable_cache(
+  async (department: Department): Promise<(ProjectPhoto & { series: Series | null })[]> => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("project_photos")
+      .select("*, series(*)")
+      .eq("department", department)
+      .eq("status", "approved")
+      .order("display_order", { ascending: true });
+
+    if (error) {
+      if (isMissingTable(error)) return [];
+      throw error;
+    }
+    return data ?? [];
+  },
+  ["approved-project-photos"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );
