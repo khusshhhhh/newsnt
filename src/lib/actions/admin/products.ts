@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slugify";
+import { computeVariantSku } from "@/lib/colors";
 import { logActivity } from "@/lib/data/activity";
 import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 const productSchema = z.object({
   department: departmentSchema,
@@ -21,6 +24,8 @@ const productSchema = z.object({
   is_featured: z.coerce.boolean().default(false),
   is_published: z.coerce.boolean().default(false),
   display_order: z.coerce.number().int().default(0),
+  meta_title: z.string().trim().max(70).nullable(),
+  meta_description: z.string().trim().max(160).nullable(),
 });
 
 function parseSpecs(formData: FormData) {
@@ -42,6 +47,8 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
   const seriesId = String(formData.get("series_id") ?? "");
   const priceRaw = String(formData.get("price") ?? "");
   const categoryId = String(formData.get("category_id") ?? "");
+  const metaTitleRaw = String(formData.get("meta_title") ?? "").trim();
+  const metaDescriptionRaw = String(formData.get("meta_description") ?? "").trim();
 
   const supabase = await createClient();
 
@@ -65,6 +72,8 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
     is_featured: formData.get("is_featured") === "on",
     is_published: formData.get("is_published") === "on",
     display_order: formData.get("display_order") ?? 0,
+    meta_title: metaTitleRaw || null,
+    meta_description: metaDescriptionRaw || null,
   });
 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
@@ -114,4 +123,134 @@ export async function deleteProduct(id: string) {
   revalidateCatalog();
   revalidatePath("/admin/products");
   revalidatePath("/", "layout");
+}
+
+export async function bulkSetPublished(ids: string[], isPublished: boolean) {
+  if (ids.length === 0) return;
+  const supabase = await createClient();
+  const { error } = await supabase.from("products").update({ is_published: isPublished }).in("id", ids);
+  if (error) throw new Error(error.message);
+
+  revalidateCatalog();
+  revalidatePath("/admin/products");
+  revalidatePath("/", "layout");
+}
+
+async function uniqueSlug(supabase: SupabaseServerClient, baseSlug: string) {
+  let candidate = `${baseSlug}-copy`;
+  let n = 2;
+  while (true) {
+    const { data } = await supabase.from("products").select("id").eq("slug", candidate).maybeSingle();
+    if (!data) return candidate;
+    candidate = `${baseSlug}-copy-${n}`;
+    n += 1;
+  }
+}
+
+async function uniqueSku(supabase: SupabaseServerClient, baseSku: string) {
+  let candidate = `${baseSku}-COPY`;
+  let n = 2;
+  while (true) {
+    const { data } = await supabase.from("products").select("id").eq("sku", candidate).maybeSingle();
+    if (!data) return candidate;
+    candidate = `${baseSku}-COPY${n}`;
+    n += 1;
+  }
+}
+
+/**
+ * Deep-copies a product: the row itself, its colors (with their own SKUs and
+ * prices recomputed against the copy's new SKU prefix), and every photo —
+ * each image is copied to a new storage object rather than sharing the
+ * original's path, since deleting an image row also deletes its file and a
+ * shared path would let deleting one product silently break the other's photos.
+ */
+export async function duplicateProduct(id: string) {
+  const supabase = await createClient();
+
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (productError || !product) throw new Error(productError?.message ?? "Product not found");
+
+  const [{ data: variants }, { data: images }] = await Promise.all([
+    supabase.from("product_variants").select("*").eq("product_id", id),
+    supabase.from("product_images").select("*").eq("product_id", id),
+  ]);
+
+  const newSlug = await uniqueSlug(supabase, product.slug);
+  const newSku = product.sku ? await uniqueSku(supabase, product.sku) : product.sku;
+
+  const { data: newProduct, error: insertError } = await supabase
+    .from("products")
+    .insert({
+      department: product.department,
+      series_id: product.series_id,
+      category_id: product.category_id,
+      name: `${product.name} (Copy)`,
+      slug: newSlug,
+      sku: newSku,
+      price: product.price,
+      currency: "AUD",
+      description: product.description,
+      specs: product.specs,
+      is_featured: false,
+      is_published: false,
+      display_order: product.display_order,
+      meta_title: product.meta_title,
+      meta_description: product.meta_description,
+    })
+    .select("id")
+    .single();
+  if (insertError) throw new Error(insertError.message);
+
+  const variantIdMap = new Map<string, string>();
+  for (const variant of variants ?? []) {
+    const { data: newVariant, error: variantError } = await supabase
+      .from("product_variants")
+      .insert({
+        product_id: newProduct.id,
+        color_name: variant.color_name,
+        color_hex: variant.color_hex,
+        sku: newSku ? computeVariantSku(newSku, variant.color_name) : null,
+        price: variant.price,
+        display_order: variant.display_order,
+      })
+      .select("id")
+      .single();
+    // Best-effort: a color that somehow can't be copied shouldn't abort the whole duplicate.
+    if (variantError || !newVariant) continue;
+    variantIdMap.set(variant.id, newVariant.id);
+  }
+
+  for (const image of images ?? []) {
+    const newVariantId = image.variant_id ? (variantIdMap.get(image.variant_id) ?? null) : null;
+    if (image.variant_id && !newVariantId) continue;
+    const prefix = newVariantId
+      ? `products/${newProduct.id}/variants/${newVariantId}`
+      : `products/${newProduct.id}`;
+    const newPath = `${prefix}/${crypto.randomUUID()}-${image.storage_path.split("/").pop()}`;
+    const { error: copyError } = await supabase.storage.from("media").copy(image.storage_path, newPath);
+    if (copyError) continue;
+    await supabase.from("product_images").insert({
+      product_id: newProduct.id,
+      variant_id: newVariantId,
+      storage_path: newPath,
+      alt_text: image.alt_text,
+      display_order: image.display_order,
+    });
+  }
+
+  await logActivity({
+    action: "create",
+    entity_type: "product",
+    entity_id: newProduct.id,
+    entity_name: `${product.name} (Copy)`,
+  });
+  revalidateCatalog();
+  revalidatePath("/admin/products");
+  revalidatePath("/", "layout");
+  return newProduct.id;
 }

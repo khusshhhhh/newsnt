@@ -305,6 +305,34 @@ export function ProductForm({
         </div>
       </FormSection>
 
+      <FormSection
+        title="SEO"
+        description="Optional overrides for the public product page's title and search snippet. Left blank, the page uses the product name and a generated description."
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="meta_title">Meta title</Label>
+          <Input
+            id="meta_title"
+            name="meta_title"
+            maxLength={70}
+            defaultValue={product?.meta_title ?? ""}
+            placeholder={product?.name ?? "Product name"}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="meta_description">Meta description</Label>
+          <textarea
+            id="meta_description"
+            name="meta_description"
+            maxLength={160}
+            rows={2}
+            defaultValue={product?.meta_description ?? ""}
+            placeholder="Shown in search results under the title — one or two sentences."
+            className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+        </div>
+      </FormSection>
+
       <FormSection title="Visibility" description="Controls where and whether this product appears.">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">

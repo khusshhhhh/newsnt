@@ -27,10 +27,17 @@ export async function generateMetadata({
     : product.product_images;
   const image = ogImages[0];
 
+  const title = product.meta_title || product.name;
+  const description =
+    product.meta_description ||
+    (product.series ? `${product.name} — part of the ${product.series.name} series.` : undefined);
+
   return {
-    title: product.name,
+    title,
+    description,
     openGraph: {
-      title: product.name,
+      title,
+      description,
       images: image ? [{ url: productImageUrl(image.storage_path) }] : undefined,
     },
   };

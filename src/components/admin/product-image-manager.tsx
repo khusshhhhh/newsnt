@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Loader2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { mediaUrl, MEDIA_BUCKET } from "@/lib/supabase/storage";
-import { addProductImage, deleteProductImage } from "@/lib/actions/admin/images";
+import { addProductImage, deleteProductImage, reorderProductImages } from "@/lib/actions/admin/images";
 import type { ProductImage } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
@@ -44,8 +44,24 @@ export function ProductImageManager({
   const [images, setImages] = useState(initialImages);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [reorderIndex, setReorderIndex] = useState<number | null>(null);
   const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+
+  function reorder(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+    const next = [...images];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setImages(next);
+    startTransition(async () => {
+      try {
+        await reorderProductImages(productId, next.map((i) => i.id));
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to save photo order");
+      }
+    });
+  }
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
@@ -142,12 +158,26 @@ export function ProductImageManager({
     <div className="flex flex-col gap-3">
       {(images.length > 0 || pendingFiles.length > 0) && (
         <div className="flex flex-wrap gap-3">
-          {images.map((image) => (
+          {images.map((image, index) => (
             <div
               key={image.id}
+              draggable
+              onDragStart={(e) => {
+                setReorderIndex(index);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (reorderIndex !== null) reorder(reorderIndex, index);
+                setReorderIndex(null);
+              }}
+              onDragEnd={() => setReorderIndex(null)}
+              title="Drag to reorder"
               className={cn(
-                "group relative overflow-hidden rounded-lg border border-border/60 bg-card",
-                thumbSize
+                "group relative cursor-grab overflow-hidden rounded-lg border border-border/60 bg-card active:cursor-grabbing",
+                thumbSize,
+                reorderIndex === index && "opacity-40"
               )}
             >
               <Image

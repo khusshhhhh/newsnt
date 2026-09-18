@@ -29,6 +29,18 @@ export async function addProductImage(
   return data;
 }
 
+export async function reorderProductImages(productId: string, orderedIds: string[]) {
+  const supabase = await createClient();
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase.from("product_images").update({ display_order: index }).eq("id", id)
+    )
+  );
+  revalidateCatalog();
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/", "layout");
+}
+
 export async function deleteProductImage(imageId: string, productId: string) {
   const supabase = await createClient();
   const { data: image } = await supabase

@@ -58,6 +58,8 @@ export type Product = {
   is_featured: boolean;
   is_published: boolean;
   display_order: number;
+  meta_title: string | null;
+  meta_description: string | null;
   created_at: string;
 };
 

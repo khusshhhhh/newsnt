@@ -5,6 +5,20 @@ import { productImageUrl } from "@/lib/supabase/storage";
 import { productHref } from "@/lib/department";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { getDefaultVariant } from "@/lib/colors";
+import { formatPrice } from "@/lib/format";
+
+/** "From {min}" when colors are priced differently, the single shared price when they match, or the product's fallback price. */
+function priceLabel(product: ProductWithRelations) {
+  const variantPrices = (product.variants ?? [])
+    .map((v) => v.price)
+    .filter((p): p is number => p != null);
+
+  if (variantPrices.length === 0) return formatPrice(product.price);
+
+  const min = Math.min(...variantPrices);
+  const max = Math.max(...variantPrices);
+  return min === max ? formatPrice(min) : `From ${formatPrice(min)}`;
+}
 
 export function ProductCard({ product }: { product: ProductWithRelations }) {
   const variants = product.variants ?? [];
@@ -42,6 +56,7 @@ export function ProductCard({ product }: { product: ProductWithRelations }) {
           </span>
         )}
         <h3 className="font-heading text-base text-foreground">{product.name}</h3>
+        <p className="text-sm text-muted-foreground">{priceLabel(product)}</p>
         {variants.length > 1 && (
           <div className="mt-auto flex items-center gap-1 pt-2">
             {variants.slice(0, 4).map((v) => (
