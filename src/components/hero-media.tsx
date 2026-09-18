@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
  * design/finish it cuts between) and renders Instagram-story-style progress
  * bars synced to playback via `timeupdate`, with the active segment's label
  * replacing the static caption.
+ *
+ * `lazyPlay` defers playback (and full preload) until the panel scrolls into
+ * view, for video placed below the fold rather than autoplaying in the hero.
  */
 export function HeroMedia({
   videoSrc,
@@ -24,6 +27,7 @@ export function HeroMedia({
   caption,
   chapters,
   className,
+  lazyPlay = false,
 }: {
   videoSrc?: string;
   imageSrc?: string;
@@ -31,6 +35,7 @@ export function HeroMedia({
   caption?: string;
   chapters?: string[];
   className?: string;
+  lazyPlay?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
@@ -54,6 +59,20 @@ export function HeroMedia({
     return () => el.removeEventListener("timeupdate", handleTimeUpdate);
   }, [chapters]);
 
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !lazyPlay) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) el.play().catch(() => {});
+        else el.pause();
+      },
+      { threshold: 0.4 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [lazyPlay]);
+
   const hasChapters = Boolean(chapters && chapters.length > 0);
   const activeChapterIndex = chapters
     ? Math.min(chapters.length - 1, Math.floor(progress * chapters.length))
@@ -72,11 +91,11 @@ export function HeroMedia({
           ref={videoRef}
           className="h-full w-full object-cover"
           src={videoSrc}
-          autoPlay
+          autoPlay={!lazyPlay}
           muted
           loop
           playsInline
-          preload="auto"
+          preload={lazyPlay ? "metadata" : "auto"}
           aria-label={imageAlt}
         />
       ) : imageSrc ? (

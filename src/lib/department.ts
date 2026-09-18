@@ -20,7 +20,7 @@ const COPY: Record<Department, DepartmentCopy> = {
     shortLabel: "S&T",
     tagline: "Basin mixers, kitchen mixers, taps and showers",
     seriesLabel: "Series",
-    heroLine: "Six series. One design language, refined six ways.",
+    heroLine: "Finish is everything.",
   },
   "door-hardware": {
     label: "Door Hardware & Accessories",

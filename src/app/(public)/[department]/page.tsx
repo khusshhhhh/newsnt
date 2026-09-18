@@ -8,6 +8,7 @@ import { SeriesCarousel } from "@/components/series-carousel";
 import { HeroMedia } from "@/components/hero-media";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
+import { cn } from "@/lib/utils";
 import {
   departmentCopy,
   isDepartment,
@@ -18,10 +19,10 @@ import {
 type Params = { department: string };
 
 /**
- * Per-department hero visual. Sanitary & tapware gets an ambient AI-generated
- * concept film cutting between five finishes (its `chapters` label each
- * segment, synced to playback by HeroMedia); door hardware keeps the still
- * photography it already had, ken-burns'd for a bit of motion.
+ * Per-department hero visual. Sanitary & tapware's concept film (its
+ * `chapters` label each finish, synced to playback by HeroMedia) now lives in
+ * its own section below the hero rather than autoplaying in it; door hardware
+ * keeps the still photography it already had, ken-burns'd for a bit of motion.
  */
 const HERO_MEDIA: Record<
   Department,
@@ -38,6 +39,17 @@ const HERO_MEDIA: Record<
     alt: "Matte black door lever handle in soft daylight",
     caption: "Hardware, framed in light",
   },
+};
+
+/** Swatches for the hero's finish strip, standing in for the video that used to live there. */
+const HERO_FINISHES: Partial<Record<Department, { name: string; swatch: string }[]>> = {
+  "sanitary-tapware": [
+    { name: "Matte Black", swatch: "#1b1b1b" },
+    { name: "Brushed Gold", swatch: "#b08d57" },
+    { name: "Gun Metal", swatch: "#4b4f54" },
+    { name: "Brushed Nickel", swatch: "#b8b7b2" },
+    { name: "Satin Chrome", swatch: "#c8ccd0" },
+  ],
 };
 
 export async function generateMetadata({
@@ -75,6 +87,8 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
   ]);
 
   const media = HERO_MEDIA[department];
+  const finishes = HERO_FINISHES[department] ?? [];
+  const hasFilm = Boolean(media.video);
   const stats = [
     { value: series?.length ?? 0, label: copy.seriesLabel },
     { value: categories.length, label: "Categories" },
@@ -88,15 +102,29 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,color-mix(in_oklch,var(--foreground),transparent_94%),transparent_60%)]"
         />
-        <Container className="relative grid gap-12 py-20 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-14">
-          <div className="flex flex-col gap-6">
+        <Container
+          className={cn(
+            "relative py-20 md:py-28",
+            hasFilm
+              ? "flex flex-col items-start gap-10"
+              : "grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-14"
+          )}
+        >
+          <div className={cn("flex flex-col gap-6", hasFilm && "max-w-3xl")}>
             <Reveal>
               <span className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
                 {copy.label}
               </span>
             </Reveal>
             <Reveal delay={0.08}>
-              <h1 className="max-w-xl font-heading text-5xl font-black leading-[0.95] tracking-tight text-foreground sm:text-6xl md:text-7xl">
+              <h1
+                className={cn(
+                  "max-w-xl font-heading font-black leading-[0.95] tracking-tight text-foreground",
+                  hasFilm
+                    ? "max-w-2xl text-6xl sm:text-7xl md:text-8xl"
+                    : "text-5xl sm:text-6xl md:text-7xl"
+                )}
+              >
                 {copy.heroLine}
               </h1>
             </Reveal>
@@ -113,10 +141,36 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
                 >
                   Browse {copy.seriesLabel.toLowerCase()}
                 </Link>
+                {hasFilm && (
+                  <a
+                    href="#concept-film"
+                    className="rounded-full border border-border px-7 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                  >
+                    Watch the concept film
+                  </a>
+                )}
               </div>
             </Reveal>
-            {stats.length > 0 && (
+            {finishes.length > 0 && (
               <Reveal delay={0.32}>
+                <ul className="flex flex-wrap items-center gap-5 border-t border-border pt-6">
+                  {finishes.map((finish) => (
+                    <li key={finish.name} className="flex items-center gap-2">
+                      <span
+                        aria-hidden
+                        className="size-3 rounded-full ring-1 ring-border ring-offset-1 ring-offset-background"
+                        style={{ background: finish.swatch }}
+                      />
+                      <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                        {finish.name}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Reveal>
+            )}
+            {stats.length > 0 && (
+              <Reveal delay={0.4}>
                 <dl className="mt-2 flex max-w-md gap-8 border-t border-border pt-6">
                   {stats.map((stat) => (
                     <div key={stat.label}>
@@ -134,17 +188,42 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
             )}
           </div>
 
-          <Reveal delay={0.16}>
-            <HeroMedia
-              videoSrc={media.video}
-              imageSrc={media.image}
-              imageAlt={media.alt}
-              caption={media.caption}
-              chapters={media.chapters}
-            />
-          </Reveal>
+          {!hasFilm && (
+            <Reveal delay={0.16}>
+              <HeroMedia
+                imageSrc={media.image}
+                imageAlt={media.alt}
+                caption={media.caption}
+              />
+            </Reveal>
+          )}
         </Container>
       </section>
+
+      {hasFilm && (
+        <section id="concept-film" className="scroll-mt-24 border-b border-border bg-muted/30 py-16 md:py-24">
+          <Container>
+            <Reveal className="mx-auto mb-10 max-w-2xl text-center">
+              <span className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                Concept film
+              </span>
+              <h2 className="mt-3 font-heading text-3xl text-foreground md:text-4xl">
+                {media.caption}
+              </h2>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <HeroMedia
+                videoSrc={media.video}
+                imageAlt={media.alt}
+                caption={media.caption}
+                chapters={media.chapters}
+                lazyPlay
+                className="aspect-video w-full rounded-[1.5rem] sm:aspect-video md:aspect-video md:rounded-[2rem]"
+              />
+            </Reveal>
+          </Container>
+        </section>
+      )}
 
       {series && series.length > 0 && (
         <section className="py-16 md:py-24">

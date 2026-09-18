@@ -51,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${satoshi.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${satoshi.variable} h-full scroll-smooth antialiased`}
     >
       <head>
         {/* Adobe Fonts kit: Flegrei, used for the logo wordmark only (see .font-logo in globals.css). */}
