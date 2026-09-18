@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Volume2, VolumeX } from "lucide-react";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -11,22 +11,30 @@ import { cn } from "@/lib/utils";
  * configured for the department, falling back to a ken-burns still image
  * otherwise. Sound defaults off (autoplaying video must be muted to play in
  * most browsers) with a toggle, since the clip does carry ambient water audio.
+ *
+ * `chapters` labels equal-length segments of a multi-shot video (one per
+ * design/finish it cuts between) and renders Instagram-story-style progress
+ * bars synced to playback via `timeupdate`, with the active segment's label
+ * replacing the static caption.
  */
 export function HeroMedia({
   videoSrc,
   imageSrc,
   imageAlt,
   caption,
+  chapters,
   className,
 }: {
   videoSrc?: string;
   imageSrc?: string;
   imageAlt: string;
   caption?: string;
+  chapters?: string[];
   className?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
+  const [progress, setProgress] = useState(0);
 
   function toggleSound() {
     const el = videoRef.current;
@@ -34,6 +42,23 @@ export function HeroMedia({
     el.muted = !el.muted;
     setMuted(el.muted);
   }
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !chapters || chapters.length === 0) return;
+    function handleTimeUpdate() {
+      if (!el || !el.duration) return;
+      setProgress(el.currentTime / el.duration);
+    }
+    el.addEventListener("timeupdate", handleTimeUpdate);
+    return () => el.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [chapters]);
+
+  const hasChapters = Boolean(chapters && chapters.length > 0);
+  const activeChapterIndex = chapters
+    ? Math.min(chapters.length - 1, Math.floor(progress * chapters.length))
+    : -1;
+  const withinChapterProgress = chapters ? Math.min(1, (progress * chapters.length) % 1) : 0;
 
   return (
     <div
@@ -72,6 +97,27 @@ export function HeroMedia({
         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/5"
       />
 
+      {hasChapters && chapters && (
+        <div className="absolute left-4 right-16 top-4 flex gap-1.5">
+          {chapters.map((label, i) => (
+            <div key={label} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/25">
+              <div
+                className="h-full bg-white"
+                style={{
+                  width:
+                    i < activeChapterIndex
+                      ? "100%"
+                      : i === activeChapterIndex
+                        ? `${withinChapterProgress * 100}%`
+                        : "0%",
+                  transition: i === activeChapterIndex ? "none" : "width 0.3s ease-out",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       {videoSrc && (
         <button
           type="button"
@@ -84,16 +130,21 @@ export function HeroMedia({
         </button>
       )}
 
-      {caption && (
+      {(caption || hasChapters) && (
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/85">{caption}</p>
+          <p
+            key={hasChapters ? activeChapterIndex : caption}
+            className="animate-fade-in text-xs font-semibold uppercase tracking-[0.2em] text-white/85"
+          >
+            {hasChapters && chapters ? chapters[activeChapterIndex] : caption}
+          </p>
           {videoSrc && (
             <span className="flex shrink-0 items-center gap-1.5 text-[0.65rem] font-medium uppercase tracking-wide text-white/60">
               <span className="relative flex size-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60" />
                 <span className="relative inline-flex size-1.5 rounded-full bg-white" />
               </span>
-              Concept film
+              {hasChapters ? "Now showing" : "Concept film"}
             </span>
           )}
         </div>

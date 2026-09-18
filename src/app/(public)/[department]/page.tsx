@@ -19,17 +19,19 @@ type Params = { department: string };
 
 /**
  * Per-department hero visual. Sanitary & tapware gets an ambient AI-generated
- * concept video (there's no real product footage yet); door hardware keeps
- * the still photography it already had, ken-burns'd for a bit of motion.
+ * concept film cutting between five finishes (its `chapters` label each
+ * segment, synced to playback by HeroMedia); door hardware keeps the still
+ * photography it already had, ken-burns'd for a bit of motion.
  */
 const HERO_MEDIA: Record<
   Department,
-  { video?: string; image?: string; alt: string; caption: string }
+  { video?: string; image?: string; alt: string; caption: string; chapters?: string[] }
 > = {
   "sanitary-tapware": {
-    video: "/videos/tapware-hero.mp4",
-    alt: "Water flowing from a matte black basin mixer tap onto travertine stone",
-    caption: "Basin mixers, in motion",
+    video: "/videos/tapware-showcase-hero.mp4",
+    alt: "Five tapware and shower finishes in motion — matte black, brushed gold, gun metal, brushed nickel, and satin chrome",
+    caption: "Five finishes, in motion",
+    chapters: ["Matte Black", "Brushed Gold", "Gun Metal", "Brushed Nickel", "Satin Chrome"],
   },
   "door-hardware": {
     image: "/images/door-hardware-hero.png",
@@ -138,6 +140,7 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
               imageSrc={media.image}
               imageAlt={media.alt}
               caption={media.caption}
+              chapters={media.chapters}
             />
           </Reveal>
         </Container>
