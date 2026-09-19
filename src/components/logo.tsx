@@ -20,5 +20,5 @@ export function Logo({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
-  return <span className={cn("font-logo", SIZES[size], className)}>AAKAR</span>;
+  return <span className={cn("font-logo", SIZES[size], className)}>FLOW</span>;
 }

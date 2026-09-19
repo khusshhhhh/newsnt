@@ -82,7 +82,7 @@ export default async function AdminDashboardPage() {
         <div>
           <h1 className="font-heading text-2xl text-foreground">Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage the Aakar catalog.
+            Manage the Flow catalog.
             {(draftCount ?? 0) > 0 && ` ${draftCount} product${draftCount === 1 ? "" : "s"} still in draft.`}
           </p>
         </div>

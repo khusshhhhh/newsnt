@@ -60,7 +60,7 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
     name: product.name,
     sku: product.sku ?? undefined,
     image: product.product_images.map((img) => productImageUrl(img.storage_path)),
-    brand: { "@type": "Brand", name: "Aakar" },
+    brand: { "@type": "Brand", name: "Flow" },
     ...(product.price != null && {
       offers: {
         "@type": "Offer",

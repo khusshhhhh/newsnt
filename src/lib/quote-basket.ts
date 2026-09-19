@@ -5,7 +5,7 @@ import type { Department } from "@/lib/department";
 
 export type QuoteBasketItem = { id: string; name: string; slug: string; department: Department };
 
-const STORAGE_KEY = "aakar-quote-basket";
+const STORAGE_KEY = "flow-quote-basket";
 const CHANGE_EVENT = "quote-basket-changed";
 const EMPTY: QuoteBasketItem[] = [];
 

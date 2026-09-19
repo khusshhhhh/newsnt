@@ -74,7 +74,7 @@ export async function generateMetadata({
   if (!isDepartment(department)) return {};
   return {
     title: `About — ${departmentCopy(department).label}`,
-    description: "The people and the philosophy behind Aakar.",
+    description: "The people and the philosophy behind Flow.",
   };
 }
 
@@ -107,7 +107,7 @@ export default async function AboutPage({ params }: { params: Promise<Params> })
         <Container className="relative flex flex-col gap-6 py-20 md:py-28">
           <Reveal>
             <span className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-              About Aakar
+              About Flow
             </span>
           </Reveal>
           <Reveal delay={0.08}>
@@ -117,7 +117,7 @@ export default async function AboutPage({ params }: { params: Promise<Params> })
           </Reveal>
           <Reveal delay={0.16}>
             <p className="max-w-xl text-base text-muted-foreground sm:text-lg">
-              Aakar started as a disagreement about how a bathroom should feel — and turned into{" "}
+              Flow started as a disagreement about how a bathroom should feel — and turned into{" "}
               {copy.label.toLowerCase()} and door hardware built to the same standard.
             </p>
           </Reveal>

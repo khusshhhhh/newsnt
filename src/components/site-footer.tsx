@@ -113,7 +113,7 @@ export function SiteFooter({
         </div>
 
         <div className="mt-24 flex flex-col gap-3 border-t border-background/10 pt-8 text-xs text-background/40 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Aakar. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Flow. All rights reserved.</p>
           <Link href="/" className="transition-colors hover:text-background">
             Home
           </Link>

@@ -1,6 +1,6 @@
-# Aakar catalog
+# Flow catalog
 
-Next.js (App Router) storefront + admin panel for Aakar's two product lines —
+Next.js (App Router) storefront + admin panel for Flow's two product lines —
 tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage, Auth).
 
 ## Stack

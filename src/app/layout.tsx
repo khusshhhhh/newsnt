@@ -32,13 +32,13 @@ const satoshi = localFont({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Aakar",
-    template: "%s | Aakar",
+    default: "Flow",
+    template: "%s | Flow",
   },
   description:
-    "Aakar tapware and sanitaryware — basin mixers, kitchen mixers, taps and showers across six design series.",
+    "Flow tapware and sanitaryware — basin mixers, kitchen mixers, taps and showers across six design series.",
   openGraph: {
-    siteName: "Aakar",
+    siteName: "Flow",
     type: "website",
     locale: "en_IN",
   },

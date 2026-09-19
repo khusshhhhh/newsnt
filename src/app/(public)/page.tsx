@@ -6,7 +6,7 @@ import { GatewayPanels, type GatewayPanelData } from "@/components/gateway-panel
 import { Logo } from "@/components/logo";
 
 export const metadata: Metadata = {
-  title: "Aakar — Tapware, Sanitaryware & Door Hardware",
+  title: "Flow — Tapware, Sanitaryware & Door Hardware",
 };
 
 // Static fallbacks for departments with no admin-uploaded hero yet — AI-generated
