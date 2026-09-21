@@ -57,6 +57,7 @@ create policy "admins write variants"
   with check (exists (select 1 from admins where user_id = auth.uid()));
 
 drop policy if exists "authenticated manage media bucket" on storage.objects;
+drop policy if exists "admins manage media bucket" on storage.objects;
 create policy "admins manage media bucket"
   on storage.objects for all
   to authenticated

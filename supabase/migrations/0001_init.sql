@@ -136,11 +136,13 @@ insert into storage.buckets (id, name, public)
 values ('media', 'media', true)
 on conflict (id) do nothing;
 
+drop policy if exists "public read media bucket" on storage.objects;
 create policy "public read media bucket"
   on storage.objects for select
   to anon
   using (bucket_id = 'media');
 
+drop policy if exists "authenticated manage media bucket" on storage.objects;
 create policy "authenticated manage media bucket"
   on storage.objects for all
   to authenticated

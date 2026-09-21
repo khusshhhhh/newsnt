@@ -12,6 +12,7 @@ create policy "admins write resources"
   with check (exists (select 1 from admins where user_id = auth.uid()));
 
 drop policy if exists "authenticated manage documents bucket" on storage.objects;
+drop policy if exists "admins manage documents bucket" on storage.objects;
 create policy "admins manage documents bucket"
   on storage.objects for all
   to authenticated
