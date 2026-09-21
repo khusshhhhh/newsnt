@@ -7,8 +7,11 @@ import { slugify } from "@/lib/slugify";
 import { computeVariantSku } from "@/lib/colors";
 import { logActivity } from "@/lib/data/activity";
 import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
+import type { StockStatus } from "@/lib/supabase/types";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+const STOCK_STATUSES: StockStatus[] = ["in_stock", "made_to_order", "out_of_stock", "discontinued"];
 
 const productSchema = z.object({
   department: departmentSchema,
@@ -122,6 +125,56 @@ export async function deleteProduct(id: string) {
     entity_id: id,
     entity_name: product?.name,
   });
+  revalidateCatalog();
+  revalidatePath("/admin/products");
+  revalidatePath("/", "layout");
+}
+
+export async function updateProductPrice(id: string, price: number | null) {
+  if (price != null && (!Number.isFinite(price) || price < 0)) {
+    throw new Error("Enter a valid price");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .update({ price })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  revalidateCatalog();
+  revalidatePath("/admin/products");
+  revalidatePath("/", "layout");
+  return data;
+}
+
+export async function updateProductStockStatus(id: string, stockStatus: StockStatus) {
+  if (!STOCK_STATUSES.includes(stockStatus)) {
+    throw new Error("Invalid stock status");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .update({ stock_status: stockStatus })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  revalidateCatalog();
+  revalidatePath("/admin/products");
+  revalidatePath("/", "layout");
+  return data;
+}
+
+export async function updateProductFeatured(id: string, isFeatured: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("products").update({ is_featured: isFeatured }).eq("id", id);
+  if (error) throw new Error(error.message);
+
   revalidateCatalog();
   revalidatePath("/admin/products");
   revalidatePath("/", "layout");
