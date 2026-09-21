@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import { documentUrl } from "@/lib/supabase/storage";
 import { getDefaultVariant } from "@/lib/colors";
-import { useQuoteBasket } from "@/lib/quote-basket";
+import { basketKey, useQuoteBasket } from "@/lib/quote-basket";
 import { departmentCopy } from "@/lib/department";
 import { STOCK_STATUS_LABEL } from "@/lib/stock-status";
 import { ProductGallery } from "@/components/product-gallery";
@@ -46,8 +46,11 @@ export function ProductDetail({
   const hasSpecs = Boolean(sku) || specs.length > 0;
   const resources = product.resources ?? [];
   const quoteBasket = useQuoteBasket();
-  const inBasket = quoteBasket.has(product.id);
-  const quantityInBasket = quoteBasket.quantityOf(product.id);
+  // Keyed by product + the currently selected colour, so the same product
+  // in a different colour is tracked (and quoted) as its own line.
+  const currentKey = basketKey(product.id, selectedVariant?.id ?? null);
+  const inBasket = quoteBasket.has(currentKey);
+  const quantityInBasket = quoteBasket.quantityOf(currentKey);
   const stockStatus = selectedVariant?.stock_status ?? product.stock_status;
 
   const enquiryMessage = `Hi, I'd like to know more about ${product.name}${
@@ -56,13 +59,17 @@ export function ProductDetail({
 
   function addToQuote() {
     const { replaced } = quoteBasket.addItem({
-      id: product.id,
+      productId: product.id,
       name: product.name,
       slug: product.slug,
       department: product.department,
+      variantId: selectedVariant?.id ?? null,
+      variantLabel: selectedVariant?.color_name ?? null,
     });
     if (replaced) {
       toast.info(`Started a new quote request for ${departmentCopy(product.department).label}.`);
+    } else if (selectedVariant) {
+      toast.success(`Added ${selectedVariant.color_name} to your quote request.`);
     } else {
       toast.success("Added to your quote request.");
     }
@@ -115,7 +122,7 @@ export function ProductDetail({
                 <div className="flex items-center gap-1 rounded-full border border-border px-1.5 py-1.5">
                   <button
                     type="button"
-                    onClick={() => quoteBasket.setQuantity(product.id, quantityInBasket - 1)}
+                    onClick={() => quoteBasket.setQuantity(currentKey, quantityInBasket - 1)}
                     aria-label="Decrease quantity in quote request"
                     className="flex size-7 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
                   >
@@ -126,12 +133,7 @@ export function ProductDetail({
                   </span>
                   <button
                     type="button"
-                    onClick={() => quoteBasket.addItem({
-                      id: product.id,
-                      name: product.name,
-                      slug: product.slug,
-                      department: product.department,
-                    })}
+                    onClick={addToQuote}
                     aria-label="Increase quantity in quote request"
                     className="flex size-7 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
                   >

@@ -372,7 +372,12 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      check_inquiry_rate_limit: {
+        Args: { p_identifier: string; p_max_count: number; p_window_seconds: number };
+        Returns: boolean;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

@@ -3,27 +3,62 @@
 import { useCallback, useSyncExternalStore } from "react";
 import type { Department } from "@/lib/department";
 
+/**
+ * One line in the quote basket. Keyed by product + variant together (see
+ * `basketKey`) so the same product can appear more than once — e.g. "Lotus
+ * Basin Mixer" in Matte Black and again in Brushed Gold — each with its own
+ * quantity. `variantId`/`variantLabel` are null for products with no colour
+ * variants.
+ */
 export type QuoteBasketItem = {
-  id: string;
+  key: string;
+  productId: string;
+  variantId: string | null;
+  variantLabel: string | null;
   name: string;
   slug: string;
   department: Department;
   quantity: number;
 };
 
+type StoredItem = Partial<QuoteBasketItem> & { id?: string };
+
 const STORAGE_KEY = "flow-quote-basket";
 const CHANGE_EVENT = "quote-basket-changed";
 const EMPTY: QuoteBasketItem[] = [];
 const MAX_QUANTITY = 99;
+
+export function basketKey(productId: string, variantId?: string | null) {
+  return variantId ? `${productId}::${variantId}` : productId;
+}
 
 function readFromStorage(): QuoteBasketItem[] {
   if (typeof window === "undefined") return EMPTY;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return EMPTY;
-    const parsed = JSON.parse(raw) as (QuoteBasketItem | Omit<QuoteBasketItem, "quantity">)[];
-    // Older baskets saved before quantities existed have no `quantity` field — treat as 1.
-    return parsed.map((item) => ({ ...item, quantity: "quantity" in item ? item.quantity : 1 }));
+    const parsed = JSON.parse(raw) as StoredItem[];
+    // Older baskets saved before quantities/variants existed only had
+    // `id` (the product id) and no `quantity` — normalize those in place
+    // so a returning visitor's basket keeps working after this update.
+    return parsed
+      .filter((item): item is StoredItem & { name: string; slug: string; department: Department } =>
+        Boolean(item && (item.productId ?? item.id) && item.name && item.slug && item.department)
+      )
+      .map((item) => {
+        const productId = item.productId ?? item.id!;
+        const variantId = item.variantId ?? null;
+        return {
+          key: item.key ?? basketKey(productId, variantId),
+          productId,
+          variantId,
+          variantLabel: item.variantLabel ?? null,
+          name: item.name,
+          slug: item.slug,
+          department: item.department,
+          quantity: item.quantity ?? 1,
+        };
+      });
   } catch {
     return EMPTY;
   }
@@ -65,6 +100,15 @@ function getServerSnapshot() {
   return EMPTY;
 }
 
+export type AddQuoteBasketItem = {
+  productId: string;
+  name: string;
+  slug: string;
+  department: Department;
+  variantId?: string | null;
+  variantLabel?: string | null;
+};
+
 /**
  * A visitor's running list of products for one combined "get a quote"
  * request, kept in localStorage since there are no customer accounts — it
@@ -73,40 +117,53 @@ function getServerSnapshot() {
  * adding a product from a different department starts a fresh basket
  * rather than mixing the two, since one inquiry submission carries a
  * single `department` value. The same product can be added more than
- * once; repeat adds just bump its quantity.
+ * once, including in a different colour/variant — each product+variant
+ * combination is its own line with its own quantity.
  */
 export function useQuoteBasket() {
   const items = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  const addItem = useCallback((item: Omit<QuoteBasketItem, "quantity">, quantity = 1) => {
+  const addItem = useCallback((item: AddQuoteBasketItem, quantity = 1) => {
     const current = readFromStorage();
     const replaced = current.length > 0 && current[0].department !== item.department;
     const base = replaced ? [] : current;
-    const existing = base.find((i) => i.id === item.id);
+    const variantId = item.variantId ?? null;
+    const key = basketKey(item.productId, variantId);
+    const existing = base.find((i) => i.key === key);
     const next = existing
       ? base.map((i) =>
-          i.id === item.id
-            ? { ...i, quantity: Math.min(MAX_QUANTITY, i.quantity + quantity) }
-            : i
+          i.key === key ? { ...i, quantity: Math.min(MAX_QUANTITY, i.quantity + quantity) } : i
         )
-      : [...base, { ...item, quantity: Math.min(MAX_QUANTITY, Math.max(1, quantity)) }];
+      : [
+          ...base,
+          {
+            key,
+            productId: item.productId,
+            variantId,
+            variantLabel: item.variantLabel ?? null,
+            name: item.name,
+            slug: item.slug,
+            department: item.department,
+            quantity: Math.min(MAX_QUANTITY, Math.max(1, quantity)),
+          },
+        ];
     writeBasket(next);
     return { replaced };
   }, []);
 
-  const removeItem = useCallback((id: string) => {
-    writeBasket(readFromStorage().filter((i) => i.id !== id));
+  const removeItem = useCallback((key: string) => {
+    writeBasket(readFromStorage().filter((i) => i.key !== key));
   }, []);
 
-  const setQuantity = useCallback((id: string, quantity: number) => {
+  const setQuantity = useCallback((key: string, quantity: number) => {
     const clamped = Math.round(quantity);
     if (clamped <= 0) {
-      writeBasket(readFromStorage().filter((i) => i.id !== id));
+      writeBasket(readFromStorage().filter((i) => i.key !== key));
       return;
     }
     writeBasket(
       readFromStorage().map((i) =>
-        i.id === id ? { ...i, quantity: Math.min(MAX_QUANTITY, clamped) } : i
+        i.key === key ? { ...i, quantity: Math.min(MAX_QUANTITY, clamped) } : i
       )
     );
   }, []);
@@ -119,8 +176,8 @@ export function useQuoteBasket() {
     removeItem,
     setQuantity,
     clear,
-    has: (id: string) => items.some((i) => i.id === id),
-    quantityOf: (id: string) => items.find((i) => i.id === id)?.quantity ?? 0,
+    has: (key: string) => items.some((i) => i.key === key),
+    quantityOf: (key: string) => items.find((i) => i.key === key)?.quantity ?? 0,
     totalQuantity: items.reduce((sum, i) => sum + i.quantity, 0),
   };
 }

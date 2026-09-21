@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { DEPARTMENTS } from "@/lib/department";
 import { sendEmail } from "@/lib/email";
@@ -23,54 +23,39 @@ export type InquiryState = { error?: string; success?: boolean };
 const HONEYPOT_FIELD = "company";
 const MIN_SUBMIT_MS = 1200;
 
-// Per-browser submission cap so a script can't loop the form indefinitely.
-// Cookie-based rather than IP-based since this app has no server-side store
-// for that; a real visitor filling out a form by hand will never get close
-// to the limit.
-const RATE_LIMIT_COOKIE = "flow_inquiry_rl";
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+// Per-IP submission cap enforced server-side via the check_inquiry_rate_limit
+// Postgres function (see supabase/migrations/0024_inquiry_rate_limits.sql) —
+// unlike a cookie, this can't be reset by the visitor just clearing their
+// browser storage. A real person filling out the form by hand will never
+// get close to the limit.
+const RATE_LIMIT_WINDOW_SECONDS = 10 * 60;
 const RATE_LIMIT_MAX = 5;
 
-async function checkAndBumpRateLimit(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const raw = cookieStore.get(RATE_LIMIT_COOKIE)?.value;
-  const now = Date.now();
-
-  let count = 0;
-  let windowStart = now;
-  if (raw) {
-    const [countStr, startStr] = raw.split(":");
-    const parsedCount = Number(countStr);
-    const parsedStart = Number(startStr);
-    if (
-      Number.isFinite(parsedCount) &&
-      Number.isFinite(parsedStart) &&
-      now - parsedStart < RATE_LIMIT_WINDOW_MS
-    ) {
-      count = parsedCount;
-      windowStart = parsedStart;
-    }
-  }
-
-  if (count >= RATE_LIMIT_MAX) return false;
-
-  cookieStore.set(RATE_LIMIT_COOKIE, `${count + 1}:${windowStart}`, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: RATE_LIMIT_WINDOW_MS / 1000,
-    path: "/",
-  });
-  return true;
+async function clientIdentifier(): Promise<string> {
+  const headersList = await headers();
+  const forwardedFor = headersList.get("x-forwarded-for");
+  if (forwardedFor) return forwardedFor.split(",")[0].trim();
+  return headersList.get("x-real-ip") ?? "unknown";
 }
 
 export async function submitInquiry(
   _prevState: InquiryState | null,
   formData: FormData
 ): Promise<InquiryState> {
-  const withinLimit = await checkAndBumpRateLimit();
-  if (!withinLimit) {
-    return { error: "Too many requests from this browser — please try again in a few minutes." };
+  const supabase = await createClient();
+
+  const { data: withinLimit, error: rateLimitError } = await supabase.rpc(
+    "check_inquiry_rate_limit",
+    {
+      p_identifier: await clientIdentifier(),
+      p_max_count: RATE_LIMIT_MAX,
+      p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
+    }
+  );
+  // A rate-limit check failure (e.g. transient DB error) fails open — we'd
+  // rather risk a little spam than block a real customer's request.
+  if (!rateLimitError && withinLimit === false) {
+    return { error: "Too many requests from this network — please try again in a few minutes." };
   }
 
   // Bots tend to fill every field and submit instantly — a filled honeypot
@@ -103,7 +88,6 @@ export async function submitInquiry(
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
 
-  const supabase = await createClient();
   const { error } = await supabase.from("inquiries").insert({
     department: parsed.data.department,
     product_ids: parsed.data.product_ids ?? null,

@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ClipboardList, Minus, Plus, X } from "lucide-react";
-import { useQuoteBasket } from "@/lib/quote-basket";
+import { useQuoteBasket, type QuoteBasketItem } from "@/lib/quote-basket";
 import { submitInquiry } from "@/lib/actions/inquiries";
 import { productHref, type Department } from "@/lib/department";
 import {
@@ -21,6 +21,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { HoneypotField } from "@/components/honeypot-field";
 import { cn } from "@/lib/utils";
+
+// The `inquiries.product_ids` column only knows product ids, not
+// colour/variant — so the auto-filled message spells out each line
+// ("Lotus Basin Mixer (Matte Black) × 3") to carry that detail to staff
+// without a schema change.
+function defaultQuoteMessage(items: QuoteBasketItem[]) {
+  const lines = items.map(
+    (item) => `- ${item.name}${item.variantLabel ? ` (${item.variantLabel})` : ""} × ${item.quantity}`
+  );
+  return `Hi, I'd like a quote for:\n${lines.join("\n")}`;
+}
 
 /** Header trigger for the running multi-product quote request (see quote-basket.ts). */
 export function QuoteBasketButton({ department }: { department: Department }) {
@@ -52,7 +63,9 @@ export function QuoteBasketButton({ department }: { department: Department }) {
   // Repeating a product's id per unit lets the same `inquiries.product_ids`
   // column carry quantity without a schema change — the admin panel counts
   // occurrences back out to show "× 3" per product.
-  const expandedProductIds = basket.items.flatMap((item) => Array(item.quantity).fill(item.id));
+  const expandedProductIds = basket.items.flatMap((item) =>
+    Array(item.quantity).fill(item.productId)
+  );
 
   return (
     <Dialog
@@ -83,21 +96,26 @@ export function QuoteBasketButton({ department }: { department: Department }) {
         <ul className="flex flex-col gap-2">
           {basket.items.map((item) => (
             <li
-              key={item.id}
+              key={item.key}
               className="flex items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm"
             >
               <Link
                 href={productHref(item)}
                 onClick={() => setOpen(false)}
-                className="min-w-0 flex-1 truncate text-foreground hover:underline"
+                className="min-w-0 flex-1 text-foreground hover:underline"
               >
-                {item.name}
+                <span className="block truncate">{item.name}</span>
+                {item.variantLabel && (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {item.variantLabel}
+                  </span>
+                )}
               </Link>
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => basket.setQuantity(item.id, item.quantity - 1)}
-                  aria-label={`Decrease quantity of ${item.name}`}
+                  onClick={() => basket.setQuantity(item.key, item.quantity - 1)}
+                  aria-label={`Decrease quantity of ${item.name}${item.variantLabel ? ` in ${item.variantLabel}` : ""}`}
                   className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   <Minus className="size-3" />
@@ -107,16 +125,16 @@ export function QuoteBasketButton({ department }: { department: Department }) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => basket.setQuantity(item.id, item.quantity + 1)}
-                  aria-label={`Increase quantity of ${item.name}`}
+                  onClick={() => basket.setQuantity(item.key, item.quantity + 1)}
+                  aria-label={`Increase quantity of ${item.name}${item.variantLabel ? ` in ${item.variantLabel}` : ""}`}
                   className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   <Plus className="size-3" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => basket.removeItem(item.id)}
-                  aria-label={`Remove ${item.name} from quote request`}
+                  onClick={() => basket.removeItem(item.key)}
+                  aria-label={`Remove ${item.name}${item.variantLabel ? ` in ${item.variantLabel}` : ""} from quote request`}
                   className="ml-1 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-3.5" />
@@ -148,8 +166,8 @@ export function QuoteBasketButton({ department }: { department: Department }) {
               id="quote-message"
               name="message"
               required
-              rows={3}
-              defaultValue={`Hi, I'd like a quote for ${basket.totalQuantity} item${basket.totalQuantity === 1 ? "" : "s"} across ${basket.items.length} product${basket.items.length === 1 ? "" : "s"}.`}
+              rows={Math.min(8, basket.items.length + 2)}
+              defaultValue={defaultQuoteMessage(basket.items)}
             />
           </div>
           <Button type="submit" disabled={pending} className="mt-2">
