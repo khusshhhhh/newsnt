@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { HoneypotField } from "@/components/honeypot-field";
 
 /**
  * Shared submission form for a single-product "Enquire" or a multi-product
@@ -45,10 +46,12 @@ export function InquiryDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
+  const openedAtRef = useRef(0);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    formData.set("elapsed_ms", String(Date.now() - openedAtRef.current));
     setError(null);
     startTransition(async () => {
       const result = await submitInquiry(null, formData);
@@ -65,7 +68,13 @@ export function InquiryDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) openedAtRef.current = Date.now();
+      }}
+    >
       <DialogTrigger className={triggerClassName}>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
@@ -75,6 +84,7 @@ export function InquiryDialog({
         <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input type="hidden" name="department" value={department} />
           <input type="hidden" name="product_ids" value={productIds.join(",")} />
+          <HoneypotField />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="inquiry-name">Name</Label>
             <Input id="inquiry-name" name="name" required autoComplete="name" />

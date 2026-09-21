@@ -53,9 +53,18 @@ function InquiryRow({
     });
   }
 
-  const referencedProducts = (inquiry.product_ids ?? [])
-    .map((id) => productsById.get(id))
-    .filter((p): p is ProductRef => Boolean(p));
+  // product_ids repeats an id once per unit requested (see
+  // quote-basket-button.tsx), so tally occurrences back into a quantity.
+  const quantitiesById = new Map<string, number>();
+  for (const id of inquiry.product_ids ?? []) {
+    quantitiesById.set(id, (quantitiesById.get(id) ?? 0) + 1);
+  }
+  const referencedProducts = Array.from(quantitiesById.entries())
+    .map(([id, quantity]) => {
+      const product = productsById.get(id);
+      return product ? { ...product, quantity } : null;
+    })
+    .filter((p): p is ProductRef & { quantity: number } => Boolean(p));
 
   return (
     <li className="rounded-xl border border-border p-4">
@@ -103,6 +112,7 @@ function InquiryRow({
               className="rounded-full border border-border/60 px-2.5 py-1 text-xs text-muted-foreground hover:border-foreground/30 hover:text-foreground"
             >
               {p.name}
+              {p.quantity > 1 ? ` × ${p.quantity}` : ""}
             </Link>
           ))}
         </div>

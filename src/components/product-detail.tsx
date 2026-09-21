@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { Download, FileText, Mail, Plus } from "lucide-react";
+import { Download, FileText, Mail, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import { documentUrl } from "@/lib/supabase/storage";
@@ -47,6 +47,7 @@ export function ProductDetail({
   const resources = product.resources ?? [];
   const quoteBasket = useQuoteBasket();
   const inBasket = quoteBasket.has(product.id);
+  const quantityInBasket = quoteBasket.quantityOf(product.id);
   const stockStatus = selectedVariant?.stock_status ?? product.stock_status;
 
   const enquiryMessage = `Hi, I'd like to know more about ${product.name}${
@@ -110,15 +111,43 @@ export function ProductDetail({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={addToQuote}
-                disabled={inBasket}
-                className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-              >
-                <Plus className="size-4" />
-                {inBasket ? "In quote" : "Add to quote"}
-              </button>
+              {inBasket ? (
+                <div className="flex items-center gap-1 rounded-full border border-border px-1.5 py-1.5">
+                  <button
+                    type="button"
+                    onClick={() => quoteBasket.setQuantity(product.id, quantityInBasket - 1)}
+                    aria-label="Decrease quantity in quote request"
+                    className="flex size-7 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
+                  >
+                    <Minus className="size-3.5" />
+                  </button>
+                  <span className="w-6 text-center text-sm font-semibold tabular-nums text-foreground">
+                    {quantityInBasket}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => quoteBasket.addItem({
+                      id: product.id,
+                      name: product.name,
+                      slug: product.slug,
+                      department: product.department,
+                    })}
+                    aria-label="Increase quantity in quote request"
+                    className="flex size-7 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
+                  >
+                    <Plus className="size-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={addToQuote}
+                  className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                >
+                  <Plus className="size-4" />
+                  Add to quote
+                </button>
+              )}
               <InquiryDialog
                 department={product.department}
                 productIds={[product.id]}
