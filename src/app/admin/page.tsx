@@ -1,6 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Image as ImageIcon, Inbox, Layers, Package, Plus, Star, Tags, Users } from "lucide-react";
+import {
+  Image as ImageIcon,
+  Inbox,
+  Layers,
+  Package,
+  Plus,
+  Star,
+  Tags,
+  Users,
+  ClipboardList,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +29,7 @@ export default async function AdminDashboardPage() {
     { count: draftCount },
     { count: openInquiryCount },
     { count: customerCount },
+    { count: openOrderCount },
     { count: pendingReviewCount },
     { count: pendingPhotoCount },
     { data: recentProducts },
@@ -36,6 +47,10 @@ export default async function AdminDashboardPage() {
       .select("*", { count: "exact", head: true })
       .eq("status", "new"),
     supabase.from("customers").select("*", { count: "exact", head: true }),
+    supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .not("status", "in", "(delivered,cancelled)"),
     supabase
       .from("reviews")
       .select("*", { count: "exact", head: true })
@@ -69,6 +84,12 @@ export default async function AdminDashboardPage() {
       count: customerCount ?? 0,
       href: "/admin/customers",
       icon: Users,
+    },
+    {
+      label: "Open orders",
+      count: openOrderCount ?? 0,
+      href: "/admin/orders",
+      icon: ClipboardList,
     },
     {
       label: "Reviews to moderate",

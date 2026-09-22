@@ -13,6 +13,7 @@ import {
   Star,
   Image as ImageIcon,
   Users,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ const links = [
   { href: "/admin/finishes", label: "Finishes", icon: Palette },
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/inquiries", label: "Inquiries", icon: Inbox },
+  { href: "/admin/orders", label: "Orders", icon: ClipboardList },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/photos", label: "Photos", icon: ImageIcon },
   { href: "/admin/activity", label: "Activity", icon: History },

@@ -6,10 +6,23 @@ import { FileDown, Loader2 } from "lucide-react";
 import { downloadStoredQuotePdf } from "@/lib/actions/admin/quotes";
 import { downloadBase64File } from "@/lib/download-file";
 import { Button } from "@/components/ui/button";
+import { OrderDialog } from "@/components/admin/order-dialog";
+import { editableLinesFromQuoteItems } from "@/components/admin/line-item-editor";
 import { formatPrice } from "@/lib/format";
+import type { Department } from "@/lib/department";
 import type { Quote } from "@/lib/supabase/types";
 
-export function QuoteHistory({ quotes }: { quotes: Quote[] }) {
+export function QuoteHistory({
+  quotes,
+  customerId,
+  customerName,
+  department,
+}: {
+  quotes: Quote[];
+  customerId: string;
+  customerName: string;
+  department: Department | null;
+}) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -36,7 +49,7 @@ export function QuoteHistory({ quotes }: { quotes: Quote[] }) {
       {quotes.map((quote) => (
         <li
           key={quote.id}
-          className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5"
         >
           <div className="min-w-0">
             <p className="text-sm text-foreground">{quote.quote_number}</p>
@@ -45,21 +58,33 @@ export function QuoteHistory({ quotes }: { quotes: Quote[] }) {
               {formatPrice(quote.total)} · {new Date(quote.sent_at).toLocaleString()}
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="shrink-0 gap-1.5"
-            disabled={downloadingId === quote.id}
-            onClick={() => download(quote)}
-          >
-            {downloadingId === quote.id ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <FileDown className="size-3.5" />
+          <div className="flex shrink-0 items-center gap-2">
+            {department && (
+              <OrderDialog
+                customerId={customerId}
+                customerName={customerName}
+                department={department}
+                quoteId={quote.id}
+                inquiryId={quote.inquiry_id}
+                lines={editableLinesFromQuoteItems(quote.items)}
+              />
             )}
-            PDF
-          </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={downloadingId === quote.id}
+              onClick={() => download(quote)}
+            >
+              {downloadingId === quote.id ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <FileDown className="size-3.5" />
+              )}
+              PDF
+            </Button>
+          </div>
         </li>
       ))}
     </ul>

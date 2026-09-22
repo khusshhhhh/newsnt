@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { InquiryList } from "@/components/admin/inquiry-list";
+import { PipelineBoard } from "@/components/admin/pipeline-board";
 import { cn } from "@/lib/utils";
 import type { InquiryStatus } from "@/lib/supabase/types";
 
 const STATUSES: InquiryStatus[] = ["new", "contacted", "quoted", "won", "lost"];
+type View = "list" | "board";
 
 function isStatus(value: string): value is InquiryStatus {
   return (STATUSES as string[]).includes(value);
@@ -14,13 +16,21 @@ function statusHref(status?: InquiryStatus) {
   return status ? `/admin/inquiries?status=${status}` : "/admin/inquiries";
 }
 
+function viewHref(view: View) {
+  return view === "board" ? "/admin/inquiries?view=board" : "/admin/inquiries";
+}
+
 export default async function AdminInquiriesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; view?: string }>;
 }) {
-  const { status: rawStatus } = await searchParams;
-  const status: InquiryStatus | undefined = rawStatus && isStatus(rawStatus) ? rawStatus : undefined;
+  const { status: rawStatus, view: rawView } = await searchParams;
+  const view: View = rawView === "board" ? "board" : "list";
+  // The board shows every stage side by side, so a single-status filter
+  // doesn't apply there — only the list view honours it.
+  const status: InquiryStatus | undefined =
+    view === "list" && rawStatus && isStatus(rawStatus) ? rawStatus : undefined;
 
   const supabase = await createClient();
   let query = supabase.from("inquiries").select("*").order("created_at", { ascending: false });
@@ -44,36 +54,60 @@ export default async function AdminInquiriesPage({
 
   return (
     <div>
-      <h1 className="font-heading text-2xl text-foreground">Inquiries</h1>
-
-      <div className="mt-4 flex gap-1 rounded-full border border-border p-1 text-sm w-fit">
-        {(
-          [
-            { label: "All", value: undefined },
-            { label: "New", value: "new" as const },
-            { label: "Contacted", value: "contacted" as const },
-            { label: "Quoted", value: "quoted" as const },
-            { label: "Won", value: "won" as const },
-            { label: "Lost", value: "lost" as const },
-          ] satisfies { label: string; value: InquiryStatus | undefined }[]
-        ).map((tab) => (
-          <Link
-            key={tab.label}
-            href={statusHref(tab.value)}
-            className={cn(
-              "rounded-full px-3 py-1.5 transition-colors",
-              status === tab.value
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </Link>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-heading text-2xl text-foreground">Inquiries</h1>
+        <div className="flex gap-1 rounded-full border border-border p-1 text-sm">
+          {(["list", "board"] as const).map((v) => (
+            <Link
+              key={v}
+              href={viewHref(v)}
+              className={cn(
+                "rounded-full px-3 py-1.5 capitalize transition-colors",
+                view === v
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {v}
+            </Link>
+          ))}
+        </div>
       </div>
 
+      {view === "list" && (
+        <div className="mt-4 flex gap-1 rounded-full border border-border p-1 text-sm w-fit">
+          {(
+            [
+              { label: "All", value: undefined },
+              { label: "New", value: "new" as const },
+              { label: "Contacted", value: "contacted" as const },
+              { label: "Quoted", value: "quoted" as const },
+              { label: "Won", value: "won" as const },
+              { label: "Lost", value: "lost" as const },
+            ] satisfies { label: string; value: InquiryStatus | undefined }[]
+          ).map((tab) => (
+            <Link
+              key={tab.label}
+              href={statusHref(tab.value)}
+              className={cn(
+                "rounded-full px-3 py-1.5 transition-colors",
+                status === tab.value
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="mt-6">
-        <InquiryList inquiries={inquiries ?? []} products={products ?? []} />
+        {view === "board" ? (
+          <PipelineBoard inquiries={inquiries ?? []} products={products ?? []} />
+        ) : (
+          <InquiryList inquiries={inquiries ?? []} products={products ?? []} />
+        )}
       </div>
     </div>
   );

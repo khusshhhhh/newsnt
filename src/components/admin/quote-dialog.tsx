@@ -13,38 +13,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  LineItemEditor,
+  editableLinesFromResolved,
+  includedLines,
+  toQuoteLineItems,
+  type EditableLine,
+} from "@/components/admin/line-item-editor";
 import { previewQuotePdf, sendQuotePdf } from "@/lib/actions/admin/quotes";
-import { formatPrice } from "@/lib/format";
 import { downloadBase64File } from "@/lib/download-file";
 import { cn } from "@/lib/utils";
 import type { ResolvedInquiryLine } from "@/lib/inquiry-lines";
-
-type EditableLine = {
-  key: string;
-  include: boolean;
-  name: string;
-  variantLabel: string | null;
-  sku: string | null;
-  seriesName: string | null;
-  quantity: number;
-  unitPrice: number | null;
-};
-
-function toEditableLines(lines: ResolvedInquiryLine[]): EditableLine[] {
-  return lines.map((line, i) => ({
-    key: `${line.productId}-${line.variantId ?? "base"}-${i}`,
-    include: true,
-    name: line.name,
-    variantLabel: line.variantLabel,
-    sku: line.sku,
-    seriesName: line.seriesName,
-    quantity: line.quantity,
-    unitPrice: line.unitPrice,
-  }));
-}
 
 /**
  * Lets an admin review/adjust the products an inquiry referenced (quantity,
@@ -63,36 +44,17 @@ export function QuoteDialog({
   lines: ResolvedInquiryLine[];
 }) {
   const [open, setOpen] = useState(false);
-  const [lines, setLines] = useState<EditableLine[]>(() => toEditableLines(initialLines));
+  const [lines, setLines] = useState<EditableLine[]>(() => editableLinesFromResolved(initialLines));
   const [notes, setNotes] = useState("");
   const [downloading, startDownload] = useTransition();
   const [sending, startSend] = useTransition();
 
-  const includedLines = lines.filter((l) => l.include && l.quantity > 0);
-  const hasPricedLine = includedLines.some((l) => l.unitPrice != null);
-  const total = includedLines.reduce((sum, l) => sum + (l.unitPrice ?? 0) * l.quantity, 0);
-
-  function patchLine(key: string, changes: Partial<EditableLine>) {
-    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...changes } : l)));
-  }
-
   function buildPayload() {
-    return {
-      inquiryId,
-      notes,
-      items: includedLines.map((l) => ({
-        name: l.name,
-        variantLabel: l.variantLabel,
-        sku: l.sku,
-        seriesName: l.seriesName,
-        quantity: l.quantity,
-        unitPrice: l.unitPrice,
-      })),
-    };
+    return { inquiryId, notes, items: toQuoteLineItems(lines) };
   }
 
   function handleDownload() {
-    if (includedLines.length === 0) {
+    if (includedLines(lines).length === 0) {
       toast.error("Include at least one product");
       return;
     }
@@ -107,7 +69,7 @@ export function QuoteDialog({
   }
 
   function handleSend() {
-    if (includedLines.length === 0) {
+    if (includedLines(lines).length === 0) {
       toast.error("Include at least one product");
       return;
     }
@@ -130,7 +92,7 @@ export function QuoteDialog({
       onOpenChange={(next) => {
         setOpen(next);
         if (next) {
-          setLines(toEditableLines(initialLines));
+          setLines(editableLinesFromResolved(initialLines));
           setNotes("");
         }
       }}
@@ -148,73 +110,7 @@ export function QuoteDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto pr-1">
-          {lines.map((line) => (
-            <div
-              key={line.key}
-              className={cn(
-                "flex flex-wrap items-center gap-2.5 rounded-lg border border-border/60 p-2.5",
-                !line.include && "opacity-50"
-              )}
-            >
-              <input
-                type="checkbox"
-                checked={line.include}
-                onChange={(e) => patchLine(line.key, { include: e.target.checked })}
-                className="h-4 w-4 shrink-0 rounded border-input"
-                aria-label={`Include ${line.name} in quote`}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-foreground">
-                  {line.name}
-                  {line.variantLabel ? ` — ${line.variantLabel}` : ""}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {line.seriesName ? `${line.seriesName} · ` : ""}
-                  {line.sku ?? "No SKU"}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <Input
-                  type="number"
-                  min="1"
-                  value={line.quantity}
-                  disabled={!line.include}
-                  onChange={(e) =>
-                    patchLine(line.key, { quantity: Math.max(1, Number(e.target.value) || 1) })
-                  }
-                  className="h-7 w-14 text-xs"
-                  aria-label={`Quantity for ${line.name}`}
-                />
-                <span className="text-xs text-muted-foreground">×</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="On enquiry"
-                  value={line.unitPrice ?? ""}
-                  disabled={!line.include}
-                  onChange={(e) =>
-                    patchLine(line.key, {
-                      unitPrice: e.target.value === "" ? null : Number(e.target.value),
-                    })
-                  }
-                  className="h-7 w-24 text-xs"
-                  aria-label={`Unit price for ${line.name}`}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
-          <span className="text-muted-foreground">
-            {includedLines.length} product{includedLines.length === 1 ? "" : "s"} included
-          </span>
-          <span className="font-medium text-foreground">
-            {formatPrice(hasPricedLine ? total : null)}
-          </span>
-        </div>
+        <LineItemEditor lines={lines} onChange={setLines} />
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="quote-notes">Notes for customer (optional)</Label>

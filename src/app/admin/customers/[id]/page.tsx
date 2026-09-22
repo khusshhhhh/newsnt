@@ -108,7 +108,12 @@ export default async function AdminCustomerPage({ params }: { params: Promise<{ 
             <CardTitle>Quotes sent</CardTitle>
           </CardHeader>
           <CardContent>
-            <QuoteHistory quotes={quotes ?? []} />
+            <QuoteHistory
+              quotes={quotes ?? []}
+              customerId={customer.id}
+              customerName={customer.name}
+              department={customer.department}
+            />
           </CardContent>
         </Card>
 
