@@ -6,9 +6,16 @@ import { createClient } from "@/lib/supabase/server";
 import { DEPARTMENTS } from "@/lib/department";
 import { sendEmail } from "@/lib/email";
 
+const itemSchema = z.object({
+  product_id: z.string().uuid(),
+  variant_id: z.string().uuid().nullable(),
+  quantity: z.coerce.number().int().positive().max(999),
+});
+
 const schema = z.object({
   department: z.enum(DEPARTMENTS),
   product_ids: z.array(z.string().uuid()).optional(),
+  items: z.array(itemSchema).optional(),
   name: z.string().trim().min(1, "Enter your name"),
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
   phone: z.string().trim().optional(),
@@ -73,11 +80,22 @@ export async function submitInquiry(
   }
 
   const productIdsRaw = formData.get("product_ids");
+  const itemsRaw = formData.get("items");
+  let items: unknown;
+  if (typeof itemsRaw === "string" && itemsRaw) {
+    try {
+      items = JSON.parse(itemsRaw);
+    } catch {
+      return { error: "Check the form and try again." };
+    }
+  }
+
   const parsed = schema.safeParse({
     department: formData.get("department"),
     product_ids: typeof productIdsRaw === "string" && productIdsRaw
       ? productIdsRaw.split(",").filter(Boolean)
       : undefined,
+    items,
     name: formData.get("name"),
     email: formData.get("email"),
     phone: formData.get("phone") || undefined,
@@ -88,9 +106,17 @@ export async function submitInquiry(
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
 
+  // `product_ids` (one id repeated per unit) is derived from the structured
+  // `items` when present, so anything still reading the old column — and
+  // rows submitted before `items` existed — keep working unchanged.
+  const productIds = parsed.data.items
+    ? parsed.data.items.flatMap((item) => Array<string>(item.quantity).fill(item.product_id))
+    : (parsed.data.product_ids ?? null);
+
   const { error } = await supabase.from("inquiries").insert({
     department: parsed.data.department,
-    product_ids: parsed.data.product_ids ?? null,
+    product_ids: productIds,
+    items: parsed.data.items ?? null,
     name: parsed.data.name,
     email: parsed.data.email,
     phone: parsed.data.phone ?? null,

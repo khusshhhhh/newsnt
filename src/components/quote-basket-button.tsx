@@ -60,12 +60,18 @@ export function QuoteBasketButton({ department }: { department: Department }) {
 
   if (basket.items.length === 0) return null;
 
-  // Repeating a product's id per unit lets the same `inquiries.product_ids`
-  // column carry quantity without a schema change — the admin panel counts
-  // occurrences back out to show "× 3" per product.
+  // Repeating a product's id per unit lets the legacy `inquiries.product_ids`
+  // column carry quantity without a schema change — kept for anything still
+  // reading it. `items` below is the structured version that also carries
+  // which variant was requested, which `product_ids` alone can't.
   const expandedProductIds = basket.items.flatMap((item) =>
     Array(item.quantity).fill(item.productId)
   );
+  const quoteItems = basket.items.map((item) => ({
+    product_id: item.productId,
+    variant_id: item.variantId,
+    quantity: item.quantity,
+  }));
 
   return (
     <Dialog
@@ -147,6 +153,7 @@ export function QuoteBasketButton({ department }: { department: Department }) {
         <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input type="hidden" name="department" value={department} />
           <input type="hidden" name="product_ids" value={expandedProductIds.join(",")} />
+          <input type="hidden" name="items" value={JSON.stringify(quoteItems)} />
           <HoneypotField />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="quote-name">Name</Label>

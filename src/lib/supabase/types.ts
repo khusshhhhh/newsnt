@@ -121,10 +121,17 @@ export type Finish = {
 
 export type InquiryStatus = "new" | "contacted" | "closed";
 
+export type InquiryItem = {
+  product_id: string;
+  variant_id: string | null;
+  quantity: number;
+};
+
 export type Inquiry = {
   id: string;
   department: Department;
   product_ids: string[] | null;
+  items: InquiryItem[] | null;
   name: string;
   email: string;
   phone: string | null;

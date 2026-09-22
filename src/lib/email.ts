@@ -7,7 +7,12 @@ import { Resend } from "resend";
  * inquiries/reviews/etc. still get written to the DB either way, email is
  * just a notification on top.
  */
-export async function sendEmail(params: { to: string; subject: string; html: string }) {
+export async function sendEmail(params: {
+  to: string;
+  subject: string;
+  html: string;
+  attachments?: { filename: string; content: Buffer }[];
+}) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
 
@@ -25,6 +30,7 @@ export async function sendEmail(params: { to: string; subject: string; html: str
     to: params.to,
     subject: params.subject,
     html: params.html,
+    attachments: params.attachments,
   });
 
   if (error) {

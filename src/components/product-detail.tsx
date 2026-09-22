@@ -153,6 +153,7 @@ export function ProductDetail({
               <InquiryDialog
                 department={product.department}
                 productIds={[product.id]}
+                variantIds={[selectedVariant?.id ?? null]}
                 title={`Enquire about ${product.name}`}
                 defaultMessage={enquiryMessage}
                 triggerClassName="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.98]"

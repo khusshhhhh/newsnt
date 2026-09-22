@@ -28,11 +28,18 @@ export default async function AdminInquiriesPage({
   const { data: inquiries } = await query;
 
   const productIds = Array.from(
-    new Set((inquiries ?? []).flatMap((i) => i.product_ids ?? []))
+    new Set(
+      (inquiries ?? []).flatMap((i) => i.items?.map((item) => item.product_id) ?? i.product_ids ?? [])
+    )
   );
   const { data: products } =
     productIds.length > 0
-      ? await supabase.from("products").select("id, name, slug, department").in("id", productIds)
+      ? await supabase
+          .from("products")
+          .select(
+            "id, name, slug, department, sku, price, series(name), category:categories(name), product_images(storage_path, display_order), variants:product_variants(id, color_name, sku, price)"
+          )
+          .in("id", productIds)
       : { data: [] };
 
   return (

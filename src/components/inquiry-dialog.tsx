@@ -26,6 +26,7 @@ import { HoneypotField } from "@/components/honeypot-field";
 export function InquiryDialog({
   department,
   productIds = [],
+  variantIds,
   title,
   description,
   defaultMessage = "",
@@ -35,6 +36,8 @@ export function InquiryDialog({
 }: {
   department: Department;
   productIds?: string[];
+  /** Selected variant id for each entry in `productIds`, `null` where there's no variant. */
+  variantIds?: (string | null)[];
   title: string;
   description?: string;
   defaultMessage?: string;
@@ -84,6 +87,21 @@ export function InquiryDialog({
         <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input type="hidden" name="department" value={department} />
           <input type="hidden" name="product_ids" value={productIds.join(",")} />
+          <input
+            type="hidden"
+            name="items"
+            value={
+              productIds.length > 0
+                ? JSON.stringify(
+                    productIds.map((product_id, i) => ({
+                      product_id,
+                      variant_id: variantIds?.[i] ?? null,
+                      quantity: 1,
+                    }))
+                  )
+                : ""
+            }
+          />
           <HoneypotField />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="inquiry-name">Name</Label>
