@@ -62,7 +62,7 @@ function InquiryRow({ inquiry, lines }: { inquiry: Inquiry; lines: ResolvedInqui
   const total = lines.reduce((sum, l) => sum + (l.unitPrice ?? 0) * l.quantity, 0);
 
   return (
-    <li className="rounded-xl border border-border p-4">
+    <li className="animate-fade-in rounded-xl border border-border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">

@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { toast } from "sonner";
 import { upsertProduct } from "@/lib/actions/admin/products";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -15,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FormSaveBar } from "@/components/admin/form-save-bar";
+import { useSaveShortcut } from "@/lib/use-save-shortcut";
 import { DEPARTMENTS, departmentCopy, type Department } from "@/lib/department";
-import { cn } from "@/lib/utils";
 import { STOCK_STATUSES, STOCK_STATUS_LABEL } from "@/lib/stock-status";
 import type { Category, Product, ProductSpecs, Series } from "@/lib/supabase/types";
 
@@ -64,6 +66,8 @@ export function ProductForm({
   const router = useRouter();
   const isNew = !product;
   const [state, formAction, pending] = useActionState(upsertProduct, null);
+  const formRef = useRef<HTMLFormElement>(null);
+  useSaveShortcut(formRef);
 
   useEffect(() => {
     if (state && "success" in state && state.success) {
@@ -83,6 +87,9 @@ export function ProductForm({
   const [department, setDepartment] = useState<Department>(initialDepartment);
   const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
   const [seriesId, setSeriesId] = useState(product?.series_id ?? "none");
+  const [stockStatus, setStockStatus] = useState(product?.stock_status ?? "in_stock");
+  const [metaTitle, setMetaTitle] = useState(product?.meta_title ?? "");
+  const [metaDescription, setMetaDescription] = useState(product?.meta_description ?? "");
 
   const categoriesInDepartment = useMemo(
     () => categories.filter((c) => c.department === department),
@@ -108,6 +115,10 @@ export function ProductForm({
     () => ({ none: "None", ...Object.fromEntries(seriesInDepartment.map((s) => [s.id, s.name])) }),
     [seriesInDepartment]
   );
+  const stockStatusItems = useMemo(
+    () => Object.fromEntries(STOCK_STATUSES.map((s) => [s, STOCK_STATUS_LABEL[s]])),
+    []
+  );
 
   function handleDepartmentChange(next: Department | null) {
     if (!next) return;
@@ -121,7 +132,7 @@ export function ProductForm({
   }
 
   return (
-    <form action={formAction} className="flex max-w-2xl flex-col gap-5">
+    <form ref={formRef} action={formAction} className="flex max-w-2xl flex-col gap-5">
       {product && <input type="hidden" name="id" value={product.id} />}
 
       <FormSection
@@ -311,25 +322,32 @@ export function ProductForm({
         description="Optional overrides for the public product page's title and search snippet. Left blank, the page uses the product name and a generated description."
       >
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="meta_title">Meta title</Label>
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="meta_title">Meta title</Label>
+            <span className="text-xs text-muted-foreground">{metaTitle.length}/70</span>
+          </div>
           <Input
             id="meta_title"
             name="meta_title"
             maxLength={70}
-            defaultValue={product?.meta_title ?? ""}
+            value={metaTitle}
+            onChange={(e) => setMetaTitle(e.target.value)}
             placeholder={product?.name ?? "Product name"}
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="meta_description">Meta description</Label>
-          <textarea
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="meta_description">Meta description</Label>
+            <span className="text-xs text-muted-foreground">{metaDescription.length}/160</span>
+          </div>
+          <Textarea
             id="meta_description"
             name="meta_description"
             maxLength={160}
             rows={2}
-            defaultValue={product?.meta_description ?? ""}
+            value={metaDescription}
+            onChange={(e) => setMetaDescription(e.target.value)}
             placeholder="Shown in search results under the title — one or two sentences."
-            className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
         </div>
       </FormSection>
@@ -347,58 +365,48 @@ export function ProductForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="stock_status">Stock status</Label>
-            <select
-              id="stock_status"
+            <Select
               name="stock_status"
-              defaultValue={product?.stock_status ?? "in_stock"}
-              className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              value={stockStatus}
+              onValueChange={(v) => v && setStockStatus(v as typeof stockStatus)}
+              items={stockStatusItems}
             >
-              {STOCK_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {STOCK_STATUS_LABEL[status]}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="stock_status" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STOCK_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {STOCK_STATUS_LABEL[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="text-xs text-muted-foreground">
               A color under &quot;Colors&quot; below can override this individually.
             </p>
           </div>
-          <div className="flex flex-col justify-end gap-2 pb-1">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="is_featured"
-                defaultChecked={product?.is_featured ?? false}
-                className="h-4 w-4 rounded border-input"
-              />
-              Featured on homepage
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="is_published"
-                defaultChecked={product?.is_published ?? true}
-                className="h-4 w-4 rounded border-input"
-              />
-              Published
-            </label>
-          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-8">
+          <label className="flex items-center gap-2.5 text-sm text-foreground">
+            <Switch name="is_featured" defaultChecked={product?.is_featured ?? false} />
+            Featured on homepage
+          </label>
+          <label className="flex items-center gap-2.5 text-sm text-foreground">
+            <Switch name="is_published" defaultChecked={product?.is_published ?? true} />
+            Published
+          </label>
         </div>
       </FormSection>
 
-      {state && "error" in state && <p className="text-sm text-destructive">{state.error}</p>}
-
-      <div className="flex items-center gap-3">
-        <Button type="submit" loading={pending} loadingText={isNew ? "Creating…" : "Saving…"} className="w-fit">
-          {isNew ? "Create product" : "Save product"}
-        </Button>
-        <Link
-          href="/admin/products"
-          className={cn(buttonVariants({ variant: "ghost" }), pending && "pointer-events-none opacity-50")}
-        >
-          Cancel
-        </Link>
-      </div>
+      <FormSaveBar
+        pending={pending}
+        pendingLabel={isNew ? "Creating…" : "Saving…"}
+        label={isNew ? "Create product" : "Save product"}
+        cancelHref="/admin/products"
+        error={state && "error" in state ? state.error : undefined}
+      />
     </form>
   );
 }

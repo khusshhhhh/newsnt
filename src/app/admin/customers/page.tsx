@@ -81,7 +81,7 @@ export default async function AdminCustomersPage({
             <Link
               key={customer.id}
               href={`/admin/customers/${customer.id}`}
-              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
+              className="animate-fade-in flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">

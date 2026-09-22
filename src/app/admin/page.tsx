@@ -132,7 +132,7 @@ export default async function AdminDashboardPage() {
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {DEPARTMENTS.map((d, i) => (
           <Link key={d} href={`/admin/products?department=${d}`}>
-            <Card className="transition-shadow hover:shadow-md">
+            <Card className="animate-fade-in transition-all hover:-translate-y-0.5 hover:shadow-md">
               <CardHeader>
                 <CardTitle className="text-sm font-normal text-muted-foreground">
                   {departmentCopy(d).label}
@@ -154,7 +154,7 @@ export default async function AdminDashboardPage() {
           const Icon = stat.icon;
           return (
             <Link key={stat.label} href={stat.href}>
-              <Card className="transition-shadow hover:shadow-md">
+              <Card className="animate-fade-in transition-all hover:-translate-y-0.5 hover:shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-sm font-normal text-muted-foreground">
                     {stat.label}

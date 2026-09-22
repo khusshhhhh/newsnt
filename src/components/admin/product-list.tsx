@@ -175,7 +175,7 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
                 (a, b) => a.display_order - b.display_order
               )[0];
               return (
-                <TableRow key={p.id}>
+                <TableRow key={p.id} className="animate-fade-in">
                   <TableCell>
                     <input
                       type="checkbox"

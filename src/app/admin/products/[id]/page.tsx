@@ -4,7 +4,7 @@ import { ProductForm } from "@/components/admin/product-form";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
 import { VariantManager } from "@/components/admin/variant-manager";
 import { ResourceManager } from "@/components/admin/resource-manager";
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTab, TabsIndicator, TabsPanel } from "@/components/ui/tabs";
 import type { ProductImage, ProductVariantWithImages } from "@/lib/supabase/types";
 
 export default async function EditProductPage({
@@ -58,40 +58,52 @@ export default async function EditProductPage({
   return (
     <div>
       <h1 className="font-heading text-2xl text-foreground">Edit product</h1>
-      <div className="mt-8">
-        <ProductForm product={product} series={series ?? []} categories={categories ?? []} />
-      </div>
+      <p className="mt-1 truncate text-sm text-muted-foreground">{product.name}</p>
 
-      <Separator className="my-10 max-w-2xl" />
+      <Tabs defaultValue="details" className="mt-6">
+        <TabsList>
+          <TabsIndicator />
+          <TabsTab value="details">Details</TabsTab>
+          <TabsTab value="photos">Photos{images?.length ? ` (${images.length})` : ""}</TabsTab>
+          <TabsTab value="colors">Colors{sortedVariants.length ? ` (${sortedVariants.length})` : ""}</TabsTab>
+          <TabsTab value="resources">
+            Resources{resources?.length ? ` (${resources.length})` : ""}
+          </TabsTab>
+        </TabsList>
 
-      <div className="max-w-2xl">
-        <h2 className="mb-1 font-heading text-lg text-foreground">Photos</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          The default gallery shown when no color is selected.
-        </p>
-        <ProductImageManager productId={product.id} images={images ?? []} />
-      </div>
+        <TabsPanel value="details">
+          <ProductForm product={product} series={series ?? []} categories={categories ?? []} />
+        </TabsPanel>
 
-      <Separator className="my-10 max-w-2xl" />
+        <TabsPanel value="photos">
+          <div className="max-w-2xl">
+            <p className="mb-4 text-sm text-muted-foreground">
+              The default gallery shown when no color is selected.
+            </p>
+            <ProductImageManager productId={product.id} images={images ?? []} />
+          </div>
+        </TabsPanel>
 
-      <div className="max-w-2xl">
-        <h2 className="mb-1 font-heading text-lg text-foreground">Colors</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Add the finishes this product comes in. Each color can have its own
-          photos — shoppers switch between them on the product page.
-        </p>
-        <VariantManager productId={product.id} variants={sortedVariants} finishes={finishes ?? []} />
-      </div>
+        <TabsPanel value="colors">
+          <div className="max-w-2xl">
+            <p className="mb-4 text-sm text-muted-foreground">
+              Add the finishes this product comes in. Each color can have its own photos —
+              shoppers switch between them on the product page.
+            </p>
+            <VariantManager productId={product.id} variants={sortedVariants} finishes={finishes ?? []} />
+          </div>
+        </TabsPanel>
 
-      <Separator className="my-10 max-w-2xl" />
-
-      <div className="max-w-2xl">
-        <h2 className="mb-1 font-heading text-lg text-foreground">Resources</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Downloadable files shown on the product page — spec sheets, certifications, install guides.
-        </p>
-        <ResourceManager productId={product.id} resources={resources ?? []} />
-      </div>
+        <TabsPanel value="resources">
+          <div className="max-w-2xl">
+            <p className="mb-4 text-sm text-muted-foreground">
+              Downloadable files shown on the product page — spec sheets, certifications, install
+              guides.
+            </p>
+            <ResourceManager productId={product.id} resources={resources ?? []} />
+          </div>
+        </TabsPanel>
+      </Tabs>
     </div>
   );
 }

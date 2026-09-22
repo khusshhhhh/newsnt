@@ -52,7 +52,7 @@ export function PipelineBoard({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
       {STAGES.map((stage) => {
         const items = inquiries.filter((i) => i.status === stage.value);
         return (
@@ -70,7 +70,7 @@ export function PipelineBoard({
               if (id) moveInquiry(id, stage.value);
             }}
             className={cn(
-              "flex min-h-[120px] flex-col gap-2 rounded-xl border border-border bg-muted/20 p-2 transition-colors",
+              "flex min-h-[120px] w-[82vw] shrink-0 snap-start flex-col gap-2 rounded-xl border border-border bg-muted/20 p-2 transition-colors sm:w-72 lg:w-auto lg:shrink",
               dragOverStage === stage.value && "border-foreground/40 bg-muted/40"
             )}
           >
@@ -124,7 +124,7 @@ function PipelineCard({
       }}
       onDragEnd={() => setDragging(false)}
       className={cn(
-        "cursor-grab rounded-lg border border-border bg-card p-2.5 shadow-sm transition-opacity active:cursor-grabbing",
+        "animate-fade-in cursor-grab rounded-lg border border-border bg-card p-2.5 shadow-sm transition-opacity active:cursor-grabbing",
         dragging && "opacity-40"
       )}
     >

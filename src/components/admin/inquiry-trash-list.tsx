@@ -61,7 +61,7 @@ function TrashRow({ inquiry }: { inquiry: Inquiry }) {
   }
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
+    <li className="animate-fade-in flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
       <div className="min-w-0">
         <p className="font-heading text-base text-foreground">{inquiry.name}</p>
         <p className="text-sm text-muted-foreground">{inquiry.email}</p>

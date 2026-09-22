@@ -306,21 +306,73 @@ export function AdminFormSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
-/** Mirrors the product edit page: the form plus the photos/colors/resources sections below it. */
+/** Mirrors the product edit page: title + tab strip over the active panel's field stack. */
 export function AdminProductFormSkeleton() {
   return (
     <div>
-      <AdminFormSkeleton rows={6} />
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="mt-10 max-w-2xl border-t border-border pt-10">
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="mt-2 h-3 w-64" />
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Skeleton className="h-20 w-20 rounded-lg" />
-            <Skeleton className="h-20 w-52 rounded-lg" />
+      <Skeleton className="h-7 w-32" />
+      <Skeleton className="mt-2 h-4 w-56" />
+      <div className="mt-6 flex gap-1.5">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-8 w-20 rounded-full" />
+        ))}
+      </div>
+      <div className="mt-6 flex max-w-2xl flex-col gap-5">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-1.5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-9 w-full" />
           </div>
-        </div>
-      ))}
+        ))}
+        <Skeleton className="h-9 w-32 rounded-md" />
+      </div>
+    </div>
+  );
+}
+
+/** Mirrors a Kanban board page (pipeline/orders): title + N stage columns of cards. */
+export function AdminKanbanSkeleton({ columns = 5, cardsPerColumn = 3 }: { columns?: number; cardsPerColumn?: number }) {
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-9 w-40 rounded-full" />
+      </div>
+      <div className="mt-6 flex gap-3 overflow-hidden">
+        {Array.from({ length: columns }).map((_, i) => (
+          <div key={i} className="flex min-h-[120px] w-[82vw] shrink-0 flex-col gap-2 rounded-xl border border-border bg-muted/20 p-2 sm:w-72 lg:w-auto lg:flex-1">
+            <Skeleton className="h-4 w-20" />
+            {Array.from({ length: cardsPerColumn }).map((_, j) => (
+              <Skeleton key={j} className="h-20 rounded-lg" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Mirrors the customer detail page: header + a 2-column grid of cards. */
+export function AdminCustomerDetailSkeleton() {
+  return (
+    <div>
+      <Skeleton className="h-4 w-24" />
+      <div className="mt-3 flex flex-col gap-2">
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-4 w-56" />
+        <Skeleton className="h-3 w-64" />
+      </div>
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <Skeleton className="h-4 w-24" />
+            <div className="mt-4 flex flex-col gap-2">
+              <Skeleton className="h-12 w-full rounded-lg" />
+              <Skeleton className="h-12 w-full rounded-lg" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
