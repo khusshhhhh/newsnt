@@ -141,6 +141,7 @@ export type Inquiry = {
   message: string;
   status: InquiryStatus;
   created_at: string;
+  deleted_at: string | null;
 };
 
 export type Customer = {

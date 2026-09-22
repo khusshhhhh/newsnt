@@ -45,6 +45,7 @@ export default async function AdminCustomerPage({ params }: { params: Promise<{ 
       .from("inquiries")
       .select("*")
       .eq("customer_id", id)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false }),
     supabase.from("quotes").select("*").eq("customer_id", id).order("sent_at", { ascending: false }),
     supabase.from("orders").select("*").eq("customer_id", id).order("created_at", { ascending: false }),

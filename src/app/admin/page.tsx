@@ -45,7 +45,8 @@ export default async function AdminDashboardPage() {
     supabase
       .from("inquiries")
       .select("*", { count: "exact", head: true })
-      .eq("status", "new"),
+      .eq("status", "new")
+      .is("deleted_at", null),
     supabase.from("customers").select("*", { count: "exact", head: true }),
     supabase
       .from("orders")

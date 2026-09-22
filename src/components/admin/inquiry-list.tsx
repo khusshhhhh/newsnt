@@ -6,6 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { markInquiryStatus } from "@/lib/actions/admin/inquiries";
 import { QuoteDialog } from "@/components/admin/quote-dialog";
+import { TrashInquiryButton } from "@/components/admin/trash-inquiry-button";
 import { productHref, departmentCopy } from "@/lib/department";
 import { formatPrice } from "@/lib/format";
 import { mediaUrl } from "@/lib/supabase/storage";
@@ -170,13 +171,14 @@ function InquiryRow({ inquiry, lines }: { inquiry: Inquiry; lines: ResolvedInqui
         </div>
       )}
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex justify-end gap-2">
         <QuoteDialog
           inquiryId={inquiry.id}
           customerName={inquiry.name}
           customerEmail={inquiry.email}
           lines={lines}
         />
+        <TrashInquiryButton inquiryId={inquiry.id} />
       </div>
     </li>
   );

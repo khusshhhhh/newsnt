@@ -2,11 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { InquiryList } from "@/components/admin/inquiry-list";
 import { PipelineBoard } from "@/components/admin/pipeline-board";
+import { InquiryTrashList } from "@/components/admin/inquiry-trash-list";
 import { cn } from "@/lib/utils";
 import type { InquiryStatus } from "@/lib/supabase/types";
 
 const STATUSES: InquiryStatus[] = ["new", "contacted", "quoted", "won", "lost"];
-type View = "list" | "board";
+type View = "list" | "board" | "trash";
 
 function isStatus(value: string): value is InquiryStatus {
   return (STATUSES as string[]).includes(value);
@@ -17,7 +18,7 @@ function statusHref(status?: InquiryStatus) {
 }
 
 function viewHref(view: View) {
-  return view === "board" ? "/admin/inquiries?view=board" : "/admin/inquiries";
+  return view === "list" ? "/admin/inquiries" : `/admin/inquiries?view=${view}`;
 }
 
 export default async function AdminInquiriesPage({
@@ -26,14 +27,21 @@ export default async function AdminInquiriesPage({
   searchParams: Promise<{ status?: string; view?: string }>;
 }) {
   const { status: rawStatus, view: rawView } = await searchParams;
-  const view: View = rawView === "board" ? "board" : "list";
+  const view: View = rawView === "board" ? "board" : rawView === "trash" ? "trash" : "list";
   // The board shows every stage side by side, so a single-status filter
   // doesn't apply there — only the list view honours it.
   const status: InquiryStatus | undefined =
     view === "list" && rawStatus && isStatus(rawStatus) ? rawStatus : undefined;
 
   const supabase = await createClient();
+
+  const { count: trashCount } = await supabase
+    .from("inquiries")
+    .select("*", { count: "exact", head: true })
+    .not("deleted_at", "is", null);
+
   let query = supabase.from("inquiries").select("*").order("created_at", { ascending: false });
+  query = view === "trash" ? query.not("deleted_at", "is", null) : query.is("deleted_at", null);
   if (status) query = query.eq("status", status);
   const { data: inquiries } = await query;
 
@@ -43,7 +51,7 @@ export default async function AdminInquiriesPage({
     )
   );
   const { data: products } =
-    productIds.length > 0
+    productIds.length > 0 && view !== "trash"
       ? await supabase
           .from("products")
           .select(
@@ -57,7 +65,7 @@ export default async function AdminInquiriesPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-heading text-2xl text-foreground">Inquiries</h1>
         <div className="flex gap-1 rounded-full border border-border p-1 text-sm">
-          {(["list", "board"] as const).map((v) => (
+          {(["list", "board", "trash"] as const).map((v) => (
             <Link
               key={v}
               href={viewHref(v)}
@@ -69,6 +77,7 @@ export default async function AdminInquiriesPage({
               )}
             >
               {v}
+              {v === "trash" && trashCount ? ` (${trashCount})` : ""}
             </Link>
           ))}
         </div>
@@ -105,6 +114,8 @@ export default async function AdminInquiriesPage({
       <div className="mt-6">
         {view === "board" ? (
           <PipelineBoard inquiries={inquiries ?? []} products={products ?? []} />
+        ) : view === "trash" ? (
+          <InquiryTrashList inquiries={inquiries ?? []} />
         ) : (
           <InquiryList inquiries={inquiries ?? []} products={products ?? []} />
         )}
