@@ -124,6 +124,7 @@ export async function submitInquiry(
     p_department: parsed.data.department,
   });
   if (customerError) {
+    console.error("upsert_customer RPC failed:", customerError);
     return { error: "Something went wrong — try again." };
   }
 
@@ -139,6 +140,7 @@ export async function submitInquiry(
   });
 
   if (error) {
+    console.error("inquiries insert failed:", error);
     return { error: "Something went wrong — try again." };
   }
 
