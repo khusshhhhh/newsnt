@@ -4,7 +4,7 @@ import { InquiryList } from "@/components/admin/inquiry-list";
 import { cn } from "@/lib/utils";
 import type { InquiryStatus } from "@/lib/supabase/types";
 
-const STATUSES: InquiryStatus[] = ["new", "contacted", "closed"];
+const STATUSES: InquiryStatus[] = ["new", "contacted", "quoted", "won", "lost"];
 
 function isStatus(value: string): value is InquiryStatus {
   return (STATUSES as string[]).includes(value);
@@ -52,7 +52,9 @@ export default async function AdminInquiriesPage({
             { label: "All", value: undefined },
             { label: "New", value: "new" as const },
             { label: "Contacted", value: "contacted" as const },
-            { label: "Closed", value: "closed" as const },
+            { label: "Quoted", value: "quoted" as const },
+            { label: "Won", value: "won" as const },
+            { label: "Lost", value: "lost" as const },
           ] satisfies { label: string; value: InquiryStatus | undefined }[]
         ).map((tab) => (
           <Link

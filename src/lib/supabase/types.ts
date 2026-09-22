@@ -119,7 +119,9 @@ export type Finish = {
   created_at: string;
 };
 
-export type InquiryStatus = "new" | "contacted" | "closed";
+// The deal pipeline a lead moves through. "closed" from before this pipeline
+// existed is migrated to "lost" (see 0026_crm.sql) — never written going forward.
+export type InquiryStatus = "new" | "contacted" | "quoted" | "won" | "lost";
 
 export type InquiryItem = {
   product_id: string;
@@ -132,12 +134,66 @@ export type Inquiry = {
   department: Department;
   product_ids: string[] | null;
   items: InquiryItem[] | null;
+  customer_id: string | null;
   name: string;
   email: string;
   phone: string | null;
   message: string;
   status: InquiryStatus;
   created_at: string;
+};
+
+export type Customer = {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  department: Department | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CustomerNote = {
+  id: string;
+  customer_id: string;
+  body: string;
+  created_at: string;
+};
+
+export type QuoteLineItem = {
+  name: string;
+  variantLabel: string | null;
+  sku: string | null;
+  seriesName: string | null;
+  quantity: number;
+  unitPrice: number | null;
+};
+
+export type Quote = {
+  id: string;
+  quote_number: string;
+  inquiry_id: string | null;
+  customer_id: string;
+  items: QuoteLineItem[];
+  notes: string | null;
+  total: number | null;
+  sent_at: string;
+};
+
+export type OrderStatus = "confirmed" | "in_production" | "shipped" | "delivered" | "cancelled";
+
+export type Order = {
+  id: string;
+  order_number: string;
+  customer_id: string;
+  quote_id: string | null;
+  inquiry_id: string | null;
+  department: Department;
+  items: QuoteLineItem[];
+  status: OrderStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ModerationStatus = "pending" | "approved" | "rejected";
@@ -181,7 +237,11 @@ export type ActivityEntityType =
   | "inquiry"
   | "review"
   | "project_photo"
-  | "finish";
+  | "finish"
+  | "customer"
+  | "customer_note"
+  | "quote"
+  | "order";
 
 export type ActivityLogEntry = {
   id: string;
@@ -336,7 +396,89 @@ export type Database = {
         Row: Inquiry;
         Insert: Partial<Inquiry> & { department: Department; name: string; email: string; message: string };
         Update: Partial<Inquiry>;
+        Relationships: [
+          {
+            foreignKeyName: "inquiries_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      customers: {
+        Row: Customer;
+        Insert: Partial<Customer> & { email: string; name: string };
+        Update: Partial<Customer>;
         Relationships: [];
+      };
+      customer_notes: {
+        Row: CustomerNote;
+        Insert: Partial<CustomerNote> & { customer_id: string; body: string };
+        Update: Partial<CustomerNote>;
+        Relationships: [
+          {
+            foreignKeyName: "customer_notes_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      quotes: {
+        Row: Quote;
+        Insert: Partial<Quote> & { quote_number: string; customer_id: string; items: QuoteLineItem[] };
+        Update: Partial<Quote>;
+        Relationships: [
+          {
+            foreignKeyName: "quotes_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "quotes_inquiry_id_fkey";
+            columns: ["inquiry_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiries";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      orders: {
+        Row: Order;
+        Insert: Partial<Order> & {
+          order_number: string;
+          customer_id: string;
+          department: Department;
+          items: QuoteLineItem[];
+        };
+        Update: Partial<Order>;
+        Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "orders_quote_id_fkey";
+            columns: ["quote_id"];
+            isOneToOne: false;
+            referencedRelation: "quotes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "orders_inquiry_id_fkey";
+            columns: ["inquiry_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiries";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       reviews: {
         Row: Review;
@@ -383,6 +525,10 @@ export type Database = {
       check_inquiry_rate_limit: {
         Args: { p_identifier: string; p_max_count: number; p_window_seconds: number };
         Returns: boolean;
+      };
+      upsert_customer: {
+        Args: { p_email: string; p_name: string; p_phone: string | null; p_department: string | null };
+        Returns: string;
       };
     };
     Enums: Record<string, never>;

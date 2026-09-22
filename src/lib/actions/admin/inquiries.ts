@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/data/activity";
 import type { InquiryStatus } from "@/lib/supabase/types";
 
-const STATUSES: InquiryStatus[] = ["new", "contacted", "closed"];
+const STATUSES: InquiryStatus[] = ["new", "contacted", "quoted", "won", "lost"];
 
 export async function markInquiryStatus(id: string, status: InquiryStatus) {
   if (!STATUSES.includes(status)) throw new Error("Invalid status");

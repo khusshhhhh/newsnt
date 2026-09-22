@@ -18,8 +18,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { previewQuotePdf, sendQuotePdf } from "@/lib/actions/admin/quotes";
 import { formatPrice } from "@/lib/format";
+import { downloadBase64File } from "@/lib/download-file";
 import { cn } from "@/lib/utils";
-import type { ResolvedInquiryLine } from "@/components/admin/inquiry-list";
+import type { ResolvedInquiryLine } from "@/lib/inquiry-lines";
 
 type EditableLine = {
   key: string;
@@ -43,19 +44,6 @@ function toEditableLines(lines: ResolvedInquiryLine[]): EditableLine[] {
     quantity: line.quantity,
     unitPrice: line.unitPrice,
   }));
-}
-
-function downloadBase64Pdf(filename: string, base64: string) {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const blob = new Blob([bytes], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 /**
@@ -111,7 +99,7 @@ export function QuoteDialog({
     startDownload(async () => {
       try {
         const { filename, base64 } = await previewQuotePdf(buildPayload());
-        downloadBase64Pdf(filename, base64);
+        downloadBase64File(filename, base64, "application/pdf");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to generate PDF");
       }

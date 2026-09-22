@@ -113,10 +113,25 @@ export async function submitInquiry(
     ? parsed.data.items.flatMap((item) => Array<string>(item.quantity).fill(item.product_id))
     : (parsed.data.product_ids ?? null);
 
+  // Every inquiry belongs to a customer, keyed by email — upsert_customer()
+  // creates the customer on first contact and refreshes name/phone/
+  // department on every later one, so a customer's profile always reflects
+  // their most recent submission without any manual CRM data entry.
+  const { data: customerId, error: customerError } = await supabase.rpc("upsert_customer", {
+    p_email: parsed.data.email,
+    p_name: parsed.data.name,
+    p_phone: parsed.data.phone ?? null,
+    p_department: parsed.data.department,
+  });
+  if (customerError) {
+    return { error: "Something went wrong — try again." };
+  }
+
   const { error } = await supabase.from("inquiries").insert({
     department: parsed.data.department,
     product_ids: productIds,
     items: parsed.data.items ?? null,
+    customer_id: customerId,
     name: parsed.data.name,
     email: parsed.data.email,
     phone: parsed.data.phone ?? null,

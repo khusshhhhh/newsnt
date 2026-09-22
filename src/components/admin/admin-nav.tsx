@@ -12,6 +12,7 @@ import {
   Palette,
   Star,
   Image as ImageIcon,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ const links = [
   { href: "/admin/series", label: "Series", icon: Layers },
   { href: "/admin/categories", label: "Categories", icon: Tags },
   { href: "/admin/finishes", label: "Finishes", icon: Palette },
+  { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/inquiries", label: "Inquiries", icon: Inbox },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/photos", label: "Photos", icon: ImageIcon },

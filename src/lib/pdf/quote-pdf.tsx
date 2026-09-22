@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import type { QuoteLineItem } from "@/lib/supabase/types";
 
 const styles = StyleSheet.create({
   page: { padding: 40, paddingBottom: 64, fontSize: 10, fontFamily: "Helvetica", color: "#1a1a1a" },
@@ -53,15 +54,6 @@ function formatMoney(value: number | null) {
   }).format(value);
 }
 
-export type QuotePdfLineItem = {
-  name: string;
-  variantLabel: string | null;
-  sku: string | null;
-  seriesName: string | null;
-  quantity: number;
-  unitPrice: number | null;
-};
-
 export function QuotePdfDocument({
   quoteNumber,
   customerName,
@@ -74,7 +66,7 @@ export function QuotePdfDocument({
   customerName: string;
   customerEmail: string;
   customerPhone: string | null;
-  items: QuotePdfLineItem[];
+  items: QuoteLineItem[];
   notes: string;
 }) {
   const total = items.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.quantity, 0);
