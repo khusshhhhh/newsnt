@@ -7,7 +7,7 @@ const SIZES = {
 } as const;
 
 /**
- * Wordmark, set in Flegrei (loaded via the Adobe Fonts kit link in
+ * Wordmark, set in Butik Display (loaded via the Adobe Fonts kit link in
  * layout.tsx's <head>) via `.font-logo` in globals.css. Uses `currentColor`
  * so it drops into any surrounding color context — dark text on a light
  * header, white text over a hero photo, sidebar tones — without per-page

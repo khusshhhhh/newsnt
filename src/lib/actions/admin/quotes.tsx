@@ -7,6 +7,10 @@ import { createClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { logActivity } from "@/lib/data/activity";
 import { QuotePdfDocument } from "@/lib/pdf/quote-pdf";
+import { SITE_URL } from "@/lib/site";
+import { departmentSchema } from "./_shared";
+import type { AdminInquiryProduct } from "@/lib/inquiry-lines";
+import type { Department } from "@/lib/department";
 import type { QuoteLineItem } from "@/lib/supabase/types";
 
 const lineItemSchema = z.object({
@@ -25,6 +29,15 @@ const quoteSchema = z.object({
 });
 
 export type QuoteInput = z.infer<typeof quoteSchema>;
+
+const newQuoteSchema = z.object({
+  customerId: z.string().uuid(),
+  department: departmentSchema,
+  notes: z.string().trim().max(2000).default(""),
+  items: z.array(lineItemSchema).min(1, "Add at least one product to the quote"),
+});
+
+export type NewQuoteInput = z.infer<typeof newQuoteSchema>;
 
 /** `Q-<date>-<random>` — unique per send, so re-quoting the same inquiry doesn't collide with `quotes.quote_number`. */
 function generateQuoteNumber() {
@@ -117,6 +130,99 @@ export async function previewQuotePdf(rawInput: QuoteInput) {
   };
 }
 
+/**
+ * Shared by both quote-creation paths (from an existing inquiry, or built
+ * from scratch in /admin/quotes/new): renders the PDF, emails it with an
+ * accept/decline link, and persists the quote row.
+ */
+async function dispatchQuote(params: {
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string | null;
+  department: Department;
+  inquiryId: string | null;
+  notes: string;
+  items: QuoteLineItem[];
+}) {
+  const quoteNumber = generateQuoteNumber();
+  const buffer = await renderQuotePdf({
+    quoteNumber,
+    customerName: params.customerName,
+    customerEmail: params.customerEmail,
+    customerPhone: params.customerPhone,
+    items: params.items,
+    notes: params.notes,
+  });
+  const total = quoteTotal(params.items);
+
+  const supabase = await createClient();
+  const { data: quote, error: quoteError } = await supabase
+    .from("quotes")
+    .insert({
+      quote_number: quoteNumber,
+      inquiry_id: params.inquiryId,
+      customer_id: params.customerId,
+      department: params.department,
+      items: params.items,
+      notes: params.notes || null,
+      total,
+    })
+    .select("accept_token")
+    .single();
+  if (quoteError) throw new Error(quoteError.message);
+
+  const acceptUrl = `${SITE_URL}/quote/${quote.accept_token}`;
+  const result = await sendEmail({
+    to: params.customerEmail,
+    subject: `Your quote from Flow (${quoteNumber})`,
+    html: `
+      <p>Hi ${params.customerName},</p>
+      <p>Thanks for your interest — your quote is attached as a PDF.</p>
+      ${params.notes ? `<p>${params.notes.replace(/\n/g, "<br/>")}</p>` : ""}
+      <p><a href="${acceptUrl}">View this quote and accept or decline it</a>.</p>
+      <p>Let us know if you have any questions.</p>
+    `,
+    attachments: [{ filename: quoteFilename(quoteNumber, params.customerName), content: buffer }],
+  });
+
+  if (result.skipped || result.error) {
+    await supabase.from("quotes").delete().eq("quote_number", quoteNumber);
+    throw new Error(
+      result.skipped
+        ? "Email isn't configured (RESEND_API_KEY / EMAIL_FROM) — can't send the quote."
+        : (result.error ?? "Failed to send the quote email.")
+    );
+  }
+
+  if (params.inquiryId) {
+    const { data: inquiry } = await supabase
+      .from("inquiries")
+      .select("status")
+      .eq("id", params.inquiryId)
+      .maybeSingle();
+    // Advance the pipeline stage on send, but never downgrade a deal that's
+    // already been won or lost just because a follow-up quote went out.
+    if (inquiry && (inquiry.status === "new" || inquiry.status === "contacted")) {
+      await supabase.from("inquiries").update({ status: "quoted" }).eq("id", params.inquiryId);
+    }
+  }
+
+  await logActivity({
+    action: "update",
+    entity_type: "inquiry",
+    entity_id: params.inquiryId ?? params.customerId,
+    entity_name: `Quote sent to ${params.customerEmail} (${quoteNumber}, $${total.toFixed(2)})`,
+  });
+
+  revalidatePath("/admin/inquiries");
+  revalidatePath("/admin/customers");
+  revalidatePath(`/admin/customers/${params.customerId}`);
+  revalidatePath("/admin/quotes");
+  revalidatePath("/admin");
+  return { success: true as const };
+}
+
 /** Renders the quote PDF, emails it to the inquiry's own email address, and records it against the customer. */
 export async function sendQuotePdf(rawInput: QuoteInput) {
   const parsed = quoteSchema.safeParse(rawInput);
@@ -124,65 +230,42 @@ export async function sendQuotePdf(rawInput: QuoteInput) {
 
   const inquiry = await loadInquiry(parsed.data.inquiryId);
   const customerId = await resolveCustomerId(inquiry);
-  const quoteNumber = generateQuoteNumber();
-  const buffer = await renderQuotePdf({
-    quoteNumber,
+
+  return dispatchQuote({
+    customerId,
     customerName: inquiry.name,
     customerEmail: inquiry.email,
     customerPhone: inquiry.phone,
-    items: parsed.data.items,
+    department: inquiry.department,
+    inquiryId: inquiry.id,
     notes: parsed.data.notes,
+    items: parsed.data.items,
   });
-  const total = quoteTotal(parsed.data.items);
+}
 
-  const result = await sendEmail({
-    to: inquiry.email,
-    subject: `Your quote from Flow (${quoteNumber})`,
-    html: `
-      <p>Hi ${inquiry.name},</p>
-      <p>Thanks for your interest — your quote is attached as a PDF.</p>
-      ${parsed.data.notes ? `<p>${parsed.data.notes.replace(/\n/g, "<br/>")}</p>` : ""}
-      <p>Let us know if you have any questions.</p>
-    `,
-    attachments: [{ filename: quoteFilename(quoteNumber, inquiry.name), content: buffer }],
-  });
-
-  if (result.skipped) {
-    throw new Error("Email isn't configured (RESEND_API_KEY / EMAIL_FROM) — can't send the quote.");
-  }
-  if (!result.skipped && result.error) {
-    throw new Error(result.error);
-  }
+/** Builds and sends a quote from scratch — any customer, any products, no inquiry required. */
+export async function createAndSendQuote(rawInput: NewQuoteInput) {
+  const parsed = newQuoteSchema.safeParse(rawInput);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid quote");
 
   const supabase = await createClient();
-  const { error: quoteError } = await supabase.from("quotes").insert({
-    quote_number: quoteNumber,
-    inquiry_id: inquiry.id,
-    customer_id: customerId,
+  const { data: customer, error } = await supabase
+    .from("customers")
+    .select("name, email, phone")
+    .eq("id", parsed.data.customerId)
+    .single();
+  if (error || !customer) throw new Error("Customer not found");
+
+  return dispatchQuote({
+    customerId: parsed.data.customerId,
+    customerName: customer.name,
+    customerEmail: customer.email,
+    customerPhone: customer.phone,
+    department: parsed.data.department,
+    inquiryId: null,
+    notes: parsed.data.notes,
     items: parsed.data.items,
-    notes: parsed.data.notes || null,
-    total,
   });
-  if (quoteError) throw new Error(quoteError.message);
-
-  // Advance the pipeline stage on send, but never downgrade a deal that's
-  // already been won or lost just because a follow-up quote went out.
-  if (inquiry.status === "new" || inquiry.status === "contacted") {
-    await supabase.from("inquiries").update({ status: "quoted" }).eq("id", inquiry.id);
-  }
-
-  await logActivity({
-    action: "update",
-    entity_type: "inquiry",
-    entity_id: inquiry.id,
-    entity_name: `Quote sent to ${inquiry.email} (${quoteNumber}, $${total.toFixed(2)})`,
-  });
-
-  revalidatePath("/admin/inquiries");
-  revalidatePath("/admin/customers");
-  revalidatePath(`/admin/customers/${customerId}`);
-  revalidatePath("/admin");
-  return { success: true as const };
 }
 
 /** Re-renders a previously sent quote's PDF from its stored line items, for re-downloading from a customer's profile. */
@@ -208,4 +291,81 @@ export async function downloadStoredQuotePdf(quoteId: string) {
     filename: quoteFilename(quote.quote_number, quote.customer.name),
     base64: buffer.toString("base64"),
   };
+}
+
+const customerSearchSchema = z.string().trim().min(1).max(200);
+
+/** Live search for the quote builder's customer picker — name, email, or phone. */
+export async function searchAdminCustomers(rawQuery: string) {
+  const parsed = customerSearchSchema.safeParse(rawQuery);
+  if (!parsed.success) return [];
+
+  const supabase = await createClient();
+  const pattern = `%${parsed.data.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id, name, email, phone, department")
+    .or(`name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`)
+    .order("updated_at", { ascending: false })
+    .limit(8);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+const newCustomerSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  email: z.string().trim().email("A valid email is required"),
+  phone: z.string().trim().max(40).optional(),
+  department: departmentSchema.nullable(),
+});
+
+/** Creates or updates (by email) a customer directly from the admin panel — reuses the same upsert the public inquiry form calls. */
+export async function upsertAdminCustomer(rawInput: z.infer<typeof newCustomerSchema>) {
+  const parsed = newCustomerSchema.safeParse(rawInput);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid customer");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("upsert_customer", {
+    p_email: parsed.data.email,
+    p_name: parsed.data.name,
+    p_phone: parsed.data.phone || null,
+    p_department: parsed.data.department,
+  });
+  if (error || !data) throw new Error(error?.message ?? "Could not save this customer");
+
+  revalidatePath("/admin/customers");
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("id, name, email, phone, department")
+    .eq("id", data)
+    .single();
+  return customer;
+}
+
+const productSearchSchema = z.string().trim().min(1).max(200);
+
+/** Live search for the quote builder's product picker — name or SKU, either department. */
+export async function searchAdminProducts(
+  rawQuery: string,
+  department?: Department
+): Promise<AdminInquiryProduct[]> {
+  const parsed = productSearchSchema.safeParse(rawQuery);
+  if (!parsed.success) return [];
+
+  const supabase = await createClient();
+  const pattern = `%${parsed.data.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+  let query = supabase
+    .from("products")
+    .select(
+      "id, name, slug, department, sku, price, series(name), category:categories(name), product_images(storage_path, display_order), variants:product_variants(id, color_name, sku, price)"
+    )
+    .eq("is_published", true)
+    .or(`name.ilike.${pattern},sku.ilike.${pattern}`)
+    .order("name")
+    .limit(8);
+  if (department) query = query.eq("department", department);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as AdminInquiryProduct[];
 }

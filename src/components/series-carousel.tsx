@@ -4,15 +4,10 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { mediaUrl } from "@/lib/supabase/storage";
-import { seriesHref, type Department } from "@/lib/department";
+import { seriesHref } from "@/lib/department";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { FALLBACK_HERO } from "@/lib/fallback-hero";
 import type { Series } from "@/lib/supabase/types";
-
-// Static fallback for departments with no admin-uploaded hero yet —
-// AI-generated mood photography matching the site's monochrome aesthetic.
-const FALLBACK_HERO: Partial<Record<Department, string>> = {
-  "door-hardware": "/images/door-hardware-hero.png",
-};
 
 /**
  * A horizontally-scrolling row rather than a fixed-column grid: with one

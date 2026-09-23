@@ -1,9 +1,15 @@
 import type { MetadataRoute } from "next";
-import { getCategories, getPublishedProductSlugs, getPublishedSeries } from "@/lib/data/catalog";
+import {
+  getActiveFinishes,
+  getCategories,
+  getPublishedProductSlugs,
+  getPublishedSeries,
+} from "@/lib/data/catalog";
 import {
   DEPARTMENTS,
   categoryHref,
   departmentHref,
+  finishHref,
   productHref,
   seriesHref,
   seriesIndexHref,
@@ -21,10 +27,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { url: `${SITE_URL}${seriesIndexHref(department)}`, changeFrequency: "weekly", priority: 0.7 }
     );
 
-    const [series, categories, productSlugs] = await Promise.all([
+    const [series, categories, productSlugs, finishes] = await Promise.all([
       getPublishedSeries(department),
       getCategories(department),
       getPublishedProductSlugs(department),
+      getActiveFinishes(),
     ]);
 
     for (const s of series ?? []) {
@@ -32,6 +39,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
     for (const c of categories ?? []) {
       entries.push({ url: `${SITE_URL}${categoryHref(c)}`, changeFrequency: "weekly", priority: 0.6 });
+    }
+    for (const f of finishes) {
+      entries.push({
+        url: `${SITE_URL}${finishHref(department, f.code)}`,
+        changeFrequency: "weekly",
+        priority: 0.5,
+      });
     }
     for (const slug of productSlugs) {
       entries.push({

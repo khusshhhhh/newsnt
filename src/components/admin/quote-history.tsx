@@ -6,11 +6,24 @@ import { FileDown, Loader2 } from "lucide-react";
 import { downloadStoredQuotePdf } from "@/lib/actions/admin/quotes";
 import { downloadBase64File } from "@/lib/download-file";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { OrderDialog } from "@/components/admin/order-dialog";
 import { editableLinesFromQuoteItems } from "@/components/admin/line-item-editor";
 import { formatPrice } from "@/lib/format";
 import type { Department } from "@/lib/department";
-import type { Quote } from "@/lib/supabase/types";
+import type { Quote, QuoteStatus } from "@/lib/supabase/types";
+
+const STATUS_VARIANT: Record<QuoteStatus, "default" | "secondary" | "destructive" | "outline"> = {
+  sent: "outline",
+  accepted: "default",
+  declined: "destructive",
+};
+
+const STATUS_LABEL: Record<QuoteStatus, string> = {
+  sent: "Awaiting response",
+  accepted: "Accepted",
+  declined: "Declined",
+};
 
 export function QuoteHistory({
   quotes,
@@ -52,14 +65,17 @@ export function QuoteHistory({
           className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5"
         >
           <div className="min-w-0">
-            <p className="text-sm text-foreground">{quote.quote_number}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-foreground">{quote.quote_number}</p>
+              <Badge variant={STATUS_VARIANT[quote.status]}>{STATUS_LABEL[quote.status]}</Badge>
+            </div>
             <p className="text-xs text-muted-foreground">
               {quote.items.length} item{quote.items.length === 1 ? "" : "s"} ·{" "}
               {formatPrice(quote.total)} · {new Date(quote.sent_at).toLocaleString()}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {department && (
+            {department && quote.status === "accepted" && (
               <OrderDialog
                 customerId={customerId}
                 customerName={customerName}

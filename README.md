@@ -44,6 +44,13 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
      in-stock/made-to-order/out-of-stock/discontinued flag per product and per color
    - [`0023_widen_activity_log.sql`](supabase/migrations/0023_widen_activity_log.sql) — extends the
      audit trail to cover the entities above
+   - `0024`–`0027` — inquiry rate limiting, itemized inquiries, the customers/quotes/orders CRM
+     (`/admin/customers`, `/admin/orders`), and soft-deleted inquiries (see each file's header comment)
+   - [`0028_admin_otp.sql`](supabase/migrations/0028_admin_otp.sql) — adds the emailed-code columns
+     `/admin/login` needs for its second sign-in factor (see step 4 below)
+   - [`0029_quotes_lifecycle.sql`](supabase/migrations/0029_quotes_lifecycle.sql) — quote status
+     (sent/accepted/declined), a per-quote accept/decline token for the customer-facing `/quote/[token]`
+     page, and the `department` a quote needs to become an order without going through an inquiry first
 3. In Supabase → Authentication, create your own admin user (email + password), then add
    them to the `admins` table so `0007_admin_roles.sql`'s write policies let them in:
    ```sql
@@ -58,8 +65,13 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
    - `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API → `service_role` secret, **server-only**,
      never `NEXT_PUBLIC_`) — reserved for admin user-management; not required just to run the app.
    - `RESEND_API_KEY` + `EMAIL_FROM` + `INQUIRY_NOTIFICATION_EMAIL` (resend.com) — emails the team
-     when a new inquiry comes in. Leave blank in development: emails are skipped with a console
-     warning rather than failing, inquiries still save to the database either way.
+     when a new inquiry comes in, and is what sends admin sign-in codes and customer quote emails.
+     Leave blank in development and those emails are skipped with a console warning rather than
+     failing — except admin sign-in, which refuses to start without it (see next point).
+   - `ADMIN_MFA_SECRET` (any long random string, e.g. `openssl rand -hex 32`) — signs the session
+     cookie issued after an admin enters their emailed sign-in code. Falls back to
+     `SUPABASE_SERVICE_ROLE_KEY` if unset, but set both: without email configured too, nobody can
+     sign in to `/admin` at all (see "Admin sign-in" below).
 5. Install dependencies and run the dev server:
 
    ```bash
@@ -69,6 +81,16 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
 
 6. Sign in at [`/admin/login`](http://localhost:3000/admin/login) and start adding
    series, categories, and products.
+
+### Admin sign-in
+
+`/admin/login` is password + emailed one-time code: after a correct password, a 6-digit code is
+sent to that admin's own email (via `RESEND_API_KEY`) and must be entered at
+`/admin/login/verify` before the session counts as fully authenticated — enforced in
+`src/lib/supabase/middleware.ts` for every `/admin` route, not just the login page. Codes expire
+after 10 minutes and lock out after 5 wrong guesses; "Resend code" issues a fresh one. This means
+email must be configured (`RESEND_API_KEY` + `EMAIL_FROM`) and `ADMIN_MFA_SECRET` (or
+`SUPABASE_SERVICE_ROLE_KEY`) must be set before *any* admin can sign in, including the first one.
 
 ## Data model
 

@@ -1,45 +1,21 @@
 import Link from "next/link";
-import { Menu, Search } from "lucide-react";
-import { getCategories, getProductCategoryIds, getPublishedSeries } from "@/lib/data/catalog";
-import {
-  departmentCopy,
-  departmentHref,
-  otherDepartment,
-  projectsHref,
-  searchHref,
-  seriesHref,
-  categoryHref,
-  type Department,
-} from "@/lib/department";
+import { Search } from "lucide-react";
+import { getActiveFinishes, getCategories, getPublishedSeries } from "@/lib/data/catalog";
+import { departmentCopy, departmentHref, otherDepartment, searchHref, type Department } from "@/lib/department";
 import { Container } from "@/components/container";
-import { MegaMenu } from "@/components/mega-menu";
+import { CatalogNav } from "@/components/catalog-nav";
+import { MobileNav } from "@/components/mobile-nav";
 import { QuoteBasketButton } from "@/components/quote-basket-button";
 import { Logo } from "@/components/logo";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export async function SiteHeader({ department }: { department: Department }) {
-  const [series, categories] = await Promise.all([
+  const [series, categories, finishes] = await Promise.all([
     getPublishedSeries(department),
     getCategories(department),
+    getActiveFinishes(),
   ]);
-  const other = otherDepartment(department);
-
-  // Category ids present in each series' products, so the mega-menu can
-  // nest "Shop by category" under the series it actually belongs to
-  // instead of one flat list.
-  const categoryIdsBySeries = Object.fromEntries(
-    await Promise.all(
-      (series ?? []).map(async (s) => [s.id, await getProductCategoryIds(department, { seriesSlug: s.slug })] as const)
-    )
-  );
 
   return (
     <header className="sticky top-0 z-40 h-16 border-b border-border bg-background">
@@ -49,11 +25,11 @@ export async function SiteHeader({ department }: { department: Department }) {
             <Logo />
           </Link>
           <nav className="hidden md:block">
-            <MegaMenu
+            <CatalogNav
               department={department}
               series={series ?? []}
               categories={categories ?? []}
-              categoryIdsBySeries={categoryIdsBySeries}
+              finishes={finishes}
             />
           </nav>
         </div>
@@ -71,68 +47,12 @@ export async function SiteHeader({ department }: { department: Department }) {
 
           <DepartmentSwitcher current={department} />
 
-          <Dialog>
-            <DialogTrigger
-              className={buttonVariants({ variant: "outline", size: "icon", className: "md:hidden" })}
-              aria-label="Open menu"
-            >
-              <Menu className="size-4" />
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-xs">
-              <DialogTitle className="font-heading text-lg">Menu</DialogTitle>
-              <nav className="flex flex-col gap-1 text-sm">
-                <DialogClose
-                  render={<Link href={searchHref(department)} />}
-                  nativeButton={false}
-                  className="mb-2 flex items-center gap-2 rounded-md px-1 py-2 text-foreground hover:bg-accent"
-                >
-                  <Search className="size-4" /> Search
-                </DialogClose>
-                <p className="mt-2 px-1 text-xs uppercase tracking-wide text-muted-foreground">
-                  {departmentCopy(department).seriesLabel}
-                </p>
-                {series?.map((s) => (
-                  <DialogClose
-                    key={s.id}
-                    render={<Link href={seriesHref(s)} />}
-                    nativeButton={false}
-                    className="rounded-md px-1 py-2 text-foreground hover:bg-accent"
-                  >
-                    {s.name}
-                  </DialogClose>
-                ))}
-                <p className="mt-3 px-1 text-xs uppercase tracking-wide text-muted-foreground">
-                  Categories
-                </p>
-                {categories?.map((c) => (
-                  <DialogClose
-                    key={c.id}
-                    render={<Link href={categoryHref(c)} />}
-                    nativeButton={false}
-                    className="rounded-md px-1 py-2 text-foreground hover:bg-accent"
-                  >
-                    {c.name}
-                  </DialogClose>
-                ))}
-                <div className="mt-4 border-t border-border pt-4">
-                  <DialogClose
-                    render={<Link href={projectsHref(department)} />}
-                    nativeButton={false}
-                    className="rounded-md px-1 py-2 text-foreground hover:bg-accent"
-                  >
-                    Projects
-                  </DialogClose>
-                  <DialogClose
-                    render={<Link href={departmentHref(other)} />}
-                    nativeButton={false}
-                    className="rounded-md px-1 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-                  >
-                    Switch to {departmentCopy(other).label} →
-                  </DialogClose>
-                </div>
-              </nav>
-            </DialogContent>
-          </Dialog>
+          <MobileNav
+            department={department}
+            series={series ?? []}
+            categories={categories ?? []}
+            finishes={finishes}
+          />
         </div>
       </Container>
     </header>

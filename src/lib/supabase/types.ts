@@ -1,5 +1,13 @@
 import type { Department } from "@/lib/department";
 
+export type Admin = {
+  user_id: string;
+  created_at: string;
+  otp_code_hash: string | null;
+  otp_expires_at: string | null;
+  otp_attempts: number;
+};
+
 export type Series = {
   id: string;
   department: Department;
@@ -170,15 +178,21 @@ export type QuoteLineItem = {
   unitPrice: number | null;
 };
 
+export type QuoteStatus = "sent" | "accepted" | "declined";
+
 export type Quote = {
   id: string;
   quote_number: string;
   inquiry_id: string | null;
   customer_id: string;
+  department: Department;
   items: QuoteLineItem[];
   notes: string | null;
   total: number | null;
+  status: QuoteStatus;
+  accept_token: string;
   sent_at: string;
+  responded_at: string | null;
 };
 
 export type OrderStatus = "confirmed" | "in_production" | "shipped" | "delivered" | "cancelled";
@@ -257,6 +271,12 @@ export type ActivityLogEntry = {
 export type Database = {
   public: {
     Tables: {
+      admins: {
+        Row: Admin;
+        Insert: Partial<Admin> & { user_id: string };
+        Update: Partial<Admin>;
+        Relationships: [];
+      };
       series: {
         Row: Series;
         Insert: Partial<Series> & { name: string; slug: string; department: Department };
@@ -429,7 +449,12 @@ export type Database = {
       };
       quotes: {
         Row: Quote;
-        Insert: Partial<Quote> & { quote_number: string; customer_id: string; items: QuoteLineItem[] };
+        Insert: Partial<Quote> & {
+          quote_number: string;
+          customer_id: string;
+          department: Department;
+          items: QuoteLineItem[];
+        };
         Update: Partial<Quote>;
         Relationships: [
           {
@@ -530,6 +555,25 @@ export type Database = {
       upsert_customer: {
         Args: { p_email: string; p_name: string; p_phone: string | null; p_department: string | null };
         Returns: string;
+      };
+      get_quote_by_token: {
+        Args: { p_token: string };
+        Returns: {
+          quote_number: string;
+          items: QuoteLineItem[];
+          notes: string | null;
+          total: number | null;
+          status: QuoteStatus;
+          department: Department;
+          sent_at: string;
+          responded_at: string | null;
+          customer_name: string;
+          customer_email: string;
+        }[];
+      };
+      respond_to_quote: {
+        Args: { p_token: string; p_status: string };
+        Returns: boolean;
       };
     };
     Enums: Record<string, never>;

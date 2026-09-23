@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { AAL2_COOKIE_NAME, verifyAal2Cookie } from "@/lib/admin-mfa";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { AdminMobileNav } from "@/components/admin/admin-mobile-nav";
 import { signOut } from "@/lib/actions/admin/auth";
@@ -14,9 +16,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     data: { user },
   } = await supabase.auth.getUser();
 
-  // The login page renders inside this layout too but has no chrome of its own;
-  // middleware already keeps unauthenticated users out of every other /admin route.
-  if (!user) return <>{children}</>;
+  // The login/verify pages render inside this layout too but have no chrome
+  // of their own; middleware already keeps anyone who isn't fully signed in
+  // (password + OTP) out of every other /admin route.
+  const cookieStore = await cookies();
+  const aal2Valid = user ? verifyAal2Cookie(cookieStore.get(AAL2_COOKIE_NAME)?.value, user.id) : false;
+  if (!user || !aal2Valid) return <>{children}</>;
 
   const sidebarFooter = (
     <div className="flex flex-col gap-3">

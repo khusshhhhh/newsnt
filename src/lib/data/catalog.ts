@@ -186,7 +186,7 @@ export const getFeaturedProducts = unstable_cache(
 export const getProducts = unstable_cache(
   async (
     department: Department,
-    filter: { seriesSlug?: string; categorySlug?: string },
+    filter: { seriesSlug?: string; categorySlug?: string; finishCode?: string },
     page = 1
   ): Promise<PagedResult<ProductWithRelations>> => {
     const supabase = createPublicClient();
@@ -208,6 +208,19 @@ export const getProducts = unstable_cache(
       query = query.eq("category_id", category.id);
     }
 
+    if (filter.finishCode) {
+      const finish = await getFinishByCode(filter.finishCode);
+      if (!finish) return emptyPage(page);
+      const { data: variantRows, error: variantError } = await supabase
+        .from("product_variants")
+        .select("product_id")
+        .ilike("color_name", finish.name);
+      if (variantError) throw variantError;
+      const productIds = [...new Set((variantRows ?? []).map((r) => r.product_id))];
+      if (productIds.length === 0) return emptyPage(page);
+      query = query.in("id", productIds);
+    }
+
     const from = (page - 1) * PAGE_SIZE;
     const { data, error, count } = await query
       .order("display_order", { ascending: true })
@@ -223,38 +236,6 @@ export const getProducts = unstable_cache(
     };
   },
   ["products"],
-  { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
-);
-
-/**
- * Lightweight, unpaginated lookup of which categories have at least one
- * product in a series — used to decide which category-filter pills to show,
- * independent of `getProducts`' pagination window.
- *
- * Returns a plain array rather than a Set: `unstable_cache` serializes its
- * result as JSON, and a Set doesn't survive that round-trip (it comes back
- * as `{}`, which has no `.has()`) — build the Set at the call site instead.
- */
-export const getProductCategoryIds = unstable_cache(
-  async (department: Department, filter: { seriesSlug?: string }): Promise<string[]> => {
-    const supabase = createPublicClient();
-    let query = supabase
-      .from("products")
-      .select("category_id")
-      .eq("department", department)
-      .eq("is_published", true);
-
-    if (filter.seriesSlug) {
-      const series = await getSeriesBySlug(department, filter.seriesSlug);
-      if (!series) return [];
-      query = query.eq("series_id", series.id);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return [...new Set((data ?? []).map((r) => r.category_id))];
-  },
-  ["product-category-ids"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );
 
@@ -382,6 +363,26 @@ export const getActiveFinishes = unstable_cache(
     return data ?? [];
   },
   ["active-finishes"],
+  { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
+);
+
+export const getFinishByCode = unstable_cache(
+  async (code: string): Promise<Finish | null> => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("finishes")
+      .select("*")
+      .eq("code", code)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingTable(error)) return null;
+      throw error;
+    }
+    return data;
+  },
+  ["finish-by-code"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );
 

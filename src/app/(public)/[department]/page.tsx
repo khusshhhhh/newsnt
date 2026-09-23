@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { getCategories, getFeaturedProducts, getPublishedSeries } from "@/lib/data/catalog";
 import { mediaUrl } from "@/lib/supabase/storage";
 import { ProductCard } from "@/components/product-card";
-import { SeriesCarousel } from "@/components/series-carousel";
+import { SeriesShowcase } from "@/components/series-showcase";
 import { HeroMedia } from "@/components/hero-media";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
@@ -141,14 +141,6 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
                 >
                   Browse {copy.seriesLabel.toLowerCase()}
                 </Link>
-                {hasFilm && (
-                  <a
-                    href="#concept-film"
-                    className="rounded-full border border-border px-7 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-                  >
-                    Watch the concept film
-                  </a>
-                )}
               </div>
             </Reveal>
             {finishes.length > 0 && (
@@ -204,10 +196,7 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
         <section id="concept-film" className="scroll-mt-24 bg-background py-16 md:py-24">
           <Container>
             <Reveal className="mx-auto mb-10 max-w-2xl text-center">
-              <span className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                Concept film
-              </span>
-              <h2 className="mt-3 font-heading text-3xl text-foreground md:text-4xl">
+              <h2 className="font-heading text-3xl text-foreground md:text-4xl">
                 {media.caption}
               </h2>
             </Reveal>
@@ -235,7 +224,7 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
                 View all
               </Link>
             </Reveal>
-            <SeriesCarousel series={series} />
+            <SeriesShowcase series={series} />
           </Container>
         </section>
       )}

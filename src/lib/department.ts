@@ -64,6 +64,10 @@ export function categoryHref(category: { department: Department; slug: string })
   return `/${category.department}/category/${category.slug}`;
 }
 
+export function finishHref(department: Department, finishCode: string) {
+  return `/${department}/finish/${finishCode}`;
+}
+
 export function seriesCategoryHref(
   series: { department: Department; slug: string },
   category: { slug: string }
