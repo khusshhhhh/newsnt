@@ -46,7 +46,7 @@ describe("inquiry lines", () => {
 describe("diffFields", () => {
   it("reports only fields that changed", () => {
     expect(
-      diffFields({ name: "A", price: 10, sku: null }, { name: "A", price: 12, sku: "X" }, ["name", "price", "sku"])
+      diffFields<{ name: string; price: number; sku: string | null }>({ name: "A", price: 10, sku: null }, { name: "A", price: 12, sku: "X" }, ["name", "price", "sku"])
     ).toEqual({ price: { from: 10, to: 12 }, sku: { from: null, to: "X" } });
   });
 });
