@@ -21,7 +21,7 @@ import type {
 /** Matches the admin uploader's cap for both category and series galleries. */
 const MAX_GALLERY_IMAGES = 6;
 
-const PRODUCT_SELECT =
+export const PRODUCT_SELECT =
   "*, series(*), category:categories(*), product_images(*), variants:product_variants(*, product_images(*)), resources:product_resources(*)";
 
 export const PAGE_SIZE = 24;
@@ -58,7 +58,7 @@ function byDisplayOrder<T extends { display_order: number }>(a: T, b: T) {
  * just the default/general gallery (`variant_id IS NULL`) and everything is
  * sorted client-side rather than trusting nested embed ordering.
  */
-function shapeProduct(raw: unknown): ProductWithRelations {
+export function shapeProduct(raw: unknown): ProductWithRelations {
   const row = raw as ProductWithRelations & { product_images: ProductImage[] };
   const generalImages = (row.product_images ?? [])
     .filter((img) => !img.variant_id)

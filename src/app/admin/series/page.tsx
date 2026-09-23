@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { DepartmentTabs } from "@/components/admin/department-tabs";
-import { deleteSeries } from "@/lib/actions/admin/series";
-import { departmentCopy, isDepartment, type Department } from "@/lib/department";
+import { deleteSeries, restoreSeries } from "@/lib/actions/admin/series";
+import { departmentCopy, isDepartment, seriesHref, type Department } from "@/lib/department";
 
 export default async function AdminSeriesPage({
   searchParams,
@@ -17,7 +18,7 @@ export default async function AdminSeriesPage({
     rawDepartment && isDepartment(rawDepartment) ? rawDepartment : undefined;
 
   const supabase = await createClient();
-  let query = supabase.from("series").select("*").order("display_order", { ascending: true });
+  let query = supabase.from("series").select("*").is("deleted_at", null).order("display_order", { ascending: true });
   if (department) query = query.eq("department", department);
   const { data: series } = await query;
 
@@ -28,6 +29,7 @@ export default async function AdminSeriesPage({
         <Link
           href={department ? `/admin/series/new?department=${department}` : "/admin/series/new"}
           className={buttonVariants()}
+          data-admin-new
         >
           New series
         </Link>
@@ -50,20 +52,41 @@ export default async function AdminSeriesPage({
               {!s.is_published && <Badge variant="secondary">Draft</Badge>}
             </div>
             <div className="flex items-center gap-2">
+              {s.is_published && (
+                <a
+                  href={seriesHref(s)}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`View ${s.name} on the site`}
+                  title="View on site"
+                  className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+                >
+                  <ExternalLink className="size-3.5" />
+                </a>
+              )}
               <Link
                 href={`/admin/series/${s.id}`}
+                data-admin-row
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 Edit
               </Link>
-              <DeleteButton action={deleteSeries.bind(null, s.id)} label="Delete series" />
+              <DeleteButton
+                action={deleteSeries.bind(null, s.id)}
+                undo={restoreSeries.bind(null, s.id)}
+                label="Delete series"
+                itemName={s.name}
+              />
             </div>
           </div>
         ))}
 
         {(!series || series.length === 0) && (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No series yet.
+            No series yet.{" "}
+            <Link href="/admin/series/new" className="text-foreground underline underline-offset-4">
+              Create one
+            </Link>
           </p>
         )}
       </div>

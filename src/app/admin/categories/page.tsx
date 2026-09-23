@@ -30,6 +30,7 @@ export default async function AdminCategoriesPage({
             department ? `/admin/categories/new?department=${department}` : "/admin/categories/new"
           }
           className={buttonVariants()}
+          data-admin-new
         >
           New category
         </Link>
@@ -53,6 +54,7 @@ export default async function AdminCategoriesPage({
             <div className="flex items-center gap-2">
               <Link
                 href={`/admin/categories/${c.id}`}
+                data-admin-row
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 Edit
@@ -60,6 +62,7 @@ export default async function AdminCategoriesPage({
               <DeleteButton
                 action={deleteCategory.bind(null, c.id)}
                 label="Delete category"
+                itemName={c.name}
               />
             </div>
           </div>

@@ -10,7 +10,7 @@ export default async function NewProductPage({
   const { department } = await searchParams;
   const supabase = await createClient();
   const [{ data: series }, { data: categories }] = await Promise.all([
-    supabase.from("series").select("*").order("display_order", { ascending: true }),
+    supabase.from("series").select("*").is("deleted_at", null).order("display_order", { ascending: true }),
     supabase.from("categories").select("*").order("display_order", { ascending: true }),
   ]);
 

@@ -22,7 +22,7 @@ export default async function AdminFinishesPage() {
             existing products but drop out of the picker for new ones.
           </p>
         </div>
-        <Link href="/admin/finishes/new" className={buttonVariants()}>
+        <Link href="/admin/finishes/new" className={buttonVariants()} data-admin-new>
           New finish
         </Link>
       </div>
@@ -46,11 +46,12 @@ export default async function AdminFinishesPage() {
             <div className="flex items-center gap-2">
               <Link
                 href={`/admin/finishes/${f.id}`}
+                data-admin-row
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 Edit
               </Link>
-              <DeleteButton action={deleteFinish.bind(null, f.id)} label="Delete finish" />
+              <DeleteButton action={deleteFinish.bind(null, f.id)} label="Delete finish" itemName={f.name} />
             </div>
           </div>
         ))}

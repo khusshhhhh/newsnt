@@ -51,15 +51,3 @@ export function diffFields<T extends Record<string, unknown>>(
   }
   return changes;
 }
-
-export async function getRecentActivity(limit = 50) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("activity_log")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (error) throw error;
-  return data;
-}

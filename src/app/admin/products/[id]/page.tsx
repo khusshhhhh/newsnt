@@ -1,4 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ExternalLink, Eye } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { productHref } from "@/lib/department";
 import { createClient } from "@/lib/supabase/server";
 import { ProductForm } from "@/components/admin/product-form";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
@@ -25,7 +29,7 @@ export default async function EditProductPage({
     { data: finishes },
   ] = await Promise.all([
     supabase.from("products").select("*").eq("id", id).single(),
-    supabase.from("series").select("*").order("display_order", { ascending: true }),
+    supabase.from("series").select("*").is("deleted_at", null).order("display_order", { ascending: true }),
     supabase.from("categories").select("*").order("display_order", { ascending: true }),
     supabase
       .from("product_images")
@@ -57,8 +61,38 @@ export default async function EditProductPage({
 
   return (
     <div>
-      <h1 className="font-heading text-2xl text-foreground">Edit product</h1>
-      <p className="mt-1 truncate text-sm text-muted-foreground">{product.name}</p>
+      {product.deleted_at && (
+        <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          This product is in the trash.{" "}
+          <Link href="/admin/trash" className="underline underline-offset-4">
+            Restore it from Trash
+          </Link>{" "}
+          to make changes stick on the site.
+        </p>
+      )}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-heading text-2xl text-foreground">Edit product</h1>
+          <p className="mt-1 truncate text-sm text-muted-foreground">
+            {product.name} · {product.is_published ? "Published" : "Draft"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Link href={`/admin/products/${product.id}/preview`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <Eye className="size-4" /> Preview
+          </Link>
+          {product.is_published && (
+            <a
+              href={productHref(product)}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <ExternalLink className="size-4" /> View on site
+            </a>
+          )}
+        </div>
+      </div>
 
       <Tabs defaultValue="details" className="mt-6">
         <TabsList>
