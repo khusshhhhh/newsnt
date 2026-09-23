@@ -1,11 +1,12 @@
+import Link from "next/link";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirectTo?: string }>;
+  searchParams: Promise<{ redirectTo?: string; reset?: string }>;
 }) {
-  const { redirectTo } = await searchParams;
+  const { redirectTo, reset } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -14,7 +15,18 @@ export default async function LoginPage({
         <p className="mt-1 text-sm text-muted-foreground">
           Sign in to manage the catalog.
         </p>
+        {reset && (
+          <p className="mt-4 rounded-lg bg-muted/60 p-3 text-sm text-foreground">
+            Password saved — sign in with your new password.
+          </p>
+        )}
         <LoginForm redirectTo={redirectTo ?? "/admin"} />
+        <Link
+          href="/admin/login/forgot"
+          className="mt-4 block text-center text-xs text-muted-foreground hover:text-foreground"
+        >
+          Forgot your password?
+        </Link>
       </div>
     </div>
   );

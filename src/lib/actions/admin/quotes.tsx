@@ -33,6 +33,8 @@ export type QuoteInput = z.infer<typeof quoteSchema>;
 
 const newQuoteSchema = z.object({
   customerId: z.string().uuid(),
+  /** Set when this quote revises an earlier one — it becomes version N+1 of it. */
+  parentQuoteId: z.string().uuid().nullable().optional(),
   department: departmentSchema,
   notes: z.string().trim().max(2000).default(""),
   items: z.array(lineItemSchema).min(1, "Add at least one product to the quote"),
@@ -145,6 +147,7 @@ async function dispatchQuote(params: {
   inquiryId: string | null;
   notes: string;
   items: QuoteLineItem[];
+  parentQuoteId?: string | null;
 }) {
   const quoteNumber = generateQuoteNumber();
   const buffer = await renderQuotePdf({
@@ -158,20 +161,36 @@ async function dispatchQuote(params: {
   const total = quoteTotal(params.items);
 
   const { supabase } = await requireAdmin("sales");
+
+  let version = 1;
+  let inquiryId = params.inquiryId;
+  if (params.parentQuoteId) {
+    const { data: parent } = await supabase
+      .from("quotes")
+      .select("version, inquiry_id")
+      .eq("id", params.parentQuoteId)
+      .maybeSingle();
+    version = (parent?.version ?? 1) + 1;
+    inquiryId = inquiryId ?? parent?.inquiry_id ?? null;
+  }
+
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .insert({
       quote_number: quoteNumber,
-      inquiry_id: params.inquiryId,
+      inquiry_id: inquiryId,
+      parent_quote_id: params.parentQuoteId ?? null,
+      version,
       customer_id: params.customerId,
       department: params.department,
       items: params.items,
       notes: params.notes || null,
       total,
     })
-    .select("accept_token")
+    .select("accept_token, expires_at")
     .single();
   if (quoteError) throw new Error(quoteError.message);
+  const expiresOn = quote.expires_at ? new Date(quote.expires_at).toLocaleDateString("en-AU", { dateStyle: "long" }) : null;
 
   const acceptUrl = `${SITE_URL}/quote/${quote.accept_token}`;
   const result = await sendEmail({
@@ -182,6 +201,7 @@ async function dispatchQuote(params: {
       <p>Thanks for your interest — your quote is attached as a PDF.</p>
       ${params.notes ? `<p>${escapeHtmlMultiline(params.notes)}</p>` : ""}
       <p><a href="${acceptUrl}">View this quote and accept or decline it</a>.</p>
+      ${expiresOn ? `<p>This quote is valid until ${expiresOn}.</p>` : ""}
       <p>Let us know if you have any questions.</p>
     `,
     attachments: [{ filename: quoteFilename(quoteNumber, params.customerName), content: buffer }],
@@ -196,24 +216,24 @@ async function dispatchQuote(params: {
     );
   }
 
-  if (params.inquiryId) {
+  if (inquiryId) {
     const { data: inquiry } = await supabase
       .from("inquiries")
       .select("status")
-      .eq("id", params.inquiryId)
+      .eq("id", inquiryId)
       .maybeSingle();
     // Advance the pipeline stage on send, but never downgrade a deal that's
     // already been won or lost just because a follow-up quote went out.
     if (inquiry && (inquiry.status === "new" || inquiry.status === "contacted")) {
-      await supabase.from("inquiries").update({ status: "quoted" }).eq("id", params.inquiryId);
+      await supabase.from("inquiries").update({ status: "quoted" }).eq("id", inquiryId);
     }
   }
 
   await logActivity({
     action: "update",
-    entity_type: "inquiry",
-    entity_id: params.inquiryId ?? params.customerId,
-    entity_name: `Quote sent to ${params.customerEmail} (${quoteNumber}, $${total.toFixed(2)})`,
+    entity_type: "quote",
+    entity_id: inquiryId ?? params.customerId,
+    entity_name: `Quote ${version > 1 ? `v${version} ` : ""}sent to ${params.customerEmail} (${quoteNumber}, $${total.toFixed(2)})`,
   });
 
   revalidatePath("/admin/inquiries");
@@ -266,7 +286,44 @@ export async function createAndSendQuote(rawInput: NewQuoteInput) {
     inquiryId: null,
     notes: parsed.data.notes,
     items: parsed.data.items,
+    parentQuoteId: parsed.data.parentQuoteId ?? null,
   });
+}
+
+/** A polite "just checking in" to the customer on a quote that's still awaiting a reply. Stamps reminder_sent_at. */
+export async function sendQuoteReminder(quoteId: string) {
+  const { supabase } = await requireAdmin("sales");
+  const { data: quote, error } = await supabase
+    .from("quotes")
+    .select("quote_number, status, accept_token, expires_at, customer:customers(name, email)")
+    .eq("id", quoteId)
+    .single();
+  if (error || !quote?.customer) throw new Error("Quote not found");
+  if (quote.status !== "sent") throw new Error("This quote has already been answered.");
+  if (quote.expires_at && new Date(quote.expires_at) < new Date()) {
+    throw new Error("This quote has expired — send a revised quote instead.");
+  }
+
+  const acceptUrl = `${SITE_URL}/quote/${quote.accept_token}`;
+  const expiresOn = quote.expires_at ? new Date(quote.expires_at).toLocaleDateString("en-AU", { dateStyle: "long" }) : null;
+  const result = await sendEmail({
+    to: quote.customer.email,
+    subject: `Following up on your quote ${quote.quote_number}`,
+    html: `
+      <p>Hi ${escapeHtml(quote.customer.name)},</p>
+      <p>Just checking in on quote ${escapeHtml(quote.quote_number)} we sent you. Happy to answer any questions or adjust it.</p>
+      <p><a href="${acceptUrl}">View the quote and accept or decline it</a>.</p>
+      ${expiresOn ? `<p>It's valid until ${expiresOn}.</p>` : ""}
+    `,
+  });
+  if (result.skipped || result.error) {
+    throw new Error(result.skipped ? "Email isn't configured (RESEND_API_KEY / EMAIL_FROM)." : (result.error ?? "Failed to send"));
+  }
+
+  await supabase.from("quotes").update({ reminder_sent_at: new Date().toISOString() }).eq("id", quoteId);
+  await logActivity({ action: "update", entity_type: "quote", entity_id: quoteId, entity_name: `Reminder sent for ${quote.quote_number}` });
+  revalidatePath("/admin/quotes");
+  revalidatePath("/admin");
 }
 
 /** Re-renders a previously sent quote's PDF from its stored line items, for re-downloading from a customer's profile. */

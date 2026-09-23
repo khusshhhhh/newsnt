@@ -3,61 +3,97 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
+  ClipboardList,
+  FileText,
+  History,
+  Image as ImageIcon,
+  Inbox,
+  Layers,
   LayoutDashboard,
   Package,
-  Layers,
-  Tags,
-  History,
-  Inbox,
   Palette,
+  ShieldCheck,
   Star,
-  Image as ImageIcon,
+  Tags,
+  Trash2,
   Users,
-  FileText,
-  ClipboardList,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AdminNavGroup } from "@/lib/admin-nav";
 
-const links = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/products", label: "Products", icon: Package },
-  { href: "/admin/series", label: "Series", icon: Layers },
-  { href: "/admin/categories", label: "Categories", icon: Tags },
-  { href: "/admin/finishes", label: "Finishes", icon: Palette },
-  { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/inquiries", label: "Inquiries", icon: Inbox },
-  { href: "/admin/quotes", label: "Quotes", icon: FileText },
-  { href: "/admin/orders", label: "Orders", icon: ClipboardList },
-  { href: "/admin/reviews", label: "Reviews", icon: Star },
-  { href: "/admin/photos", label: "Photos", icon: ImageIcon },
-  { href: "/admin/activity", label: "Activity", icon: History },
-];
+export const NAV_ICONS: Record<string, LucideIcon> = {
+  BarChart3,
+  ClipboardList,
+  FileText,
+  History,
+  Image: ImageIcon,
+  Inbox,
+  Layers,
+  LayoutDashboard,
+  Package,
+  Palette,
+  ShieldCheck,
+  Star,
+  Tags,
+  Trash2,
+  Users,
+};
 
-export function AdminNav() {
+/**
+ * Grouped sidebar nav. `groups` arrives already filtered to what the
+ * signed-in admin's role can use, and `counts` carries the badge numbers
+ * (new inquiries, things to moderate, …) from admin_dashboard_stats().
+ */
+export function AdminNav({ groups, counts }: { groups: AdminNavGroup[]; counts: Record<string, number> }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-col gap-0.5">
-      {links.map((link) => {
-        const active =
-          link.href === "/admin" ? pathname === "/admin" : pathname.startsWith(link.href);
-        const Icon = link.icon;
-        return (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={cn(
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
-              active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            )}
-          >
-            <Icon className="size-4" />
-            {link.label}
-          </Link>
-        );
-      })}
+    <nav className="flex flex-col gap-4" aria-label="Admin">
+      {groups.map((group, gi) => (
+        <div key={group.label ?? gi} className="flex flex-col gap-0.5">
+          {group.label && (
+            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/45">
+              {group.label}
+            </p>
+          )}
+          {group.links.map((link) => {
+            const active = link.href === "/admin" ? pathname === "/admin" : pathname.startsWith(link.href);
+            const Icon = NAV_ICONS[link.icon] ?? LayoutDashboard;
+            const count = link.badge ? (counts[link.badge] ?? 0) : 0;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                )}
+              >
+                <Icon className="size-4" />
+                <span className="flex-1">{link.label}</span>
+                {count > 0 && (
+                  <span
+                    className={cn(
+                      "min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-medium tabular-nums",
+                      link.badge === "errors_24h"
+                        ? "bg-destructive/15 text-destructive"
+                        : "bg-sidebar-foreground/10 text-sidebar-foreground"
+                    )}
+                    aria-label={`${count} pending`}
+                  >
+                    {count > 99 ? "99+" : count}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }

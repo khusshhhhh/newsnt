@@ -1,6 +1,9 @@
 "use server";
 
+import { after } from "next/server";
 import { createPublicClient } from "@/lib/supabase/public";
+import { escapeHtml, sendEmail } from "@/lib/email";
+import { SITE_URL } from "@/lib/site";
 
 /** Looked up by the unguessable `accept_token` in the emailed link — never by id, so there's nothing to enumerate. */
 export async function getPublicQuote(token: string) {
@@ -15,5 +18,23 @@ export async function respondToQuote(token: string, status: "accepted" | "declin
   const supabase = createPublicClient();
   const { data, error } = await supabase.rpc("respond_to_quote", { p_token: token, p_status: status });
   if (error) throw new Error(error.message);
-  return { applied: Boolean(data) };
+  const applied = Boolean(data);
+
+  // Tell staff straight away — an accepted quote is the moment to act.
+  const notifyTo = process.env.INQUIRY_NOTIFICATION_EMAIL;
+  if (applied && notifyTo) {
+    after(async () => {
+      const quote = await getPublicQuote(token);
+      if (!quote) return;
+      await sendEmail({
+        to: notifyTo,
+        subject: `Quote ${quote.quote_number} ${status} by ${quote.customer_name}`,
+        html: `
+          <p><strong>${escapeHtml(quote.customer_name)}</strong> (${escapeHtml(quote.customer_email)}) has <strong>${status}</strong> quote ${escapeHtml(quote.quote_number)}.</p>
+          ${status === "accepted" ? `<p>Next step: <a href="${SITE_URL}/admin/quotes">turn it into an order</a>.</p>` : ""}
+        `,
+      });
+    });
+  }
+  return { applied };
 }

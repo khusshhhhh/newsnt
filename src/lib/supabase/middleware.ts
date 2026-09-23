@@ -32,7 +32,9 @@ export async function updateSession(request: NextRequest) {
   const isAdminRoute = pathname.startsWith("/admin");
   const isLoginPage = pathname === "/admin/login";
   const isVerifyPage = pathname === "/admin/login/verify";
-  const isAuthRoute = isLoginPage || isVerifyPage;
+  // Forgot/reset password work without any session (the reset link carries its own token).
+  const isPasswordPage = pathname === "/admin/login/forgot" || pathname === "/admin/login/reset";
+  const isAuthRoute = isLoginPage || isVerifyPage || isPasswordPage;
 
   if (isAdminRoute && !isAuthRoute && !user) {
     const url = request.nextUrl.clone();
@@ -47,7 +49,7 @@ export async function updateSession(request: NextRequest) {
     // Password step is done but the emailed code hasn't been verified yet
     // (or its cookie expired) — every admin route, including the login page
     // itself, funnels through the OTP challenge before anything else.
-    if (isAdminRoute && !isVerifyPage && !aal2Valid) {
+    if (isAdminRoute && !isVerifyPage && !isPasswordPage && !aal2Valid) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin/login/verify";
       url.search = "";
@@ -58,7 +60,7 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    if (isAuthRoute && aal2Valid) {
+    if ((isLoginPage || isVerifyPage) && aal2Valid) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin";
       url.search = "";

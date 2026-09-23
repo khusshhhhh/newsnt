@@ -4,6 +4,7 @@ import { getPublicQuote } from "@/lib/actions/quote-response";
 import { QuoteResponseActions } from "./quote-response-actions";
 import { Logo } from "@/components/logo";
 import { formatPrice } from "@/lib/format";
+import { isPast } from "@/lib/dates";
 import { departmentCopy, isDepartment } from "@/lib/department";
 
 export const metadata: Metadata = { title: "Your quote", robots: { index: false, follow: false } };
@@ -15,6 +16,10 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
 
   const total = quote.total ?? quote.items.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.quantity, 0);
   const departmentLabel = isDepartment(quote.department) ? departmentCopy(quote.department).label : quote.department;
+  const expired = quote.status === "sent" && isPast(quote.expires_at);
+  const validUntil = quote.expires_at
+    ? new Date(quote.expires_at).toLocaleDateString("en-AU", { dateStyle: "long" })
+    : null;
 
   return (
     <div className="flex min-h-dvh justify-center bg-background px-4 py-12 sm:py-16">
@@ -29,7 +34,8 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
               </p>
               <h1 className="mt-1 font-heading text-2xl text-foreground">Hi {quote.customer_name},</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                {departmentLabel} · sent {new Date(quote.sent_at).toLocaleDateString()}
+                {departmentLabel} · sent {new Date(quote.sent_at).toLocaleDateString("en-AU")}
+                {validUntil && quote.status === "sent" && !expired ? ` · valid until ${validUntil}` : ""}
               </p>
             </div>
           </div>
@@ -66,7 +72,14 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
           )}
 
           <div className="mt-6">
-            <QuoteResponseActions token={token} initialStatus={quote.status} />
+            {expired ? (
+              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                This quote expired on {validUntil}. Prices and availability may have changed — reply to the email
+                it came in and we&apos;ll send you an updated quote.
+              </div>
+            ) : (
+              <QuoteResponseActions token={token} initialStatus={quote.status} />
+            )}
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { withinRateLimit } from "@/lib/rate-limit";
+import { sendPasswordSetupEmail } from "@/lib/password-setup";
 import {
   AAL2_COOKIE_NAME,
   AAL2_TTL_SECONDS,
@@ -218,4 +219,52 @@ export async function signOut() {
   const cookieStore = await cookies();
   cookieStore.delete(AAL2_COOKIE_NAME);
   redirect("/admin/login");
+}
+
+/**
+ * "Forgot password" — always answers the same way whether or not the email
+ * belongs to an admin, so it can't be used to discover admin accounts.
+ */
+export async function requestPasswordReset(_prevState: unknown, formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const done = { success: true as const, message: "If that email belongs to an admin, a reset link is on its way." };
+  if (!email || !process.env.SUPABASE_SERVICE_ROLE_KEY) return done;
+  if (!(await withinRateLimit("adminLogin"))) {
+    return fail("Too many requests from this network — wait a few minutes and try again.");
+  }
+
+  const service = createAdminClient();
+  for (let page = 1; page <= 20; page++) {
+    const { data } = await service.auth.admin.listUsers({ page, perPage: 200 });
+    const match = data.users.find((u) => u.email?.toLowerCase() === email);
+    if (match) {
+      const { data: admin } = await service.from("admins").select("user_id").eq("user_id", match.id).maybeSingle();
+      if (admin) await sendPasswordSetupEmail(email, "reset");
+      break;
+    }
+    if (data.users.length < 200) break;
+  }
+  return done;
+}
+
+/** Consumes the one-time recovery token from the emailed link and sets the new password. */
+export async function completePasswordReset(_prevState: unknown, formData: FormData) {
+  const tokenHash = String(formData.get("token_hash") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (password.length < 12) return fail("Use at least 12 characters.");
+  if (password !== confirm) return fail("The passwords don't match.");
+  if (!tokenHash) return fail("This link is incomplete — request a new one.");
+
+  const supabase = await createClient();
+  const { error: verifyError } = await supabase.auth.verifyOtp({ type: "recovery", token_hash: tokenHash });
+  if (verifyError) return fail("This link has expired or was already used — request a new one.");
+
+  const { error } = await supabase.auth.updateUser({ password });
+  // Signed out either way: they sign in normally next, with the emailed code.
+  await supabase.auth.signOut();
+  if (error) return fail(error.message);
+
+  redirect("/admin/login?reset=1");
 }

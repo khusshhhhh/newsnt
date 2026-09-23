@@ -7,9 +7,18 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Menu, X } from "lucide-react";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { Logo } from "@/components/logo";
+import type { AdminNavGroup } from "@/lib/admin-nav";
 
 /** Off-canvas nav drawer for mobile/tablet — the sidebar in `admin/layout.tsx` is desktop (lg+) only. */
-export function AdminMobileNav({ footer }: { footer: React.ReactNode }) {
+export function AdminMobileNav({
+  footer,
+  groups,
+  counts,
+}: {
+  footer: React.ReactNode;
+  groups: AdminNavGroup[];
+  counts: Record<string, number>;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   // Close automatically once a nav link has actually navigated somewhere,
@@ -43,7 +52,7 @@ export function AdminMobileNav({ footer }: { footer: React.ReactNode }) {
                 <X className="size-4" />
               </DialogPrimitive.Close>
             </div>
-            <AdminNav />
+            <AdminNav groups={groups} counts={counts} />
           </div>
           {footer}
         </DialogPrimitive.Popup>

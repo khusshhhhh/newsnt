@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  FULL_SCREEN_ON_MOBILE,
 } from "@/components/ui/dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -101,7 +102,7 @@ export function QuoteDialog({
         <FileText className="size-3.5" />
         Prepare quote
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className={cn("sm:max-w-xl", FULL_SCREEN_ON_MOBILE)}>
         <DialogHeader>
           <DialogTitle>Quote for {customerName}</DialogTitle>
           <DialogDescription>

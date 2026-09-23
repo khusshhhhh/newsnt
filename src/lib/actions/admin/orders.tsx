@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
-import { logActivity } from "@/lib/data/activity";
+import { renderToBuffer } from "@react-pdf/renderer";
+import { diffFields, logActivity } from "@/lib/data/activity";
+import { OrderPdfDocument, type OrderDocumentKind } from "@/lib/pdf/order-pdf";
 import { departmentSchema } from "./_shared";
-import type { OrderStatus, QuoteLineItem } from "@/lib/supabase/types";
+import type { OrderStatus, PaymentStatus, QuoteLineItem } from "@/lib/supabase/types";
 
 const ORDER_STATUSES: OrderStatus[] = ["confirmed", "in_production", "shipped", "delivered", "cancelled"];
 
@@ -52,6 +54,7 @@ export async function createOrder(rawInput: CreateOrderInput) {
       inquiry_id: parsed.data.inquiryId ?? null,
       department: parsed.data.department,
       items: parsed.data.items,
+      total: parsed.data.items.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.quantity, 0),
       notes: parsed.data.notes || null,
     })
     .select()
@@ -107,4 +110,83 @@ export async function updateOrderNotes(orderId: string, notes: string) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin/orders");
+}
+
+const PAYMENT_STATUSES: PaymentStatus[] = ["unpaid", "deposit_paid", "paid", "refunded"];
+
+const paymentSchema = z.object({
+  paymentStatus: z.enum(PAYMENT_STATUSES),
+  depositAmount: z.coerce.number().nonnegative().nullable(),
+  amountPaid: z.coerce.number().nonnegative(),
+  fulfilmentDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
+});
+
+export type OrderPaymentInput = z.infer<typeof paymentSchema>;
+
+export async function updateOrderPayment(orderId: string, rawInput: OrderPaymentInput) {
+  const parsed = paymentSchema.safeParse(rawInput);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid payment details");
+
+  const { supabase } = await requireAdmin("sales");
+  const { data: before } = await supabase
+    .from("orders")
+    .select("payment_status, deposit_amount, amount_paid, fulfilment_date, order_number")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  const next = {
+    payment_status: parsed.data.paymentStatus,
+    deposit_amount: parsed.data.depositAmount,
+    amount_paid: parsed.data.amountPaid,
+    fulfilment_date: parsed.data.fulfilmentDate,
+  };
+  const { error } = await supabase
+    .from("orders")
+    .update({ ...next, updated_at: new Date().toISOString() })
+    .eq("id", orderId);
+  if (error) throw new Error(error.message);
+
+  await logActivity({
+    action: "update",
+    entity_type: "order",
+    entity_id: orderId,
+    entity_name: `${before?.order_number ?? "Order"} payment/fulfilment`,
+    changes: diffFields(before, next, ["payment_status", "deposit_amount", "amount_paid", "fulfilment_date"]),
+  });
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin/reports");
+}
+
+/** Renders an order's invoice or packing slip for download. */
+export async function downloadOrderDocument(orderId: string, kind: OrderDocumentKind) {
+  const { supabase } = await requireAdmin("sales");
+  const { data: order, error } = await supabase
+    .from("orders")
+    .select("*, customer:customers(name, email, phone)")
+    .eq("id", orderId)
+    .single();
+  if (error || !order?.customer) throw new Error("Order not found");
+
+  const buffer = await renderToBuffer(
+    <OrderPdfDocument
+      kind={kind}
+      orderNumber={order.order_number}
+      createdAt={order.created_at}
+      customerName={order.customer.name}
+      customerEmail={order.customer.email}
+      customerPhone={order.customer.phone}
+      items={order.items as QuoteLineItem[]}
+      notes={order.notes}
+      paymentStatus={order.payment_status}
+      amountPaid={Number(order.amount_paid ?? 0)}
+      fulfilmentDate={order.fulfilment_date}
+    />
+  );
+  return {
+    filename: `${kind}-${order.order_number.toLowerCase()}.pdf`,
+    base64: buffer.toString("base64"),
+  };
 }

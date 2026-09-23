@@ -39,6 +39,14 @@ function DialogOverlay({
   )
 }
 
+/**
+ * Pass to <DialogContent className> for detail dialogs that should take the
+ * whole screen on phones (order, quote and inquiry details) instead of a
+ * cramped centred card.
+ */
+export const FULL_SCREEN_ON_MOBILE =
+  "max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:overflow-y-auto max-sm:content-start max-sm:pt-12"
+
 function DialogContent({
   className,
   children,
