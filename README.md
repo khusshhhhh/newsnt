@@ -9,8 +9,10 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
 - **Supabase**: Postgres for `series` / `categories` / `products` / `product_images` /
   `product_variants`, Storage for photography, Auth for the admin panel
 - **shadcn/ui** (Base UI primitives) + `motion` for the admin forms and scroll animation
-- Typography: [Fraunces](https://fonts.google.com/specimen/Fraunces) for headings, paired
-  with [Geist](https://vercel.com/font) for body/UI text
+- Typography: Satoshi (local) for headings, Inter for body/UI text, Ofelia Display (Adobe
+  Fonts) for the logo wordmark
+- **Vitest** unit tests (`npm test`) and a GitHub Actions workflow running lint, typecheck,
+  tests and build on every push/PR
 
 ## Setup
 
@@ -51,6 +53,19 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
    - [`0029_quotes_lifecycle.sql`](supabase/migrations/0029_quotes_lifecycle.sql) — quote status
      (sent/accepted/declined), a per-quote accept/decline token for the customer-facing `/quote/[token]`
      page, and the `department` a quote needs to become an order without going through an inquiry first
+   - [`0030_admin_mfa_enforcement.sql`](supabase/migrations/0030_admin_mfa_enforcement.sql) — makes the
+     database itself require the emailed sign-in code: every admin read/write now needs an
+     MFA-verified session (`is_mfa_admin()`), not just a password. **After running it, every admin must
+     sign out and back in once** — existing sessions were never recorded as verified, so they'll see
+     empty admin pages until they do.
+   - [`0031_admin_roles_ops_and_search.sql`](supabase/migrations/0031_admin_roles_ops_and_search.sql) —
+     admin roles (owner/editor/sales, enforced in the database), list indexes, one-call dashboard stats,
+     quote expiry/reminders/versions, order payment fields, trash for products/series/customers,
+     inquiry email tracking, a richer activity log, the `error_events` table, and typo-tolerant search.
+     Existing admins all become **owners**.
+
+   **Run 0030 and 0031 before deploying the matching code** — the admin panel reads their new
+   columns. (The public inquiry form falls back safely if 0031 is missing, so no leads are lost.)
 3. In Supabase → Authentication, create your own admin user (email + password), then add
    them to the `admins` table so `0007_admin_roles.sql`'s write policies let them in:
    ```sql
@@ -63,7 +78,9 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
    (Project Settings → API), plus `NEXT_PUBLIC_SITE_URL` (used for the sitemap, robots.txt,
    and Open Graph image URLs). Two more are needed for the features added after `0016`:
    - `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API → `service_role` secret, **server-only**,
-     never `NEXT_PUBLIC_`) — reserved for admin user-management; not required just to run the app.
+     never `NEXT_PUBLIC_`) — **required for admin sign-in**: the emailed-code bookkeeping, recording
+     verified sessions, the Team page (inviting/removing admins), error logging and the daily job all
+     use it.
    - `RESEND_API_KEY` + `EMAIL_FROM` + `INQUIRY_NOTIFICATION_EMAIL` (resend.com) — emails the team
      when a new inquiry comes in, and is what sends admin sign-in codes and customer quote emails.
      Leave blank in development and those emails are skipped with a console warning rather than
@@ -72,6 +89,13 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
      cookie issued after an admin enters their emailed sign-in code. Falls back to
      `SUPABASE_SERVICE_ROLE_KEY` if unset, but set both: without email configured too, nobody can
      sign in to `/admin` at all (see "Admin sign-in" below).
+   - `CRON_SECRET` (any long random string) — protects `/api/cron/daily`, which Vercel Cron calls
+     once a day (see `vercel.json`) to retry failed inquiry emails, send the daily summary and prune
+     old rows. Vercel sends it automatically once the variable is set in the project.
+   - `ADMIN_DIGEST_EMAIL` (optional) — where the daily summary goes; defaults to
+     `INQUIRY_NOTIFICATION_EMAIL`.
+   - `ERROR_WEBHOOK_URL` (optional) — server errors are always recorded in `error_events` and shown
+     under Activity → System health; set this to also POST each one to Slack/Discord/etc.
 5. Install dependencies and run the dev server:
 
    ```bash
@@ -86,11 +110,27 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
 
 `/admin/login` is password + emailed one-time code: after a correct password, a 6-digit code is
 sent to that admin's own email (via `RESEND_API_KEY`) and must be entered at
-`/admin/login/verify` before the session counts as fully authenticated — enforced in
-`src/lib/supabase/middleware.ts` for every `/admin` route, not just the login page. Codes expire
-after 10 minutes and lock out after 5 wrong guesses; "Resend code" issues a fresh one. This means
-email must be configured (`RESEND_API_KEY` + `EMAIL_FROM`) and `ADMIN_MFA_SECRET` (or
-`SUPABASE_SERVICE_ROLE_KEY`) must be set before *any* admin can sign in, including the first one.
+`/admin/login/verify` before the session counts as fully authenticated. That's enforced three
+times over: the middleware (`src/lib/supabase/middleware.ts`) for page routing, `requireAdmin()`
+(`src/lib/admin-guard.ts`) at the top of every admin server action, and — the one that matters —
+the database, whose RLS policies only let an MFA-verified Supabase session read or write admin
+data (`0030`). Codes expire after 10 minutes and lock out after 5 wrong guesses; "Resend code" has
+a 60-second cooldown, and sign-in attempts are rate limited per IP. Email must be configured
+(`RESEND_API_KEY` + `EMAIL_FROM`) and `SUPABASE_SERVICE_ROLE_KEY` set before *any* admin can sign
+in, including the first one. "Forgot your password?" on the login page emails a reset link.
+
+### Roles
+
+Every admin has a role, changed on `/admin/team` (owners only):
+
+| Role | Can use |
+|---|---|
+| Owner | Everything, including the Team page |
+| Editor | Catalog (products, series, categories, finishes) and review/photo moderation |
+| Sales | Inquiries, customers, quotes, orders and reports; can view the catalog |
+
+The role is checked in `requireAdmin(scope)` and again in the database (`admin_has_scope()` in
+`0031`), so hiding a button is never the only protection.
 
 ## Data model
 
@@ -126,10 +166,21 @@ gallery. Managed from the "Colors" section on a product's admin edit page.
 - `/admin` — dashboard (protected; redirects to `/admin/login` if signed out)
 - `/admin/series`, `/admin/categories`, `/admin/products`, `/admin/finishes` — CRUD, each with
   `/new` and `/[id]`, filterable by department where relevant (`?department=door-hardware`)
-- `/admin/inquiries` — "Enquire"/quote-basket submissions, status New/Contacted/Closed
+- `/admin/inquiries` — "Enquire"/quote-basket submissions as a list, pipeline board or trash
+- `/admin/quotes`, `/admin/orders`, `/admin/customers` — the sales pipeline: quotes (with
+  reminders, revisions and 30-day expiry), orders (payment status, invoices, packing slips) and the
+  customer CRM
+- `/admin/reports` — inquiries per week, quote conversion, most-requested products, order value
 - `/admin/reviews`, `/admin/photos` — moderation queues (Pending/Approved/Rejected) for
-  customer-submitted reviews and project photos
-- `/admin/activity` — recent create/update/delete audit trail (see `0008_activity_log.sql`)
+  customer-submitted reviews and project photos, with approve/reject-all
+- `/admin/activity` — audit trail with filters and field-level changes, plus System health
+  (failed inquiry emails with a Retry button, recent server errors)
+- `/admin/trash` — deleted products, series and customers; restore or delete forever
+- `/admin/team` — owners manage who can sign in and their role
+- `/quote/[token]` — the customer-facing accept/decline page linked from quote emails
+- `/api/cron/daily` — daily housekeeping, called by Vercel Cron
+
+Press **Ctrl/⌘ + K** anywhere in the admin to search everything, and **?** for keyboard shortcuts.
 
 ## Caching
 
@@ -142,7 +193,32 @@ hour. `searchProducts` is intentionally left uncached (search terms are unbounde
 
 ## Deploying
 
-Push to GitHub, import the repo in Vercel, and add `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` (and optionally `NEXT_PUBLIC_ENQUIRY_EMAIL`) as
-environment variables. Every catalog update after that happens through `/admin` —
-no redeploy needed, thanks to `revalidatePath` on every write.
+Push to GitHub, import the repo in Vercel, and add the environment variables from step 4 above
+(at minimum the Supabase URL/keys, `SUPABASE_SERVICE_ROLE_KEY`, the Resend settings,
+`NEXT_PUBLIC_SITE_URL` and `CRON_SECRET`). Every catalog update after that happens through
+`/admin` — no redeploy needed, thanks to cache revalidation on every write.
+
+The app sends a Content-Security-Policy and other security headers (`next.config.ts`). If you
+add a third-party script, image host or font service, add its origin there too.
+
+## Backups
+
+The database holds leads, quotes and orders that exist nowhere else, so check this before relying
+on it:
+
+- **Supabase Pro and above** take daily backups automatically (Dashboard → Database → Backups);
+  turn on **Point-in-Time Recovery** there if losing up to a day of orders would hurt.
+- **On the free plan there are no automatic backups.** Take your own, e.g. weekly:
+  `supabase db dump --linked -f backup-$(date +%F).sql` (schema + data) plus
+  `supabase db dump --linked --data-only -f data-$(date +%F).sql`, and keep them off-site.
+- Storage (product photos, spec sheets) is **not** included in database backups; copy the `media`
+  and `documents` buckets separately if you need them.
+- Test a restore into a scratch project once, so you know it works before you need it.
+
+## Testing
+
+```bash
+npm test          # unit tests (Vitest)
+npm run typecheck # TypeScript
+npm run lint
+```

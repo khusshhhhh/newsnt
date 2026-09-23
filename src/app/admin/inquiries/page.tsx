@@ -4,6 +4,10 @@ import { InquiryList } from "@/components/admin/inquiry-list";
 import { PipelineBoard } from "@/components/admin/pipeline-board";
 import { InquiryTrashList } from "@/components/admin/inquiry-trash-list";
 import { cn } from "@/lib/utils";
+import { AdminSearchBox } from "@/components/admin/admin-search-box";
+import { Pagination } from "@/components/pagination";
+import { ilikeContainsPattern } from "@/lib/search";
+import { buildHref, pageCount, pageRange, parsePage } from "@/lib/admin-list";
 import type { InquiryStatus } from "@/lib/supabase/types";
 
 const STATUSES: InquiryStatus[] = ["new", "contacted", "quoted", "won", "lost"];
@@ -13,10 +17,6 @@ function isStatus(value: string): value is InquiryStatus {
   return (STATUSES as string[]).includes(value);
 }
 
-function statusHref(status?: InquiryStatus) {
-  return status ? `/admin/inquiries?status=${status}` : "/admin/inquiries";
-}
-
 function viewHref(view: View) {
   return view === "list" ? "/admin/inquiries" : `/admin/inquiries?view=${view}`;
 }
@@ -24,9 +24,11 @@ function viewHref(view: View) {
 export default async function AdminInquiriesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; view?: string }>;
+  searchParams: Promise<{ status?: string; view?: string; q?: string; page?: string }>;
 }) {
-  const { status: rawStatus, view: rawView } = await searchParams;
+  const { status: rawStatus, view: rawView, q: rawQuery, page: rawPage } = await searchParams;
+  const q = rawQuery?.trim() ?? "";
+  const page = parsePage(rawPage);
   const view: View = rawView === "board" ? "board" : rawView === "trash" ? "trash" : "list";
   // The board shows every stage side by side, so a single-status filter
   // doesn't apply there — only the list view honours it.
@@ -40,10 +42,15 @@ export default async function AdminInquiriesPage({
     .select("*", { count: "exact", head: true })
     .not("deleted_at", "is", null);
 
-  let query = supabase.from("inquiries").select("*").order("created_at", { ascending: false });
+  let query = supabase.from("inquiries").select("*", { count: "exact" }).order("created_at", { ascending: false });
   query = view === "trash" ? query.not("deleted_at", "is", null) : query.is("deleted_at", null);
   if (status) query = query.eq("status", status);
-  const { data: inquiries } = await query;
+  const pattern = ilikeContainsPattern(q);
+  if (pattern) query = query.or(`name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern},message.ilike.${pattern}`);
+  // The board shows the whole pipeline at once; list and trash are paged.
+  const [from, to] = view === "board" ? [0, 499] : pageRange(page);
+  const { data: inquiries, count } = await query.range(from, to);
+  const current = { view: view === "list" ? undefined : view, status, q };
 
   const productIds = Array.from(
     new Set(
@@ -83,8 +90,9 @@ export default async function AdminInquiriesPage({
         </div>
       </div>
 
-      {view === "list" && (
-        <div className="mt-4 flex gap-1 rounded-full border border-border p-1 text-sm w-fit">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      {view === "list" ? (
+        <div className="flex w-fit flex-wrap gap-1 rounded-full border border-border p-1 text-sm">
           {(
             [
               { label: "All", value: undefined },
@@ -97,7 +105,7 @@ export default async function AdminInquiriesPage({
           ).map((tab) => (
             <Link
               key={tab.label}
-              href={statusHref(tab.value)}
+              href={buildHref("/admin/inquiries", { q }, { status: tab.value })}
               className={cn(
                 "rounded-full px-3 py-1.5 transition-colors",
                 status === tab.value
@@ -109,17 +117,28 @@ export default async function AdminInquiriesPage({
             </Link>
           ))}
         </div>
+      ) : (
+        <span />
       )}
+        <AdminSearchBox initialQuery={q} placeholder="Name, email, phone or message…" label="Search inquiries" />
+      </div>
 
       <div className="mt-6">
         {view === "board" ? (
-          <PipelineBoard inquiries={inquiries ?? []} products={products ?? []} />
+          <PipelineBoard key={q} inquiries={inquiries ?? []} products={products ?? []} />
         ) : view === "trash" ? (
           <InquiryTrashList inquiries={inquiries ?? []} />
         ) : (
           <InquiryList inquiries={inquiries ?? []} products={products ?? []} />
         )}
       </div>
+      {view !== "board" && (
+        <Pagination
+          page={page}
+          pageCount={pageCount(count)}
+          buildHref={(p) => buildHref("/admin/inquiries", current, { page: p > 1 ? String(p) : undefined })}
+        />
+      )}
     </div>
   );
 }

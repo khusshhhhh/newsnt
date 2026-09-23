@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { revalidateCatalog } from "./_shared";
 
 export async function addProductImage(
@@ -10,7 +10,7 @@ export async function addProductImage(
   displayOrder: number,
   variantId: string | null = null
 ) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data, error } = await supabase
     .from("product_images")
     .insert({
@@ -30,7 +30,7 @@ export async function addProductImage(
 }
 
 export async function reorderProductImages(productId: string, orderedIds: string[]) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   await Promise.all(
     orderedIds.map((id, index) =>
       supabase.from("product_images").update({ display_order: index }).eq("id", id)
@@ -42,7 +42,7 @@ export async function reorderProductImages(productId: string, orderedIds: string
 }
 
 export async function deleteProductImage(imageId: string, productId: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data: image } = await supabase
     .from("product_images")
     .select("storage_path")

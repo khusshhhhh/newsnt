@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slugify";
 import { logActivity } from "@/lib/data/activity";
 import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
@@ -46,7 +46,7 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data: series, error } = id
     ? await supabase.from("series").update(parsed.data).eq("id", id).select("id").single()
     : await supabase.from("series").insert(parsed.data).select("id").single();
@@ -86,23 +86,62 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
   return ok(seriesId);
 }
 
+/** Moves a series to trash (and off the storefront); restorable from /admin/trash. */
 export async function deleteSeries(id: string) {
-  const supabase = await createClient();
-  const { data: series } = await supabase.from("series").select("name").eq("id", id).maybeSingle();
+  const { supabase } = await requireAdmin("catalog");
+  const { data: series, error } = await supabase
+    .from("series")
+    .update({ deleted_at: new Date().toISOString(), is_published: false })
+    .eq("id", id)
+    .select("name")
+    .single();
+  if (error) throw new Error(error.message);
+
+  await logActivity({ action: "delete", entity_type: "series", entity_id: id, entity_name: series?.name });
+  revalidateCatalog();
+  revalidatePath("/admin/series");
+  revalidatePath("/admin/trash");
+  revalidatePath("/", "layout");
+}
+
+export async function restoreSeries(id: string) {
+  const { supabase } = await requireAdmin("catalog");
+  const { data: series, error } = await supabase
+    .from("series")
+    .update({ deleted_at: null })
+    .eq("id", id)
+    .select("name")
+    .single();
+  if (error) throw new Error(error.message);
+
+  await logActivity({ action: "restore", entity_type: "series", entity_id: id, entity_name: series?.name });
+  revalidateCatalog();
+  revalidatePath("/admin/series");
+  revalidatePath("/admin/trash");
+}
+
+/** Permanently removes a trashed series and its photo files. */
+export async function purgeSeries(id: string) {
+  const { supabase } = await requireAdmin("catalog");
+  const { data: series } = await supabase.from("series").select("name, deleted_at").eq("id", id).maybeSingle();
+  if (!series) throw new Error("Series not found");
+  if (!series.deleted_at) throw new Error("Move the series to trash first.");
   const { data: images } = await supabase
     .from("series_images")
     .select("storage_path")
     .eq("series_id", id);
 
-  await supabase.from("series").delete().eq("id", id);
+  const { error: deleteError } = await supabase.from("series").delete().eq("id", id);
+  if (deleteError) throw new Error(deleteError.message);
 
   const paths = (images ?? []).map((img) => img.storage_path);
   if (paths.length > 0) {
     await supabase.storage.from("media").remove(paths);
   }
 
-  await logActivity({ action: "delete", entity_type: "series", entity_id: id, entity_name: series?.name });
+  await logActivity({ action: "delete", entity_type: "series", entity_id: id, entity_name: `${series.name} (permanently)` });
   revalidateCatalog();
   revalidatePath("/admin/series");
+  revalidatePath("/admin/trash");
   revalidatePath("/", "layout");
 }

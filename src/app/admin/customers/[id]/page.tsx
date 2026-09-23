@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { CustomerNotes } from "@/components/admin/customer-notes";
 import { QuoteHistory } from "@/components/admin/quote-history";
 import { QuoteDialog } from "@/components/admin/quote-dialog";
+import { DeleteButton } from "@/components/admin/delete-button";
+import { restoreCustomer, trashCustomer } from "@/lib/actions/admin/customers";
 import { resolveInquiryLines, type AdminInquiryProduct } from "@/lib/inquiry-lines";
 import { departmentCopy } from "@/lib/department";
 import { formatPrice } from "@/lib/format";
@@ -88,11 +90,27 @@ export default async function AdminCustomerPage({ params }: { params: Promise<{ 
             {customer.phone ? ` · ${customer.phone}` : ""}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Customer since {new Date(customer.created_at).toLocaleDateString()} · last active{" "}
-            {new Date(customer.updated_at).toLocaleDateString()}
+            Customer since {new Date(customer.created_at).toLocaleDateString("en-AU")} · last active{" "}
+            {new Date(customer.updated_at).toLocaleDateString("en-AU")}
           </p>
         </div>
+        {!customer.deleted_at && (
+          <DeleteButton
+            action={trashCustomer.bind(null, customer.id)}
+            undo={restoreCustomer.bind(null, customer.id)}
+            label="Delete customer"
+            itemName={customer.name}
+          />
+        )}
       </div>
+      {customer.deleted_at && (
+        <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          This customer is in the trash and hidden from the customer list.{" "}
+          <Link href="/admin/trash" className="underline underline-offset-4">
+            Restore from Trash
+          </Link>
+        </p>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>

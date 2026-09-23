@@ -25,6 +25,15 @@ import { formatPrice } from "@/lib/format";
 import { DEPARTMENTS, departmentCopy, type Department } from "@/lib/department";
 import type { AdminInquiryProduct, AdminInquiryProductVariant } from "@/lib/inquiry-lines";
 
+export type QuoteBuilderInitial = {
+  parentQuoteId: string;
+  parentQuoteNumber: string;
+  customer: CustomerResult;
+  department: Department;
+  lines: EditableLine[];
+  notes: string;
+};
+
 type CustomerResult = {
   id: string;
   name: string;
@@ -62,20 +71,21 @@ function useDebouncedSearch<T>(query: string, search: (q: string) => Promise<T[]
   return { results: term ? results : [], loading: term ? loading : false };
 }
 
-export function QuoteBuilder() {
+/** Builds and sends a quote. With `initial` it starts as a revision of an earlier quote (same customer, lines and notes). */
+export function QuoteBuilder({ initial }: { initial?: QuoteBuilderInitial } = {}) {
   const router = useRouter();
   const [submitting, startSubmit] = useTransition();
 
-  const [customer, setCustomer] = useState<CustomerResult | null>(null);
+  const [customer, setCustomer] = useState<CustomerResult | null>(initial?.customer ?? null);
   const [addingCustomer, setAddingCustomer] = useState(false);
   const [customerQuery, setCustomerQuery] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
 
-  const [department, setDepartment] = useState<Department>("sanitary-tapware");
-  const [lines, setLines] = useState<EditableLine[]>([]);
-  const [notes, setNotes] = useState("");
+  const [department, setDepartment] = useState<Department>(initial?.department ?? "sanitary-tapware");
+  const [lines, setLines] = useState<EditableLine[]>(initial?.lines ?? []);
+  const [notes, setNotes] = useState(initial?.notes ?? "");
 
   const [productQuery, setProductQuery] = useState("");
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
@@ -134,7 +144,13 @@ export function QuoteBuilder() {
 
     startSubmit(async () => {
       try {
-        await createAndSendQuote({ customerId: customerId!, department, notes, items: toQuoteLineItems(lines) });
+        await createAndSendQuote({
+          customerId: customerId!,
+          department,
+          notes,
+          items: toQuoteLineItems(lines),
+          parentQuoteId: initial?.parentQuoteId ?? null,
+        });
         toast.success("Quote sent");
         router.push("/admin/quotes");
       } catch (e) {

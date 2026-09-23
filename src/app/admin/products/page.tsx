@@ -7,7 +7,11 @@ import { ProductSearchBox } from "@/components/admin/product-search-box";
 import { ProductFilters } from "@/components/admin/product-filters";
 import { ProductList } from "@/components/admin/product-list";
 import { CsvImportForm } from "@/components/admin/csv-import-form";
+import { Pagination } from "@/components/pagination";
 import { cn } from "@/lib/utils";
+import { ilikeContainsPattern } from "@/lib/search";
+import { buildHref, pageCount, pageRange, parsePage } from "@/lib/admin-list";
+import { PRODUCT_SORTS, isProductSort, type ProductSort } from "@/lib/product-sorts";
 import { isDepartment, type Department } from "@/lib/department";
 import type { StockStatus } from "@/lib/supabase/types";
 
@@ -22,19 +26,6 @@ function isStockStatus(value: string): value is StockStatus {
   return (STOCK_STATUSES as string[]).includes(value);
 }
 
-function buildHref(
-  basePath: string,
-  current: Record<string, string | undefined>,
-  overrides: Record<string, string | undefined>
-) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries({ ...current, ...overrides })) {
-    if (value) params.set(key, value);
-  }
-  const qs = params.toString();
-  return qs ? `${basePath}?${qs}` : basePath;
-}
-
 export default async function AdminProductsPage({
   searchParams,
 }: {
@@ -46,6 +37,8 @@ export default async function AdminProductsPage({
     category?: string;
     finish?: string;
     stock?: string;
+    sort?: string;
+    page?: string;
   }>;
 }) {
   const {
@@ -56,12 +49,16 @@ export default async function AdminProductsPage({
     category: categoryId,
     finish,
     stock: rawStock,
+    sort: rawSort,
+    page: rawPage,
   } = await searchParams;
   const department: Department | undefined =
     rawDepartment && isDepartment(rawDepartment) ? rawDepartment : undefined;
   const q = rawQuery?.trim() ?? "";
   const status: StatusFilter | undefined = rawStatus && isStatusFilter(rawStatus) ? rawStatus : undefined;
   const stock: StockStatus | undefined = rawStock && isStockStatus(rawStock) ? rawStock : undefined;
+  const sort: ProductSort = rawSort && isProductSort(rawSort) ? rawSort : "newest";
+  const page = parsePage(rawPage);
   const currentParams = {
     department,
     q,
@@ -70,19 +67,19 @@ export default async function AdminProductsPage({
     category: categoryId,
     finish,
     stock,
+    sort: sort === "newest" ? undefined : sort,
   };
 
   const supabase = await createClient();
 
-  const [{ data: seriesOptions }, { data: categoryOptions }, { data: finishOptions }] =
+  const [{ data: seriesOptions }, { data: categoryOptions }, { data: finishOptions }, { count: trashCount }] =
     await Promise.all([
       department
-        ? supabase.from("series").select("id, name").eq("department", department).order("name")
+        ? supabase.from("series").select("id, name").eq("department", department).is("deleted_at", null).order("name")
         : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-      department
-        ? supabase.from("categories").select("id, name").eq("department", department).order("name")
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      supabase.from("categories").select("id, name, department").order("name"),
       supabase.from("finishes").select("id, name").order("display_order"),
+      supabase.from("products").select("*", { count: "exact", head: true }).not("deleted_at", "is", null),
     ]);
 
   let productIdsForFinish: string[] | null = null;
@@ -94,30 +91,55 @@ export default async function AdminProductsPage({
     productIdsForFinish = Array.from(new Set((variantRows ?? []).map((v) => v.product_id)));
   }
 
+  const { column, ascending } = PRODUCT_SORTS[sort];
   let query = supabase
     .from("products")
-    .select(
-      "*, series(name), category:categories(name), product_images(storage_path, display_order)"
-    )
-    .order("created_at", { ascending: false });
+    .select("*, series(name), category:categories(name), product_images(storage_path, display_order)", {
+      count: "exact",
+    })
+    .is("deleted_at", null)
+    .order(column, { ascending, nullsFirst: false })
+    .order("id");
   if (department) query = query.eq("department", department);
   if (status) query = query.eq("is_published", status === "published");
-  if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%`);
+  const pattern = ilikeContainsPattern(q);
+  if (pattern) query = query.or(`name.ilike.${pattern},sku.ilike.${pattern}`);
   if (seriesId) query = query.eq("series_id", seriesId);
   if (categoryId) query = query.eq("category_id", categoryId);
   if (stock) query = query.eq("stock_status", stock);
   if (productIdsForFinish) query = query.in("id", productIdsForFinish);
-  const { data: products } = await query;
+  const [from, to] = pageRange(page);
+  const { data: products, count } = await query.range(from, to);
+
+  const departmentCategories = (categoryOptions ?? []).filter((c) => !department || c.department === department);
+  const sortHrefs = Object.fromEntries(
+    (Object.keys(PRODUCT_SORTS) as ProductSort[]).map((s) => [
+      s,
+      buildHref("/admin/products", currentParams, { sort: s === "newest" ? undefined : s }),
+    ])
+  ) as Record<ProductSort, string>;
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-heading text-2xl text-foreground">Products</h1>
+        <div>
+          <h1 className="font-heading text-2xl text-foreground">Products</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {count ?? 0} product{count === 1 ? "" : "s"}
+            {(trashCount ?? 0) > 0 && (
+              <>
+                {" · "}
+                <Link href="/admin/trash" className="hover:text-foreground hover:underline">
+                  {trashCount} in trash
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
         <Link
-          href={
-            department ? `/admin/products/new?department=${department}` : "/admin/products/new"
-          }
+          href={department ? `/admin/products/new?department=${department}` : "/admin/products/new"}
           className={buttonVariants()}
+          data-admin-new
         >
           New product
         </Link>
@@ -139,9 +161,7 @@ export default async function AdminProductsPage({
                 href={buildHref("/admin/products", currentParams, { status: tab.value })}
                 className={cn(
                   "rounded-full px-3 py-1.5 transition-colors",
-                  status === tab.value
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground"
+                  status === tab.value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 {tab.label}
@@ -155,7 +175,7 @@ export default async function AdminProductsPage({
       <div className="mt-3">
         <ProductFilters
           seriesOptions={(seriesOptions ?? []).map((s) => ({ value: s.id, label: s.name }))}
-          categoryOptions={(categoryOptions ?? []).map((c) => ({ value: c.id, label: c.name }))}
+          categoryOptions={departmentCategories.map((c) => ({ value: c.id, label: c.name }))}
           finishOptions={(finishOptions ?? []).map((f) => ({ value: f.name, label: f.name }))}
         />
       </div>
@@ -172,7 +192,18 @@ export default async function AdminProductsPage({
       </div>
 
       <div className="mt-6">
-        <ProductList products={products ?? []} />
+        <ProductList
+          products={products ?? []}
+          sort={sort}
+          sortHrefs={sortHrefs}
+          categories={categoryOptions ?? []}
+          hasFilters={Boolean(q || status || seriesId || categoryId || finish || stock || department)}
+        />
+        <Pagination
+          page={page}
+          pageCount={pageCount(count)}
+          buildHref={(p) => buildHref("/admin/products", currentParams, { page: p > 1 ? String(p) : undefined })}
+        />
       </div>
     </div>
   );

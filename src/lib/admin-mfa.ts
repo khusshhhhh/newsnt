@@ -11,8 +11,11 @@ import { createHmac, randomInt, timingSafeEqual } from "crypto";
 export const AAL2_COOKIE_NAME = "admin_aal2";
 export const OTP_MAX_ATTEMPTS = 5;
 
+export const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+export const AAL2_TTL_SECONDS = 60 * 60 * 12;
+
 const OTP_TTL_MS = 10 * 60 * 1000;
-const COOKIE_TTL_SECONDS = 60 * 60 * 12;
+const COOKIE_TTL_SECONDS = AAL2_TTL_SECONDS;
 
 /** Missing on purpose in most local/dev setups — callers should surface this as a clear, fail-closed error rather than skipping the gate. */
 export function mfaSecret(): string | null {
@@ -25,6 +28,12 @@ export function generateOtpCode(): string {
 
 export function otpExpiresAt(): string {
   return new Date(Date.now() + OTP_TTL_MS).toISOString();
+}
+
+/** When the current code was sent, derived from its expiry — so the resend cooldown needs no extra column. */
+export function otpSentAt(expiresAt: string | null): number | null {
+  if (!expiresAt) return null;
+  return new Date(expiresAt).getTime() - OTP_TTL_MS;
 }
 
 export function isOtpExpired(expiresAt: string | null): boolean {

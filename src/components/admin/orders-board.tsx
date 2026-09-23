@@ -10,7 +10,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  FULL_SCREEN_ON_MOBILE,
 } from "@/components/ui/dialog";
+import { OrderPaymentPanel, PAYMENT_STATUS_LABEL } from "@/components/admin/order-payment-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { departmentCopy } from "@/lib/department";
 import { formatPrice } from "@/lib/format";
@@ -51,6 +53,10 @@ export function OrdersBoard({ orders: initialOrders }: { orders: OrderWithCustom
 
   function patchNotes(id: string, notes: string) {
     setOrders((cur) => cur.map((o) => (o.id === id ? { ...o, notes } : o)));
+  }
+
+  function patchOrder(id: string, fields: Partial<OrderWithCustomer>) {
+    setOrders((cur) => cur.map((o) => (o.id === id ? { ...o, ...fields } : o)));
   }
 
   const detailOrder = orders.find((o) => o.id === detailOrderId) ?? null;
@@ -105,7 +111,7 @@ export function OrdersBoard({ orders: initialOrders }: { orders: OrderWithCustom
       </div>
 
       <Dialog open={detailOrder != null} onOpenChange={(open) => !open && setDetailOrderId(null)}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className={cn("sm:max-w-xl", FULL_SCREEN_ON_MOBILE)}>
           {detailOrder && (
             <>
               <DialogHeader>
@@ -174,7 +180,15 @@ export function OrdersBoard({ orders: initialOrders }: { orders: OrderWithCustom
                 ))}
               </div>
 
+              <OrderPaymentPanel
+                key={detailOrder.id}
+                order={detailOrder}
+                total={detailOrder.items.reduce((sum, i) => sum + (i.unitPrice ?? 0) * i.quantity, 0)}
+                onSaved={(fields) => patchOrder(detailOrder.id, fields)}
+              />
+
               <OrderNotesField
+                key={`notes-${detailOrder.id}`}
                 orderId={detailOrder.id}
                 notes={detailOrder.notes}
                 onSaved={(notes) => patchNotes(detailOrder.id, notes)}
@@ -226,6 +240,21 @@ function OrderCard({
           {order.items.length} item{order.items.length === 1 ? "" : "s"}
           {hasPriced ? ` · ${formatPrice(total)}` : ""}
         </p>
+        <div className="mt-1 flex flex-wrap gap-1">
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 text-[10px]",
+              order.payment_status === "paid" ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
+            )}
+          >
+            {PAYMENT_STATUS_LABEL[order.payment_status] ?? "Unpaid"}
+          </span>
+          {order.fulfilment_date && (
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              Due {new Date(order.fulfilment_date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+            </span>
+          )}
+        </div>
       </button>
 
       <select

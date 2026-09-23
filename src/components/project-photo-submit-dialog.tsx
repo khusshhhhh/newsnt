@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { submitProjectPhoto } from "@/lib/actions/project-photos";
 import { ImageUploader } from "@/components/admin/image-uploader";
+import { HoneypotField } from "@/components/honeypot-field";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ export function ProjectPhotoSubmitDialog({
         </DialogHeader>
         <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input type="hidden" name="department" value={department} />
+          <HoneypotField />
           <div className="flex flex-col gap-1.5">
             <Label>Photo</Label>
             <ImageUploader folder="project-submissions" fieldName="storage_path" value={[]} max={1} />

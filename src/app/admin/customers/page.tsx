@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { CustomerSearchBox } from "@/components/admin/customer-search-box";
 import { departmentCopy } from "@/lib/department";
 import { formatPrice } from "@/lib/format";
+import { ilikeContainsPattern } from "@/lib/search";
+import { Pagination } from "@/components/pagination";
+import { buildHref, pageCount, pageRange, parsePage } from "@/lib/admin-list";
 import type { InquiryStatus } from "@/lib/supabase/types";
 
 const OPEN_STATUSES: InquiryStatus[] = ["new", "contacted", "quoted"];
@@ -11,16 +14,23 @@ const OPEN_STATUSES: InquiryStatus[] = ["new", "contacted", "quoted"];
 export default async function AdminCustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { q: rawQuery } = await searchParams;
+  const { q: rawQuery, page: rawPage } = await searchParams;
   const q = rawQuery?.trim() ?? "";
+  const page = parsePage(rawPage);
 
   const supabase = await createClient();
 
-  let query = supabase.from("customers").select("*").order("updated_at", { ascending: false });
-  if (q) query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`);
-  const { data: customers } = await query;
+  let query = supabase
+    .from("customers")
+    .select("*", { count: "exact" })
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false });
+  const pattern = ilikeContainsPattern(q);
+  if (pattern) query = query.or(`name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`);
+  const [from, to] = pageRange(page);
+  const { data: customers, count } = await query.range(from, to);
 
   const customerIds = (customers ?? []).map((c) => c.id);
 
@@ -61,7 +71,10 @@ export default async function AdminCustomersPage({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-heading text-2xl text-foreground">Customers</h1>
+        <div>
+          <h1 className="font-heading text-2xl text-foreground">Customers</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{count ?? 0} customers</p>
+        </div>
       </div>
 
       <div className="mt-4">
@@ -81,7 +94,8 @@ export default async function AdminCustomersPage({
             <Link
               key={customer.id}
               href={`/admin/customers/${customer.id}`}
-              className="animate-fade-in flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
+              data-admin-row
+              className="animate-fade-in focus-visible:bg-accent/50 focus-visible:outline-none flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -110,7 +124,7 @@ export default async function AdminCustomersPage({
                   {stats.orders === 1 ? "" : "s"}
                 </p>
                 <p className="mt-0.5">
-                  Last active {new Date(customer.updated_at).toLocaleDateString()}
+                  Last active {new Date(customer.updated_at).toLocaleDateString("en-AU")}
                 </p>
               </div>
             </Link>
@@ -123,6 +137,11 @@ export default async function AdminCustomersPage({
           </p>
         )}
       </div>
+      <Pagination
+        page={page}
+        pageCount={pageCount(count)}
+        buildHref={(p) => buildHref("/admin/customers", { q }, { page: p > 1 ? String(p) : undefined })}
+      />
     </div>
   );
 }

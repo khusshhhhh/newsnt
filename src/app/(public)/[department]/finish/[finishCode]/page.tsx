@@ -6,11 +6,15 @@ import { ProductCard } from "@/components/product-card";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
 import { Pagination } from "@/components/pagination";
+import { EmptyListing } from "@/components/empty-listing";
+import { ListingControls } from "@/components/listing-controls";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { listingHref, parseListing, type ListingSearchParams } from "@/lib/listing";
 import { cn } from "@/lib/utils";
 import { departmentHref, finishHref, isDepartment, type Department } from "@/lib/department";
 
 type Params = { department: string; finishCode: string };
-type SearchParams = { page?: string };
+type SearchParams = ListingSearchParams;
 
 export async function generateMetadata({
   params,
@@ -19,7 +23,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { finishCode } = await params;
   const finish = await getFinishByCode(finishCode);
-  return { title: finish ? `${finish.name} finish` : "Finish" };
+  if (!finish) return { title: "Finish" };
+  const title = `${finish.name} finish`;
+  const description = `Every Flow product available in ${finish.name}.`;
+  return { title, description, openGraph: { title, description } };
 }
 
 export default async function FinishPage({
@@ -36,22 +43,16 @@ export default async function FinishPage({
   const finish = await getFinishByCode(finishCode);
   if (!finish) notFound();
 
-  const { page: rawPage } = await searchParams;
-  const page = Math.max(1, Number(rawPage) || 1);
-  const [{ items: products, pageCount }, finishes] = await Promise.all([
-    getProducts(department, { finishCode }, page),
+  const { page, sort, inStockOnly } = parseListing(await searchParams);
+  const basePath = finishHref(department, finishCode);
+  const [{ items: products, pageCount, total }, finishes] = await Promise.all([
+    getProducts(department, { finishCode }, page, { sort, inStockOnly }),
     getActiveFinishes(),
   ]);
 
   return (
     <Container className="py-12">
-      <div className="mb-8 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <Link href={departmentHref(department)} className="transition-colors hover:text-foreground">
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">{finish.name}</span>
-      </div>
+      <Breadcrumbs items={[{ name: "Home", href: departmentHref(department) }, { name: finish.name }]} />
 
       <div className="mb-8 flex items-center gap-3">
         <span
@@ -92,6 +93,8 @@ export default async function FinishPage({
         ))}
       </div>
 
+      <ListingControls sort={sort} inStockOnly={inStockOnly} total={total} />
+
       {products.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
           {products.map((product, i) => (
@@ -101,13 +104,15 @@ export default async function FinishPage({
           ))}
         </div>
       ) : (
-        <p className="text-muted-foreground">No products published in {finish.name} yet.</p>
+        <EmptyListing filtered={inStockOnly} resetHref={basePath}>
+          No products published in {finish.name} yet.
+        </EmptyListing>
       )}
 
       <Pagination
         page={page}
         pageCount={pageCount}
-        buildHref={(p) => `${finishHref(department, finishCode)}?page=${p}`}
+        buildHref={(p) => listingHref(basePath, { sort, inStockOnly, page: p })}
       />
     </Container>
   );

@@ -1,11 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { FileDown, Loader2 } from "lucide-react";
-import { downloadStoredQuotePdf } from "@/lib/actions/admin/quotes";
+import { BellRing, FileDown, Loader2, PencilLine } from "lucide-react";
+import { downloadStoredQuotePdf, sendQuoteReminder } from "@/lib/actions/admin/quotes";
 import { downloadBase64File } from "@/lib/download-file";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { OrderDialog } from "@/components/admin/order-dialog";
 import type { EditableLine } from "@/components/admin/line-item-editor";
 import type { Department } from "@/lib/department";
@@ -19,6 +20,8 @@ export function QuoteRowActions({
   customerName,
   department,
   lines,
+  canRemind = false,
+  reminded = false,
 }: {
   quoteId: string;
   status: QuoteStatus;
@@ -27,8 +30,25 @@ export function QuoteRowActions({
   customerName: string;
   department: Department;
   lines: EditableLine[];
+  canRemind?: boolean;
+  reminded?: boolean;
 }) {
   const [downloading, startTransition] = useTransition();
+  const [reminding, startReminder] = useTransition();
+  const [remindedNow, setRemindedNow] = useState(false);
+
+  function remind() {
+    if ((reminded || remindedNow) && !window.confirm("A reminder was already sent for this quote. Send another?")) return;
+    startReminder(async () => {
+      try {
+        await sendQuoteReminder(quoteId);
+        setRemindedNow(true);
+        toast.success(`Reminder sent to ${customerName}`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Couldn't send the reminder");
+      }
+    });
+  }
 
   function download() {
     startTransition(async () => {
@@ -42,7 +62,7 @@ export function QuoteRowActions({
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-2">
+    <div className="flex shrink-0 flex-wrap items-center gap-2">
       {status === "accepted" && !alreadyOrdered && (
         <OrderDialog
           customerId={customerId}
@@ -51,6 +71,22 @@ export function QuoteRowActions({
           quoteId={quoteId}
           lines={lines}
         />
+      )}
+      {canRemind && (
+        <Button type="button" variant="ghost" size="sm" className="gap-1.5" disabled={reminding} onClick={remind}>
+          {reminding ? <Loader2 className="size-3.5 animate-spin" /> : <BellRing className="size-3.5" />}
+          {remindedNow ? "Reminded" : "Remind"}
+        </Button>
+      )}
+      {status !== "accepted" && (
+        <Link
+          href={`/admin/quotes/new?from=${quoteId}`}
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
+          title="Send a revised version of this quote"
+        >
+          <PencilLine className="size-3.5" />
+          Revise
+        </Link>
       )}
       <Button type="button" variant="outline" size="sm" className="gap-1.5" disabled={downloading} onClick={download}>
         {downloading ? <Loader2 className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />}

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slugify";
 import { logActivity } from "@/lib/data/activity";
 import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
@@ -35,7 +35,7 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data: category, error } = id
     ? await supabase.from("categories").update(parsed.data).eq("id", id).select("id").single()
     : await supabase.from("categories").insert(parsed.data).select("id").single();
@@ -76,7 +76,7 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
 }
 
 export async function deleteCategory(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data: category } = await supabase
     .from("categories")
     .select("name")

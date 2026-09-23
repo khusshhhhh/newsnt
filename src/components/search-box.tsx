@@ -59,7 +59,7 @@ export function SearchBox({
           onChange={(e) => handleChange(e.target.value)}
           autoFocus
           autoComplete="off"
-          placeholder="Search by name, SKU, or description…"
+          placeholder="Search by product name or SKU…"
           className="w-full bg-transparent font-heading text-2xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
         />
         {isPending && (

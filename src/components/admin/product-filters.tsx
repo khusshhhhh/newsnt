@@ -22,6 +22,7 @@ export function ProductFilters({
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
+    params.delete("page");
     router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname, {
       scroll: false,
     });

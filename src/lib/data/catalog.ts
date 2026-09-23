@@ -1,5 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
+import { escapeLikePattern, sanitizeSearchTerm } from "@/lib/search";
+import type { ListingOptions } from "@/lib/listing";
 import type { Department } from "@/lib/department";
 import type {
   Category,
@@ -20,7 +22,7 @@ import type {
 /** Matches the admin uploader's cap for both category and series galleries. */
 const MAX_GALLERY_IMAGES = 6;
 
-const PRODUCT_SELECT =
+export const PRODUCT_SELECT =
   "*, series(*), category:categories(*), product_images(*), variants:product_variants(*, product_images(*)), resources:product_resources(*)";
 
 export const PAGE_SIZE = 24;
@@ -57,7 +59,7 @@ function byDisplayOrder<T extends { display_order: number }>(a: T, b: T) {
  * just the default/general gallery (`variant_id IS NULL`) and everything is
  * sorted client-side rather than trusting nested embed ordering.
  */
-function shapeProduct(raw: unknown): ProductWithRelations {
+export function shapeProduct(raw: unknown): ProductWithRelations {
   const row = raw as ProductWithRelations & { product_images: ProductImage[] };
   const generalImages = (row.product_images ?? [])
     .filter((img) => !img.variant_id)
@@ -187,7 +189,8 @@ export const getProducts = unstable_cache(
   async (
     department: Department,
     filter: { seriesSlug?: string; categorySlug?: string; finishCode?: string },
-    page = 1
+    page = 1,
+    options: ListingOptions = { sort: "featured", inStockOnly: false }
   ): Promise<PagedResult<ProductWithRelations>> => {
     const supabase = createPublicClient();
     let query = supabase
@@ -221,10 +224,27 @@ export const getProducts = unstable_cache(
       query = query.in("id", productIds);
     }
 
+    if (options.inStockOnly) query = query.eq("stock_status", "in_stock");
+
+    switch (options.sort) {
+      case "newest":
+        query = query.order("created_at", { ascending: false });
+        break;
+      case "price-asc":
+        query = query.order("price", { ascending: true, nullsFirst: false });
+        break;
+      case "price-desc":
+        query = query.order("price", { ascending: false, nullsFirst: false });
+        break;
+      case "name":
+        query = query.order("name", { ascending: true });
+        break;
+      default:
+        query = query.order("display_order", { ascending: true });
+    }
+
     const from = (page - 1) * PAGE_SIZE;
-    const { data, error, count } = await query
-      .order("display_order", { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
+    const { data, error, count } = await query.order("id").range(from, from + PAGE_SIZE - 1);
 
     if (error) throw error;
     const total = count ?? 0;
@@ -239,16 +259,6 @@ export const getProducts = unstable_cache(
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );
 
-/** Strip characters that would break PostgREST's `.or()` mini-syntax. */
-function sanitizeSearchTerm(query: string) {
-  return query.replace(/[,()]/g, " ").trim();
-}
-
-/** Escape ILIKE metacharacters so a literal "%" or "_" in a search doesn't act as a wildcard. */
-function escapeLikePattern(term: string) {
-  return term.replace(/[\\%_]/g, (m) => `\\${m}`);
-}
-
 // Not cached: search terms are effectively unbounded, so caching them would
 // mostly just fill the cache with one-off entries. Still uses the fast
 // cookie-free public client since it doesn't need a session either.
@@ -259,10 +269,32 @@ export async function searchProducts(
 ): Promise<PagedResult<ProductWithRelations>> {
   const term = sanitizeSearchTerm(query);
   if (!term) return emptyPage(page);
-
-  const pattern = `%${escapeLikePattern(term)}%`;
   const supabase = createPublicClient();
   const from = (page - 1) * PAGE_SIZE;
+
+  // Typo-tolerant ranking via pg_trgm (0031): "mixr" still finds "Mixer".
+  // Wildcards are stripped since the function wraps the term in ILIKE itself.
+  const { data: ranked, error: rankError } = await supabase.rpc("search_product_ids", {
+    p_department: department,
+    p_query: term.replace(/[\\%_]/g, " ").trim(),
+    p_limit: 200,
+  });
+  if (!rankError && ranked) {
+    const pageIds = ranked.slice(from, from + PAGE_SIZE).map((r) => r.id);
+    if (pageIds.length === 0) return { items: [], total: ranked.length, page, pageCount: Math.max(1, Math.ceil(ranked.length / PAGE_SIZE)) };
+    const { data, error } = await supabase.from("products").select(PRODUCT_SELECT).in("id", pageIds);
+    if (error) throw error;
+    const byId = new Map((data ?? []).map((row) => [(row as { id: string }).id, row]));
+    return {
+      items: pageIds.map((id) => byId.get(id)).filter(Boolean).map(shapeProduct),
+      total: ranked.length,
+      page,
+      pageCount: Math.max(1, Math.ceil(ranked.length / PAGE_SIZE)),
+    };
+  }
+
+  // Fallback (migration not run yet): plain name/SKU contains-match.
+  const pattern = `%${escapeLikePattern(term)}%`;
   const { data, error, count } = await supabase
     .from("products")
     .select(PRODUCT_SELECT, { count: "exact" })
@@ -423,5 +455,40 @@ export const getApprovedProjectPhotos = unstable_cache(
     return data ?? [];
   },
   ["approved-project-photos"],
+  { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
+);
+
+/** Other published products from the same series (falling back to the same category), for "You may also like". */
+export const getRelatedProducts = unstable_cache(
+  async (
+    department: Department,
+    productId: string,
+    seriesId: string | null,
+    categoryId: string,
+    limit = 4
+  ): Promise<ProductWithRelations[]> => {
+    const supabase = createPublicClient();
+    const base = () =>
+      supabase
+        .from("products")
+        .select(PRODUCT_SELECT)
+        .eq("department", department)
+        .eq("is_published", true)
+        .neq("id", productId)
+        .order("display_order", { ascending: true })
+        .limit(limit);
+
+    const { data: sameSeries, error } = seriesId ? await base().eq("series_id", seriesId) : { data: [], error: null };
+    if (error) throw error;
+    let rows = sameSeries ?? [];
+    if (rows.length < limit) {
+      const { data: sameCategory, error: categoryError } = await base().eq("category_id", categoryId);
+      if (categoryError) throw categoryError;
+      const seen = new Set(rows.map((r) => (r as { id: string }).id));
+      rows = [...rows, ...(sameCategory ?? []).filter((r) => !seen.has((r as { id: string }).id))].slice(0, limit);
+    }
+    return rows.map(shapeProduct);
+  },
+  ["related-products"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );

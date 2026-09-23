@@ -19,12 +19,20 @@ export type QuoteBasketItem = {
   slug: string;
   department: Department;
   quantity: number;
+  /** Price when added (null = price on enquiry) — only for the basket's running estimate; staff quote the real price. */
+  unitPrice: number | null;
 };
 
 type StoredItem = Partial<QuoteBasketItem> & { id?: string };
 
 const STORAGE_KEY = "flow-quote-basket";
 const CHANGE_EVENT = "quote-basket-changed";
+/** Dispatch on window to open the basket dialog from anywhere (e.g. a toast's "View" button). */
+export const OPEN_BASKET_EVENT = "quote-basket-open";
+
+export function openQuoteBasket() {
+  window.dispatchEvent(new Event(OPEN_BASKET_EVENT));
+}
 const EMPTY: QuoteBasketItem[] = [];
 const MAX_QUANTITY = 99;
 
@@ -57,6 +65,7 @@ function readFromStorage(): QuoteBasketItem[] {
           slug: item.slug,
           department: item.department,
           quantity: item.quantity ?? 1,
+          unitPrice: typeof item.unitPrice === "number" ? item.unitPrice : null,
         };
       });
   } catch {
@@ -107,6 +116,7 @@ export type AddQuoteBasketItem = {
   department: Department;
   variantId?: string | null;
   variantLabel?: string | null;
+  unitPrice?: number | null;
 };
 
 /**
@@ -145,6 +155,7 @@ export function useQuoteBasket() {
             slug: item.slug,
             department: item.department,
             quantity: Math.min(MAX_QUANTITY, Math.max(1, quantity)),
+            unitPrice: item.unitPrice ?? null,
           },
         ];
     writeBasket(next);
@@ -179,5 +190,10 @@ export function useQuoteBasket() {
     has: (key: string) => items.some((i) => i.key === key),
     quantityOf: (key: string) => items.find((i) => i.key === key)?.quantity ?? 0,
     totalQuantity: items.reduce((sum, i) => sum + i.quantity, 0),
+    /** Sum of the priced lines, and whether any line is "price on enquiry". */
+    estimate: {
+      total: items.reduce((sum, i) => sum + (i.unitPrice ?? 0) * i.quantity, 0),
+      hasUnpriced: items.some((i) => i.unitPrice == null),
+    },
   };
 }

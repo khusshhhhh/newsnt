@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { computeVariantSku } from "@/lib/colors";
 import { revalidateCatalog } from "./_shared";
 import type { StockStatus } from "@/lib/supabase/types";
@@ -25,7 +25,7 @@ export async function addProductVariant(productId: string, formData: FormData) {
 
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid color");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const [{ data: product }, { data: finish }] = await Promise.all([
     supabase.from("products").select("sku").eq("id", productId).maybeSingle(),
     supabase
@@ -76,7 +76,7 @@ export async function updateProductVariantPrice(
     throw new Error("Enter a valid price");
   }
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data, error } = await supabase
     .from("product_variants")
     .update({ price })
@@ -100,7 +100,7 @@ export async function updateProductVariantStock(
     throw new Error("Invalid stock status");
   }
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data, error } = await supabase
     .from("product_variants")
     .update({ stock_status: stockStatus })
@@ -116,7 +116,7 @@ export async function updateProductVariantStock(
 }
 
 export async function deleteProductVariant(variantId: string, productId: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data: images } = await supabase
     .from("product_images")
     .select("storage_path")

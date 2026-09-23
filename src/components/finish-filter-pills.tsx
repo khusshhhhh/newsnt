@@ -7,17 +7,22 @@ export function FinishFilterPills({
   finishes,
   basePath,
   activeCode,
+  hrefFor,
 }: {
   finishes: Finish[];
   basePath: string;
   activeCode?: string;
+  /** Builds each pill's link, so other listing params (sort, stock) survive a finish change. */
+  hrefFor?: (finishCode: string | undefined) => string;
 }) {
+  const href = hrefFor ?? ((code?: string) => (code ? `${basePath}?finish=${code}` : basePath));
   if (finishes.length === 0) return null;
 
   return (
     <div className="mb-8 flex flex-wrap items-center gap-2">
       <Link
-        href={basePath}
+        href={href(undefined)}
+        aria-current={!activeCode ? "true" : undefined}
         className={cn(
           "rounded-full border px-4 py-1.5 text-sm transition-colors",
           !activeCode
@@ -32,7 +37,8 @@ export function FinishFilterPills({
         return (
           <Link
             key={finish.id}
-            href={`${basePath}?finish=${finish.code}`}
+            href={href(finish.code)}
+            aria-current={active ? "true" : undefined}
             className={cn(
               "flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
               active

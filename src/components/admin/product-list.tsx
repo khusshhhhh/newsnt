@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Copy, Loader2, Pencil } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Copy, ExternalLink, Loader2, Pencil, Rows3, Rows4 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,19 +22,26 @@ import {
   deleteProduct,
   duplicateProduct,
   bulkSetPublished,
+  bulkSetCategory,
+  bulkSetStockStatus,
+  restoreProducts,
+  trashProducts,
   updateProductPrice,
   updateProductStockStatus,
   updateProductFeatured,
 } from "@/lib/actions/admin/products";
 import { formatPrice } from "@/lib/format";
 import { mediaUrl } from "@/lib/supabase/storage";
-import { departmentCopy, type Department } from "@/lib/department";
+import { departmentCopy, productHref, type Department } from "@/lib/department";
+import type { ProductSort } from "@/lib/product-sorts";
+import { cn } from "@/lib/utils";
 import { STOCK_STATUS_LABEL, STOCK_STATUSES } from "@/lib/stock-status";
 import type { StockStatus } from "@/lib/supabase/types";
 
 export type AdminProductRow = {
   id: string;
   name: string;
+  slug: string;
   department: Department;
   is_published: boolean;
   is_featured: boolean;
@@ -45,8 +52,37 @@ export type AdminProductRow = {
   product_images: { storage_path: string; display_order: number }[];
 };
 
-export function ProductList({ products: initialProducts }: { products: AdminProductRow[] }) {
+const DENSITY_KEY = "admin-product-density";
+
+export function ProductList({
+  products: initialProducts,
+  sort,
+  sortHrefs,
+  categories,
+  hasFilters,
+}: {
+  products: AdminProductRow[];
+  sort: ProductSort;
+  sortHrefs: Record<ProductSort, string>;
+  categories: { id: string; name: string; department: Department }[];
+  hasFilters: boolean;
+}) {
   const router = useRouter();
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read a per-browser preference once after hydration
+      setCompact(localStorage.getItem(DENSITY_KEY) === "compact");
+    } catch {}
+  }, []);
+  function toggleDensity() {
+    setCompact((c) => {
+      try {
+        localStorage.setItem(DENSITY_KEY, c ? "comfortable" : "compact");
+      } catch {}
+      return !c;
+    });
+  }
   const [products, setProducts] = useState(initialProducts);
   // Filters/search change the `products` prop via a new server render — reset
   // local state (which also carries optimistic inline edits) whenever that
@@ -93,6 +129,51 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
     });
   }
 
+  const selectedDepartments = new Set(products.filter((p) => selected.has(p.id)).map((p) => p.department));
+  const movableCategories =
+    selectedDepartments.size === 1 ? categories.filter((c) => selectedDepartments.has(c.department)) : [];
+
+  function runBulkAction(run: () => Promise<void>, done: string, patchRows?: (p: AdminProductRow) => AdminProductRow) {
+    const ids = Array.from(selected);
+    startBulkTransition(async () => {
+      try {
+        await run();
+        if (patchRows) setProducts((prev) => prev.map((p) => (ids.includes(p.id) ? patchRows(p) : p)));
+        toast.success(done);
+        setSelected(new Set());
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Bulk update failed");
+      }
+    });
+  }
+
+  function bulkTrash() {
+    const ids = Array.from(selected);
+    if (!window.confirm(`Move ${ids.length} product${ids.length === 1 ? "" : "s"} to trash? You can restore them from Trash.`)) return;
+    startBulkTransition(async () => {
+      try {
+        await trashProducts(ids);
+        setProducts((prev) => prev.filter((p) => !ids.includes(p.id)));
+        setSelected(new Set());
+        toast.success(`${ids.length} product${ids.length === 1 ? "" : "s"} moved to trash`, {
+          action: {
+            label: "Undo",
+            onClick: () => {
+              restoreProducts(ids)
+                .then(() => {
+                  toast.success("Restored as drafts");
+                  router.refresh();
+                })
+                .catch((e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't restore"));
+            },
+          },
+        });
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to move to trash");
+      }
+    });
+  }
+
   function duplicate(id: string) {
     setDuplicatingId(id);
     startBulkTransition(async () => {
@@ -115,9 +196,9 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
   return (
     <div>
       {selected.size > 0 && (
-        <div className="sticky top-0 z-10 mb-4 flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+        <div className="sticky top-2 z-20 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
           <span className="text-sm text-foreground">{selected.size} selected</span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -138,6 +219,61 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
             >
               Unpublish
             </Button>
+            <select
+              aria-label="Set stock status for selected products"
+              disabled={bulkPending}
+              value=""
+              onChange={(e) => {
+                const next = e.target.value as StockStatus;
+                if (!next) return;
+                runBulkAction(
+                  () => bulkSetStockStatus(Array.from(selected), next),
+                  `Stock set to ${STOCK_STATUS_LABEL[next]}`,
+                  (p) => ({ ...p, stock_status: next })
+                );
+              }}
+              className="h-8 rounded-md border border-border bg-transparent px-2 text-xs"
+            >
+              <option value="">Set stock…</option>
+              {STOCK_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STOCK_STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Move selected products to a category"
+              disabled={bulkPending || movableCategories.length === 0}
+              title={movableCategories.length === 0 ? "Select products from a single department to move them" : undefined}
+              value=""
+              onChange={(e) => {
+                const category = movableCategories.find((c) => c.id === e.target.value);
+                if (!category) return;
+                runBulkAction(
+                  () => bulkSetCategory(Array.from(selected), category.id),
+                  `Moved to ${category.name}`,
+                  (p) => ({ ...p, category: { name: category.name } })
+                );
+              }}
+              className="h-8 rounded-md border border-border bg-transparent px-2 text-xs disabled:opacity-50"
+            >
+              <option value="">Move to category…</option>
+              {movableCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={bulkPending}
+              className="text-destructive hover:text-destructive"
+              onClick={bulkTrash}
+            >
+              Move to trash
+            </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
               Clear
             </Button>
@@ -145,9 +281,15 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
         </div>
       )}
 
-      <div className="rounded-xl border border-border">
+      <div className="mb-2 flex justify-end">
+        <Button type="button" variant="ghost" size="xs" className="gap-1.5 text-muted-foreground" onClick={toggleDensity}>
+          {compact ? <Rows3 className="size-3.5" /> : <Rows4 className="size-3.5" />}
+          {compact ? "Comfortable rows" : "Compact rows"}
+        </Button>
+      </div>
+      <div className={cn("rounded-xl border border-border", compact && "[&_td]:py-1 [&_th]:h-8")}>
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
               <TableHead className="w-10">
                 {products.length > 0 && (
@@ -160,9 +302,13 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
                   />
                 )}
               </TableHead>
-              <TableHead>Product</TableHead>
+              <TableHead>
+                <SortLink label="Product" asc="name-asc" desc="name-desc" sort={sort} hrefs={sortHrefs} />
+              </TableHead>
               <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
+              <TableHead>
+                <SortLink label="Price" asc="price-asc" desc="price-desc" sort={sort} hrefs={sortHrefs} />
+              </TableHead>
               <TableHead>Stock</TableHead>
               <TableHead>Published</TableHead>
               <TableHead>Featured</TableHead>
@@ -187,7 +333,12 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
                   </TableCell>
                   <TableCell className="whitespace-normal">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="relative size-11 shrink-0 overflow-hidden rounded-md border border-border/60 bg-card">
+                      <div
+                        className={cn(
+                          "relative shrink-0 overflow-hidden rounded-md border border-border/60 bg-card",
+                          compact ? "size-7" : "size-11"
+                        )}
+                      >
                         {image && (
                           <Image
                             src={mediaUrl(image.storage_path)}
@@ -199,7 +350,13 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-foreground">{p.name}</span>
+                          <Link
+                            href={`/admin/products/${p.id}`}
+                            data-admin-row
+                            className="truncate text-foreground hover:underline focus-visible:underline focus-visible:outline-none"
+                          >
+                            {p.name}
+                          </Link>
                           <Badge variant="secondary" className="shrink-0">
                             {departmentCopy(p.department).shortLabel}
                           </Badge>
@@ -260,13 +417,36 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
                       >
                         {duplicatingId === p.id ? <Loader2 className="animate-spin" /> : <Copy />}
                       </Button>
+                      {p.is_published && (
+                        <a
+                          href={productHref(p)}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="View on site"
+                          aria-label={`View ${p.name} on the site`}
+                          className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+                        >
+                          <ExternalLink />
+                        </a>
+                      )}
                       <Link
                         href={`/admin/products/${p.id}`}
                         className={buttonVariants({ variant: "outline", size: "sm" })}
                       >
                         Edit
                       </Link>
-                      <DeleteButton action={deleteProduct.bind(null, p.id)} label="Delete product" />
+                      <DeleteButton
+                        action={async () => {
+                          await deleteProduct(p.id);
+                          setProducts((prev) => prev.filter((row) => row.id !== p.id));
+                        }}
+                        undo={async () => {
+                          await restoreProducts([p.id]);
+                          router.refresh();
+                        }}
+                        label="Delete product"
+                        itemName={p.name}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -276,10 +456,55 @@ export function ProductList({ products: initialProducts }: { products: AdminProd
         </Table>
 
         {products.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">No products match.</p>
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+            {hasFilters ? (
+              <>
+                No products match these filters.{" "}
+                <Link href="/admin/products" className="text-foreground underline underline-offset-4">
+                  Clear filters
+                </Link>
+              </>
+            ) : (
+              <>
+                No products yet.{" "}
+                <Link href="/admin/products/new" className="text-foreground underline underline-offset-4">
+                  Add your first product
+                </Link>
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>
+  );
+}
+
+function SortLink({
+  label,
+  asc,
+  desc,
+  sort,
+  hrefs,
+}: {
+  label: string;
+  asc: ProductSort;
+  desc: ProductSort;
+  sort: ProductSort;
+  hrefs: Record<ProductSort, string>;
+}) {
+  const active = sort === asc || sort === desc;
+  const next = sort === asc ? desc : asc;
+  const Icon = !active ? ArrowUpDown : sort === asc ? ArrowUp : ArrowDown;
+  return (
+    <Link
+      href={hrefs[next]}
+      scroll={false}
+      aria-label={`Sort by ${label.toLowerCase()}`}
+      className={cn("inline-flex items-center gap-1 hover:text-foreground", active && "text-foreground")}
+    >
+      {label}
+      <Icon className="size-3" />
+    </Link>
   );
 }
 

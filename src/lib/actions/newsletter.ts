@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
+import { looksLikeBot, withinRateLimit } from "@/lib/rate-limit";
 import { DEPARTMENTS } from "@/lib/department";
 
 const schema = z.object({
@@ -15,6 +16,11 @@ export async function subscribeNewsletter(
   _prevState: NewsletterState | null,
   formData: FormData
 ): Promise<NewsletterState> {
+  if (!(await withinRateLimit("newsletter"))) {
+    return { error: "Too many signups from this network — please try again later." };
+  }
+  if (looksLikeBot(formData)) return { success: true };
+
   const parsed = schema.safeParse({
     email: formData.get("email"),
     department: formData.get("department") || undefined,
@@ -24,7 +30,7 @@ export async function subscribeNewsletter(
     return { error: parsed.error.issues[0]?.message ?? "Enter a valid email address" };
   }
 
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { error } = await supabase.from("newsletter_subscribers").insert({
     email: parsed.data.email,
     department: parsed.data.department ?? null,
