@@ -90,7 +90,7 @@ export function CatalogNav({
   const active = tabs.find((t) => t.key === openTab) ?? null;
 
   return (
-    <div ref={rootRef} className="relative flex items-center">
+    <div ref={rootRef} className="relative flex items-center gap-2">
       {tabs.map((tab) => (
         <button
           key={tab.key}
@@ -98,12 +98,14 @@ export function CatalogNav({
           onClick={() => setOpenTab((v) => (v === tab.key ? null : tab.key))}
           aria-expanded={openTab === tab.key}
           className={cn(
-            "flex items-center gap-1 rounded-md px-3 py-2 text-sm transition-colors",
-            openTab === tab.key ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+            "flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition-colors",
+            openTab === tab.key
+              ? "border-foreground/30 text-foreground"
+              : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
           )}
         >
           {tab.label}
-          <ChevronDown className={cn("size-3.5 transition-transform", openTab === tab.key && "rotate-180")} />
+          <ChevronDown className={cn("size-3 transition-transform", openTab === tab.key && "rotate-180")} />
         </button>
       ))}
 
@@ -114,7 +116,7 @@ export function CatalogNav({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="fixed inset-x-0 top-16 z-40 border-b border-border bg-popover shadow-lg"
+            className="fixed inset-x-0 top-16 z-40 border-b border-border bg-popover"
           >
             <div className="mx-auto w-full max-w-[1440px] px-6 py-10 sm:px-8 lg:px-12">
               {active.viewAllHref && active.items.length > 0 && (

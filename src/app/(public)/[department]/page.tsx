@@ -192,26 +192,6 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
         </Container>
       </section>
 
-      {hasFilm && (
-        <section id="concept-film" className="scroll-mt-24 bg-background py-16 md:py-24">
-          <Container>
-            <Reveal className="mx-auto mb-10 max-w-2xl text-center">
-              <h2 className="font-heading text-3xl text-foreground md:text-4xl">
-                {media.caption}
-              </h2>
-            </Reveal>
-            <Reveal delay={0.1}>
-              <HeroMedia
-                videoSrc={media.video}
-                imageAlt={media.alt}
-                lazyPlay
-                className="aspect-video w-full rounded-[1.5rem] sm:aspect-video md:aspect-video md:rounded-[2rem]"
-              />
-            </Reveal>
-          </Container>
-        </section>
-      )}
-
       {series && series.length > 0 && (
         <section className="py-16 md:py-24">
           <Container>
@@ -244,6 +224,26 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
                 </Reveal>
               ))}
             </div>
+          </Container>
+        </section>
+      )}
+
+      {hasFilm && (
+        <section id="concept-film" className="scroll-mt-24 border-t border-border bg-background py-16 md:py-24">
+          <Container>
+            <Reveal className="mx-auto mb-10 max-w-2xl text-center">
+              <h2 className="font-heading text-3xl text-foreground md:text-4xl">
+                {media.caption}
+              </h2>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <HeroMedia
+                videoSrc={media.video}
+                imageAlt={media.alt}
+                lazyPlay
+                className="aspect-video w-full rounded-[1.5rem] sm:aspect-video md:aspect-video md:rounded-[2rem]"
+              />
+            </Reveal>
           </Container>
         </section>
       )}

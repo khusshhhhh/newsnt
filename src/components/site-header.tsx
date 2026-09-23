@@ -19,22 +19,21 @@ export async function SiteHeader({ department }: { department: Department }) {
 
   return (
     <header className="sticky top-0 z-40 h-16 border-b border-border bg-background">
-      <Container className="flex h-16 items-center justify-between">
-        <div className="flex items-center gap-8">
-          <Link href={departmentHref(department)} className="text-foreground">
-            <Logo />
-          </Link>
-          <nav className="hidden md:block">
-            <CatalogNav
-              department={department}
-              series={series ?? []}
-              categories={categories ?? []}
-              finishes={finishes}
-            />
-          </nav>
-        </div>
+      <Container className="grid h-16 grid-cols-[1fr_auto_1fr] items-center">
+        <Link href={departmentHref(department)} className="text-foreground">
+          <Logo />
+        </Link>
 
-        <div className="flex items-center gap-3">
+        <nav className="hidden justify-self-center md:block">
+          <CatalogNav
+            department={department}
+            series={series ?? []}
+            categories={categories ?? []}
+            finishes={finishes}
+          />
+        </nav>
+
+        <div className="flex items-center justify-self-end gap-3">
           <Link
             href={searchHref(department)}
             aria-label="Search"

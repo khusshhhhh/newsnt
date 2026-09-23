@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { QuoteRowActions } from "@/components/admin/quote-row-actions";
 import { departmentCopy, isDepartment } from "@/lib/department";
 import { formatPrice } from "@/lib/format";
-import { editableLinesFromQuoteItems } from "@/components/admin/line-item-editor";
+import { editableLinesFromQuoteItems } from "@/lib/quote-lines";
 import type { QuoteStatus } from "@/lib/supabase/types";
 
 const STATUS_VARIANT: Record<QuoteStatus, "default" | "secondary" | "destructive" | "outline"> = {

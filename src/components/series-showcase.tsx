@@ -55,31 +55,29 @@ export function SeriesShowcase({ series }: { series: Series[] }) {
                 className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,color-mix(in_oklch,var(--foreground),transparent_95%),transparent_60%)]"
               />
             )}
+
+            <div className="relative z-10 flex h-full flex-col justify-between p-6 sm:p-8">
+              <span className="self-end font-heading text-sm font-bold text-white/70">
+                {String(active + 1).padStart(2, "0")} / {String(series.length).padStart(2, "0")}
+              </span>
+              <div>
+                <h3 className="font-heading text-3xl font-black tracking-tight text-white sm:text-4xl">
+                  {current.name}
+                </h3>
+                {current.design_story && (
+                  <p className="mt-2 max-w-sm text-sm text-white/80">{current.design_story}</p>
+                )}
+                <Link
+                  href={seriesHref(current)}
+                  className="group mt-5 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-white"
+                >
+                  Explore
+                  <ArrowUpRight className="size-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+                </Link>
+              </div>
+            </div>
           </motion.div>
         </AnimatePresence>
-
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-transparent" />
-
-        <div className="relative z-10 flex h-full flex-col justify-between p-6 sm:p-8">
-          <span className="self-end font-heading text-sm font-bold text-white/70">
-            {String(active + 1).padStart(2, "0")} / {String(series.length).padStart(2, "0")}
-          </span>
-          <div>
-            <h3 className="font-heading text-3xl font-black tracking-tight text-white sm:text-4xl">
-              {current.name}
-            </h3>
-            {current.design_story && (
-              <p className="mt-2 max-w-sm text-sm text-white/80">{current.design_story}</p>
-            )}
-            <Link
-              href={seriesHref(current)}
-              className="group mt-5 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-white"
-            >
-              Explore
-              <ArrowUpRight className="size-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-        </div>
       </div>
 
       <div className="order-2 flex flex-col lg:order-1 lg:justify-center">
