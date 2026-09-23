@@ -54,7 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${jetbrainsMono.variable} ${satoshi.variable} h-full scroll-smooth antialiased`}
     >
       <head>
-        {/* Adobe Fonts kit: Butik Display, used for the logo wordmark only (see .font-logo in globals.css). */}
+        {/* Adobe Fonts kit: Ofelia Display, used for the logo wordmark only (see .font-logo in globals.css). */}
         <link rel="stylesheet" href="https://use.typekit.net/xfy5mdx.css" />
       </head>
       <body className="min-h-full flex flex-col">
