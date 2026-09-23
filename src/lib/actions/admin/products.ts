@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slugify";
 import { computeVariantSku } from "@/lib/colors";
-import { logActivity } from "@/lib/data/activity";
+import { diffFields, logActivity } from "@/lib/data/activity";
 import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
 import type { StockStatus } from "@/lib/supabase/types";
 
@@ -88,10 +88,30 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
   const payload = { ...parsed.data, currency: "AUD" };
 
   if (id) {
+    const { data: before } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
     const { error } = await supabase.from("products").update(payload).eq("id", id);
     if (error) return fail(error.message);
 
-    await logActivity({ action: "update", entity_type: "product", entity_id: id, entity_name: payload.name });
+    await logActivity({
+      action: "update",
+      entity_type: "product",
+      entity_id: id,
+      entity_name: payload.name,
+      changes: diffFields(before, payload, [
+        "name",
+        "slug",
+        "sku",
+        "category_id",
+        "series_id",
+        "price",
+        "is_published",
+        "is_featured",
+        "stock_status",
+        "meta_title",
+        "meta_description",
+        "specs",
+      ]),
+    });
     revalidateCatalog();
     revalidatePath("/admin/products");
     revalidatePath("/", "layout");

@@ -59,3 +59,22 @@ export async function deleteProjectPhoto(id: string) {
   revalidateCatalog();
   revalidatePath("/admin/photos");
 }
+
+/** Approve or reject many reviews/photos at once — the "all on this page" buttons. */
+export async function bulkModerate(kind: "review" | "project_photo", ids: string[], status: ModerationStatus) {
+  if (ids.length === 0) return;
+  if (status === "pending" || !STATUSES.includes(status)) throw new Error("Invalid status");
+  const { supabase } = await requireAdmin("moderation");
+  const table = kind === "review" ? "reviews" : "project_photos";
+  const { error } = await supabase.from(table).update({ status }).in("id", ids);
+  if (error) throw new Error(error.message);
+
+  await logActivity({
+    action: "update",
+    entity_type: kind,
+    entity_name: `${ids.length} ${kind === "review" ? "review(s)" : "photo(s)"} ${status}`,
+  });
+  revalidateCatalog();
+  revalidatePath(kind === "review" ? "/admin/reviews" : "/admin/photos");
+  revalidatePath("/admin");
+}
