@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { createClient } from "@/lib/supabase/server";
-import { sendEmail } from "@/lib/email";
+import { requireAdmin } from "@/lib/admin-guard";
+import { escapeHtml, escapeHtmlMultiline, sendEmail } from "@/lib/email";
+import { ilikeContainsPattern } from "@/lib/search";
 import { logActivity } from "@/lib/data/activity";
 import { QuotePdfDocument } from "@/lib/pdf/quote-pdf";
 import { SITE_URL } from "@/lib/site";
@@ -76,7 +77,7 @@ async function renderQuotePdf(params: {
 }
 
 async function loadInquiry(inquiryId: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data: inquiry, error } = await supabase
     .from("inquiries")
     .select("id, name, email, phone, status, department, customer_id")
@@ -96,7 +97,7 @@ async function resolveCustomerId(inquiry: {
   department: string;
 }) {
   if (inquiry.customer_id) return inquiry.customer_id;
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data, error } = await supabase.rpc("upsert_customer", {
     p_email: inquiry.email,
     p_name: inquiry.name,
@@ -156,7 +157,7 @@ async function dispatchQuote(params: {
   });
   const total = quoteTotal(params.items);
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .insert({
@@ -177,9 +178,9 @@ async function dispatchQuote(params: {
     to: params.customerEmail,
     subject: `Your quote from Flow (${quoteNumber})`,
     html: `
-      <p>Hi ${params.customerName},</p>
+      <p>Hi ${escapeHtml(params.customerName)},</p>
       <p>Thanks for your interest — your quote is attached as a PDF.</p>
-      ${params.notes ? `<p>${params.notes.replace(/\n/g, "<br/>")}</p>` : ""}
+      ${params.notes ? `<p>${escapeHtmlMultiline(params.notes)}</p>` : ""}
       <p><a href="${acceptUrl}">View this quote and accept or decline it</a>.</p>
       <p>Let us know if you have any questions.</p>
     `,
@@ -248,7 +249,7 @@ export async function createAndSendQuote(rawInput: NewQuoteInput) {
   const parsed = newQuoteSchema.safeParse(rawInput);
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid quote");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data: customer, error } = await supabase
     .from("customers")
     .select("name, email, phone")
@@ -270,7 +271,7 @@ export async function createAndSendQuote(rawInput: NewQuoteInput) {
 
 /** Re-renders a previously sent quote's PDF from its stored line items, for re-downloading from a customer's profile. */
 export async function downloadStoredQuotePdf(quoteId: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data: quote, error } = await supabase
     .from("quotes")
     .select("quote_number, items, notes, customer:customers(name, email, phone)")
@@ -300,8 +301,9 @@ export async function searchAdminCustomers(rawQuery: string) {
   const parsed = customerSearchSchema.safeParse(rawQuery);
   if (!parsed.success) return [];
 
-  const supabase = await createClient();
-  const pattern = `%${parsed.data.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+  const { supabase } = await requireAdmin("sales");
+  const pattern = ilikeContainsPattern(parsed.data);
+  if (!pattern) return [];
   const { data, error } = await supabase
     .from("customers")
     .select("id, name, email, phone, department")
@@ -324,7 +326,7 @@ export async function upsertAdminCustomer(rawInput: z.infer<typeof newCustomerSc
   const parsed = newCustomerSchema.safeParse(rawInput);
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid customer");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data, error } = await supabase.rpc("upsert_customer", {
     p_email: parsed.data.email,
     p_name: parsed.data.name,
@@ -352,8 +354,9 @@ export async function searchAdminProducts(
   const parsed = productSearchSchema.safeParse(rawQuery);
   if (!parsed.success) return [];
 
-  const supabase = await createClient();
-  const pattern = `%${parsed.data.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+  const { supabase } = await requireAdmin("sales");
+  const pattern = ilikeContainsPattern(parsed.data);
+  if (!pattern) return [];
   let query = supabase
     .from("products")
     .select(

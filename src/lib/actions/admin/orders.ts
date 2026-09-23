@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { logActivity } from "@/lib/data/activity";
 import { departmentSchema } from "./_shared";
 import type { OrderStatus, QuoteLineItem } from "@/lib/supabase/types";
@@ -40,7 +40,7 @@ export async function createOrder(rawInput: CreateOrderInput) {
   const parsed = createOrderSchema.safeParse(rawInput);
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid order");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const orderNumber = generateOrderNumber();
 
   const { data, error } = await supabase
@@ -80,7 +80,7 @@ export async function createOrder(rawInput: CreateOrderInput) {
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   if (!ORDER_STATUSES.includes(status)) throw new Error("Invalid status");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data: order, error } = await supabase
     .from("orders")
     .update({ status, updated_at: new Date().toISOString() })
@@ -99,7 +99,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
 }
 
 export async function updateOrderNotes(orderId: string, notes: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { error } = await supabase
     .from("orders")
     .update({ notes: notes.trim() || null, updated_at: new Date().toISOString() })

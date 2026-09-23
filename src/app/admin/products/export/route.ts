@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { AdminAuthError, requireAdmin } from "@/lib/admin-guard";
 import { toCsv } from "@/lib/csv";
 import { isDepartment, type Department } from "@/lib/department";
 
@@ -22,7 +22,13 @@ export async function GET(request: Request) {
   const department: Department | undefined =
     rawDepartment && isDepartment(rawDepartment) ? rawDepartment : undefined;
 
-  const supabase = await createClient();
+  let supabase;
+  try {
+    ({ supabase } = await requireAdmin("catalog"));
+  } catch (e) {
+    if (e instanceof AdminAuthError) return NextResponse.json({ error: e.message }, { status: 401 });
+    throw e;
+  }
   let query = supabase
     .from("products")
     .select(

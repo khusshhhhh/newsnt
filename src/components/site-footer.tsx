@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Container } from "@/components/container";
 import { Logo } from "@/components/logo";
 import { subscribeNewsletter } from "@/lib/actions/newsletter";
+import { HoneypotField } from "@/components/honeypot-field";
 import {
   aboutHref,
   categoryHref,
@@ -94,6 +95,7 @@ export function SiteFooter({
               className="mt-5 flex items-center gap-3 border-b border-background/25 pb-2"
             >
               {department && <input type="hidden" name="department" value={department} />}
+              <HoneypotField />
               <input
                 type="email"
                 name="email"

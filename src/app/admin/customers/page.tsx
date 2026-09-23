@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { CustomerSearchBox } from "@/components/admin/customer-search-box";
 import { departmentCopy } from "@/lib/department";
 import { formatPrice } from "@/lib/format";
+import { ilikeContainsPattern } from "@/lib/search";
 import type { InquiryStatus } from "@/lib/supabase/types";
 
 const OPEN_STATUSES: InquiryStatus[] = ["new", "contacted", "quoted"];
@@ -19,7 +20,8 @@ export default async function AdminCustomersPage({
   const supabase = await createClient();
 
   let query = supabase.from("customers").select("*").order("updated_at", { ascending: false });
-  if (q) query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`);
+  const pattern = ilikeContainsPattern(q);
+  if (pattern) query = query.or(`name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`);
   const { data: customers } = await query;
 
   const customerIds = (customers ?? []).map((c) => c.id);

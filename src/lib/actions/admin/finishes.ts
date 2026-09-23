@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { logActivity } from "@/lib/data/activity";
 import { fail, ok, revalidateCatalog } from "./_shared";
 
@@ -35,7 +35,7 @@ export async function upsertFinish(_prevState: unknown, formData: FormData) {
 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data: finish, error } = id
     ? await supabase.from("finishes").update(parsed.data).eq("id", id).select("id").single()
     : await supabase.from("finishes").insert(parsed.data).select("id").single();
@@ -59,7 +59,7 @@ export async function upsertFinish(_prevState: unknown, formData: FormData) {
 }
 
 export async function deleteFinish(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data: finish } = await supabase.from("finishes").select("name").eq("id", id).maybeSingle();
 
   const { error } = await supabase.from("finishes").delete().eq("id", id);

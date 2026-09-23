@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { HoneypotField } from "@/components/honeypot-field";
 import type { Review } from "@/lib/supabase/types";
 
 function Stars({ rating, size = "size-4" }: { rating: number; size?: string }) {
@@ -103,6 +104,7 @@ function WriteReviewDialog({ productId }: { productId: string }) {
         <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input type="hidden" name="product_id" value={productId} />
           <input type="hidden" name="rating" value={rating} />
+          <HoneypotField />
           <div className="flex flex-col gap-1.5">
             <Label>Rating</Label>
             <div className="flex gap-1">

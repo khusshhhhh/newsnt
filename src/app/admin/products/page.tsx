@@ -8,6 +8,7 @@ import { ProductFilters } from "@/components/admin/product-filters";
 import { ProductList } from "@/components/admin/product-list";
 import { CsvImportForm } from "@/components/admin/csv-import-form";
 import { cn } from "@/lib/utils";
+import { ilikeContainsPattern } from "@/lib/search";
 import { isDepartment, type Department } from "@/lib/department";
 import type { StockStatus } from "@/lib/supabase/types";
 
@@ -102,7 +103,8 @@ export default async function AdminProductsPage({
     .order("created_at", { ascending: false });
   if (department) query = query.eq("department", department);
   if (status) query = query.eq("is_published", status === "published");
-  if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%`);
+  const pattern = ilikeContainsPattern(q);
+  if (pattern) query = query.or(`name.ilike.${pattern},sku.ilike.${pattern}`);
   if (seriesId) query = query.eq("series_id", seriesId);
   if (categoryId) query = query.eq("category_id", categoryId);
   if (stock) query = query.eq("stock_status", stock);

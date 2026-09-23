@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
+import { escapeLikePattern, sanitizeSearchTerm } from "@/lib/search";
 import type { Department } from "@/lib/department";
 import type {
   Category,
@@ -238,16 +239,6 @@ export const getProducts = unstable_cache(
   ["products"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );
-
-/** Strip characters that would break PostgREST's `.or()` mini-syntax. */
-function sanitizeSearchTerm(query: string) {
-  return query.replace(/[,()]/g, " ").trim();
-}
-
-/** Escape ILIKE metacharacters so a literal "%" or "_" in a search doesn't act as a wildcard. */
-function escapeLikePattern(term: string) {
-  return term.replace(/[\\%_]/g, (m) => `\\${m}`);
-}
 
 // Not cached: search terms are effectively unbounded, so caching them would
 // mostly just fill the cache with one-off entries. Still uses the fast

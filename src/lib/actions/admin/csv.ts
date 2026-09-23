@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { parseCsv } from "@/lib/csv";
 import { slugify } from "@/lib/slugify";
 import { logActivity } from "@/lib/data/activity";
@@ -38,7 +38,7 @@ export async function importProductsCsv(
   }
 
   const rows = parseCsv(await file.text());
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
 
   for (const [index, row] of rows.entries()) {
     const line = index + 2; // header is line 1

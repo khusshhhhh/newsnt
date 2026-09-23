@@ -57,14 +57,15 @@ export function VerifyForm({ redirectTo }: { redirectTo: string }) {
         >
           {resending ? "Sending…" : "Resend code"}
         </button>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Use a different account
-          </button>
-        </form>
+        {/* formAction rather than a nested <form>, which is invalid HTML inside this one. */}
+        <button
+          type="submit"
+          formAction={signOut}
+          formNoValidate
+          className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          Use a different account
+        </button>
       </div>
     </form>
   );

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { logActivity } from "@/lib/data/activity";
 import { isEligibleForPermanentDelete, daysUntilEligible } from "@/lib/trash";
 import type { InquiryStatus } from "@/lib/supabase/types";
@@ -17,7 +17,7 @@ function revalidateInquiries(customerId?: string | null) {
 export async function markInquiryStatus(id: string, status: InquiryStatus) {
   if (!STATUSES.includes(status)) throw new Error("Invalid status");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { error } = await supabase.from("inquiries").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
 
@@ -27,7 +27,7 @@ export async function markInquiryStatus(id: string, status: InquiryStatus) {
 
 /** Moves an inquiry to trash — reversible, and never removes the row itself. */
 export async function trashInquiry(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data: inquiry, error } = await supabase
     .from("inquiries")
     .update({ deleted_at: new Date().toISOString() })
@@ -46,7 +46,7 @@ export async function trashInquiry(id: string) {
 }
 
 export async function restoreInquiry(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data: inquiry, error } = await supabase
     .from("inquiries")
     .update({ deleted_at: null })
@@ -66,7 +66,7 @@ export async function restoreInquiry(id: string) {
 
 /** Only allowed once an inquiry has sat in trash for TRASH_RETENTION_DAYS — re-checked here since the client-side gate is just UX, not the actual guard. */
 export async function permanentlyDeleteInquiry(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("sales");
   const { data: inquiry, error: fetchError } = await supabase
     .from("inquiries")
     .select("name, deleted_at, customer_id")

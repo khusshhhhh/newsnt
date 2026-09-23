@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slugify";
 import { computeVariantSku } from "@/lib/colors";
 import { logActivity } from "@/lib/data/activity";
 import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
 import type { StockStatus } from "@/lib/supabase/types";
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+type SupabaseServerClient = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
 
 const STOCK_STATUSES: StockStatus[] = ["in_stock", "made_to_order", "out_of_stock", "discontinued"];
 
@@ -54,7 +54,7 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
   const metaTitleRaw = String(formData.get("meta_title") ?? "").trim();
   const metaDescriptionRaw = String(formData.get("meta_description") ?? "").trim();
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
 
   // A product's department always follows its category, so it's derived
   // here rather than trusted from the form.
@@ -115,7 +115,7 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
 }
 
 export async function deleteProduct(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data: product } = await supabase.from("products").select("name").eq("id", id).maybeSingle();
   await supabase.from("products").delete().eq("id", id);
 
@@ -135,7 +135,7 @@ export async function updateProductPrice(id: string, price: number | null) {
     throw new Error("Enter a valid price");
   }
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data, error } = await supabase
     .from("products")
     .update({ price })
@@ -155,7 +155,7 @@ export async function updateProductStockStatus(id: string, stockStatus: StockSta
     throw new Error("Invalid stock status");
   }
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data, error } = await supabase
     .from("products")
     .update({ stock_status: stockStatus })
@@ -171,7 +171,7 @@ export async function updateProductStockStatus(id: string, stockStatus: StockSta
 }
 
 export async function updateProductFeatured(id: string, isFeatured: boolean) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { error } = await supabase.from("products").update({ is_featured: isFeatured }).eq("id", id);
   if (error) throw new Error(error.message);
 
@@ -182,7 +182,7 @@ export async function updateProductFeatured(id: string, isFeatured: boolean) {
 
 export async function bulkSetPublished(ids: string[], isPublished: boolean) {
   if (ids.length === 0) return;
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { error } = await supabase.from("products").update({ is_published: isPublished }).in("id", ids);
   if (error) throw new Error(error.message);
 
@@ -221,7 +221,7 @@ async function uniqueSku(supabase: SupabaseServerClient, baseSku: string) {
  * shared path would let deleting one product silently break the other's photos.
  */
 export async function duplicateProduct(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
 
   const { data: product, error: productError } = await supabase
     .from("products")

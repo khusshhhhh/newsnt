@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
 import { revalidateCatalog } from "./_shared";
 
@@ -23,7 +23,7 @@ export async function addProductResource(productId: string, formData: FormData) 
 
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid resource");
 
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data, error } = await supabase
     .from("product_resources")
     .insert({ product_id: productId, ...parsed.data })
@@ -38,7 +38,7 @@ export async function addProductResource(productId: string, formData: FormData) 
 }
 
 export async function deleteProductResource(resourceId: string, productId: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("catalog");
   const { data: resource } = await supabase
     .from("product_resources")
     .select("storage_path")

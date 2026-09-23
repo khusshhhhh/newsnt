@@ -1,11 +1,49 @@
 import type { Department } from "@/lib/department";
 
+export type AdminRole = "owner" | "editor" | "sales";
+
 export type Admin = {
   user_id: string;
   created_at: string;
   otp_code_hash: string | null;
   otp_expires_at: string | null;
   otp_attempts: number;
+  role: AdminRole;
+  last_sign_in_at: string | null;
+};
+
+export type AdminMfaSession = {
+  session_id: string;
+  user_id: string;
+  verified_at: string;
+  expires_at: string;
+};
+
+export type ErrorEvent = {
+  id: string;
+  message: string;
+  digest: string | null;
+  path: string | null;
+  method: string | null;
+  route_type: string | null;
+  created_at: string;
+};
+
+export type DashboardStats = {
+  series: number;
+  categories: number;
+  products: number;
+  drafts: number;
+  products_by_department: Partial<Record<Department, number>>;
+  new_inquiries: number;
+  customers: number;
+  open_orders: number;
+  pending_reviews: number;
+  pending_photos: number;
+  quotes_awaiting_reply: number;
+  quotes_needing_follow_up: number;
+  failed_notifications: number;
+  errors_24h: number;
 };
 
 export type Series = {
@@ -18,6 +56,7 @@ export type Series = {
   display_order: number;
   is_published: boolean;
   created_at: string;
+  deleted_at: string | null;
 };
 
 export type SeriesImage = {
@@ -72,6 +111,7 @@ export type Product = {
   meta_description: string | null;
   stock_status: StockStatus;
   created_at: string;
+  deleted_at: string | null;
 };
 
 export type ProductImage = {
@@ -150,6 +190,9 @@ export type Inquiry = {
   status: InquiryStatus;
   created_at: string;
   deleted_at: string | null;
+  notified_at: string | null;
+  notify_error: string | null;
+  customer_notified_at: string | null;
 };
 
 export type Customer = {
@@ -160,6 +203,7 @@ export type Customer = {
   department: Department | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 };
 
 export type CustomerNote = {
@@ -193,9 +237,15 @@ export type Quote = {
   accept_token: string;
   sent_at: string;
   responded_at: string | null;
+  expires_at: string | null;
+  reminder_sent_at: string | null;
+  version: number;
+  parent_quote_id: string | null;
 };
 
 export type OrderStatus = "confirmed" | "in_production" | "shipped" | "delivered" | "cancelled";
+
+export type PaymentStatus = "unpaid" | "deposit_paid" | "paid" | "refunded";
 
 export type Order = {
   id: string;
@@ -209,6 +259,11 @@ export type Order = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  total: number | null;
+  payment_status: PaymentStatus;
+  deposit_amount: number | null;
+  amount_paid: number;
+  fulfilment_date: string | null;
 };
 
 export type ModerationStatus = "pending" | "approved" | "rejected";
@@ -244,7 +299,7 @@ export type NewsletterSubscriber = {
   created_at: string;
 };
 
-export type ActivityAction = "create" | "update" | "delete";
+export type ActivityAction = "create" | "update" | "delete" | "restore";
 export type ActivityEntityType =
   | "product"
   | "series"
@@ -256,7 +311,8 @@ export type ActivityEntityType =
   | "customer"
   | "customer_note"
   | "quote"
-  | "order";
+  | "order"
+  | "admin";
 
 export type ActivityLogEntry = {
   id: string;
@@ -266,6 +322,8 @@ export type ActivityLogEntry = {
   entity_id: string | null;
   entity_name: string | null;
   created_at: string;
+  actor_id: string | null;
+  changes: Record<string, { from: unknown; to: unknown }> | null;
 };
 
 export type Database = {
@@ -275,6 +333,18 @@ export type Database = {
         Row: Admin;
         Insert: Partial<Admin> & { user_id: string };
         Update: Partial<Admin>;
+        Relationships: [];
+      };
+      admin_mfa_sessions: {
+        Row: AdminMfaSession;
+        Insert: Partial<AdminMfaSession> & { session_id: string; user_id: string; expires_at: string };
+        Update: Partial<AdminMfaSession>;
+        Relationships: [];
+      };
+      error_events: {
+        Row: ErrorEvent;
+        Insert: Partial<ErrorEvent> & { message: string };
+        Update: Partial<ErrorEvent>;
         Relationships: [];
       };
       series: {
@@ -567,6 +637,7 @@ export type Database = {
           department: Department;
           sent_at: string;
           responded_at: string | null;
+          expires_at: string | null;
           customer_name: string;
           customer_email: string;
         }[];
@@ -574,6 +645,35 @@ export type Database = {
       respond_to_quote: {
         Args: { p_token: string; p_status: string };
         Returns: boolean;
+      };
+      admin_dashboard_stats: {
+        Args: Record<string, never>;
+        Returns: DashboardStats;
+      };
+      prune_admin_mfa_sessions: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
+      record_inquiry_notification: {
+        Args: { p_id: string; p_error: string | null; p_customer_notified: boolean };
+        Returns: undefined;
+      };
+      submit_inquiry: {
+        Args: {
+          p_department: string;
+          p_product_ids: string[] | null;
+          p_items: InquiryItem[] | null;
+          p_customer_id: string;
+          p_name: string;
+          p_email: string;
+          p_phone: string | null;
+          p_message: string;
+        };
+        Returns: string;
+      };
+      search_product_ids: {
+        Args: { p_department: string; p_query: string; p_limit?: number };
+        Returns: { id: string; score: number }[];
       };
     };
     Enums: Record<string, never>;

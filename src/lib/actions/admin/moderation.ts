@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 import { logActivity } from "@/lib/data/activity";
 import { revalidateCatalog } from "./_shared";
 import type { ModerationStatus } from "@/lib/supabase/types";
@@ -10,7 +10,7 @@ const STATUSES: ModerationStatus[] = ["pending", "approved", "rejected"];
 
 export async function moderateReview(id: string, status: ModerationStatus) {
   if (!STATUSES.includes(status)) throw new Error("Invalid status");
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("moderation");
   const { error } = await supabase.from("reviews").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
 
@@ -20,7 +20,7 @@ export async function moderateReview(id: string, status: ModerationStatus) {
 }
 
 export async function deleteReview(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("moderation");
   const { error } = await supabase.from("reviews").delete().eq("id", id);
   if (error) throw new Error(error.message);
 
@@ -31,7 +31,7 @@ export async function deleteReview(id: string) {
 
 export async function moderateProjectPhoto(id: string, status: ModerationStatus) {
   if (!STATUSES.includes(status)) throw new Error("Invalid status");
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("moderation");
   const { error } = await supabase.from("project_photos").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
 
@@ -41,7 +41,7 @@ export async function moderateProjectPhoto(id: string, status: ModerationStatus)
 }
 
 export async function deleteProjectPhoto(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireAdmin("moderation");
   const { data: photo } = await supabase
     .from("project_photos")
     .select("storage_path")
