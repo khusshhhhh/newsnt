@@ -17,7 +17,7 @@ export type InquiryForNotification = {
 
 /** Short, human-friendly reference shown to the customer and in the admin panel. */
 export function inquiryReference(id: string) {
-  return `#${id.slice(0, 8).toUpperCase()}`;
+  return id ? `#${id.slice(0, 8).toUpperCase()}` : "";
 }
 
 /** Normalizes the structured `items` (quote basket) and the older repeated `product_ids` into product → quantity lines. */
@@ -81,7 +81,7 @@ export async function sendCustomerInquiryReceipt(inquiry: InquiryForNotification
     subject: `We've received your request ${inquiryReference(inquiry.id)}`,
     html: `
       <p>Hi ${escapeHtml(inquiry.name)},</p>
-      <p>Thanks for getting in touch with Flow ${escapeHtml(department)}. We've received your request and a member of the team will get back to you, usually within one business day.</p>
+      <p>Thanks for getting in touch with Flow ${escapeHtml(department)}. We've received your request and a member of the team will get back to you soon.</p>
       ${await itemsHtml(inquiry)}
       <p><strong>Your message:</strong></p>
       <p>${escapeHtmlMultiline(inquiry.message)}</p>

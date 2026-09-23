@@ -104,6 +104,38 @@ export async function submitInquiry(
     p_message: parsed.data.message,
   });
 
+  // PGRST202 = function not found, i.e. migration 0031 hasn't been run yet.
+  // Never lose a lead over that: save it the old way (no reference number,
+  // no notification tracking) and still email staff.
+  if (error?.code === "PGRST202") {
+    const { error: insertError } = await supabase.from("inquiries").insert({
+      department: parsed.data.department,
+      product_ids: productIds,
+      items: parsed.data.items ?? null,
+      customer_id: customerId,
+      name: parsed.data.name,
+      email: parsed.data.email,
+      phone: parsed.data.phone ?? null,
+      message: parsed.data.message,
+    });
+    if (insertError) {
+      console.error("inquiries insert failed:", insertError);
+      return { error: "Something went wrong — try again." };
+    }
+    const legacy = {
+      id: "",
+      department: parsed.data.department,
+      name: parsed.data.name,
+      email: parsed.data.email,
+      phone: parsed.data.phone ?? null,
+      message: parsed.data.message,
+      items: parsed.data.items ?? null,
+      product_ids: productIds,
+    };
+    after(() => sendStaffInquiryNotification(legacy).then(() => undefined));
+    return { success: true };
+  }
+
   if (error || !inquiryId) {
     console.error("submit_inquiry RPC failed:", error);
     return { error: "Something went wrong — try again." };
