@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ClipboardList, Minus, Plus, X } from "lucide-react";
-import { useQuoteBasket, type QuoteBasketItem } from "@/lib/quote-basket";
+import { OPEN_BASKET_EVENT, useQuoteBasket, type QuoteBasketItem } from "@/lib/quote-basket";
+import { formatPrice } from "@/lib/format";
 import { submitInquiry } from "@/lib/actions/inquiries";
 import { productHref, type Department } from "@/lib/department";
 import {
@@ -14,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  FULL_SCREEN_ON_MOBILE,
 } from "@/components/ui/dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +43,15 @@ export function QuoteBasketButton({ department }: { department: Department }) {
   const formRef = useRef<HTMLFormElement>(null);
   const openedAtRef = useRef(0);
 
+  useEffect(() => {
+    function onOpen() {
+      openedAtRef.current = Date.now();
+      setOpen(true);
+    }
+    window.addEventListener(OPEN_BASKET_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_BASKET_EVENT, onOpen);
+  }, []);
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -48,7 +59,11 @@ export function QuoteBasketButton({ department }: { department: Department }) {
     startTransition(async () => {
       const result = await submitInquiry(null, formData);
       if (result.success) {
-        toast.success("Quote request sent — we'll be in touch shortly.");
+        toast.success(
+          result.reference
+            ? `Quote request ${result.reference} sent — check your inbox for a confirmation.`
+            : "Quote request sent — we'll be in touch shortly."
+        );
         formRef.current?.reset();
         basket.clear();
         setOpen(false);
@@ -90,7 +105,7 @@ export function QuoteBasketButton({ department }: { department: Department }) {
           {basket.totalQuantity}
         </span>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className={cn("sm:max-w-sm", FULL_SCREEN_ON_MOBILE)}>
         <DialogHeader>
           <DialogTitle>Request a quote</DialogTitle>
           <DialogDescription>
@@ -149,6 +164,15 @@ export function QuoteBasketButton({ department }: { department: Department }) {
             </li>
           ))}
         </ul>
+
+        {basket.estimate.total > 0 && (
+          <p className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">
+              Estimate{basket.estimate.hasUnpriced ? " (priced items only)" : ""}
+            </span>
+            <span className="font-medium tabular-nums text-foreground">{formatPrice(basket.estimate.total)}</span>
+          </p>
+        )}
 
         <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input type="hidden" name="department" value={department} />

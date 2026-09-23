@@ -8,10 +8,14 @@ import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
 import { Pagination } from "@/components/pagination";
 import { FinishFilterPills } from "@/components/finish-filter-pills";
-import { isDepartment, seriesHref, type Department } from "@/lib/department";
+import { EmptyListing } from "@/components/empty-listing";
+import { ListingControls } from "@/components/listing-controls";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { listingHref, parseListing, type ListingSearchParams } from "@/lib/listing";
+import { isDepartment, seriesHref, seriesIndexHref, type Department } from "@/lib/department";
 
 type Params = { department: string; seriesSlug: string };
-type SearchParams = { page?: string; finish?: string };
+type SearchParams = ListingSearchParams;
 
 export async function generateMetadata({
   params,
@@ -26,6 +30,7 @@ export async function generateMetadata({
   return {
     title: series.name,
     description: series.design_story ?? undefined,
+    alternates: { canonical: seriesHref(series) },
     openGraph: {
       title: series.name,
       description: series.design_story ?? undefined,
@@ -48,11 +53,11 @@ export default async function SeriesDetailPage({
   const series = await getSeriesBySlug(department, seriesSlug);
   if (!series) notFound();
 
-  const { page: rawPage, finish: finishCode } = await searchParams;
-  const page = Math.max(1, Number(rawPage) || 1);
+  const { page, finish: finishCode, sort, inStockOnly } = parseListing(await searchParams);
+  const basePath = seriesHref(series);
 
-  const [{ items: products, pageCount }, finishes] = await Promise.all([
-    getProducts(department, { seriesSlug, finishCode }, page),
+  const [{ items: products, pageCount, total }, finishes] = await Promise.all([
+    getProducts(department, { seriesSlug, finishCode }, page, { sort, inStockOnly }),
     getActiveFinishes(),
   ]);
 
@@ -89,7 +94,14 @@ export default async function SeriesDetailPage({
       </section>
 
       <Container className="py-12">
-        <FinishFilterPills finishes={finishes} basePath={seriesHref(series)} activeCode={finishCode} />
+        <Breadcrumbs items={[{ name: "Series", href: seriesIndexHref(department) }, { name: series.name }]} />
+        <FinishFilterPills
+          finishes={finishes}
+          basePath={basePath}
+          activeCode={finishCode}
+          hrefFor={(finish) => listingHref(basePath, { finish, sort, inStockOnly })}
+        />
+        <ListingControls sort={sort} inStockOnly={inStockOnly} total={total} />
 
         {products.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
@@ -103,15 +115,15 @@ export default async function SeriesDetailPage({
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground">No products published in this series yet.</p>
+          <EmptyListing filtered={Boolean(finishCode || inStockOnly)} resetHref={basePath}>
+            No products published in this series yet.
+          </EmptyListing>
         )}
 
         <Pagination
           page={page}
           pageCount={pageCount}
-          buildHref={(p) =>
-            `/${department}/series/${seriesSlug}?page=${p}${finishCode ? `&finish=${finishCode}` : ""}`
-          }
+          buildHref={(p) => listingHref(basePath, { finish: finishCode, sort, inStockOnly, page: p })}
         />
       </Container>
     </div>

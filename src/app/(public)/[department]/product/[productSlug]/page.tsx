@@ -1,8 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getApprovedReviews, getProductBySlug } from "@/lib/data/catalog";
+import { getActiveFinishes, getApprovedReviews, getProductBySlug, getRelatedProducts } from "@/lib/data/catalog";
 import { ProductDetail } from "@/components/product-detail";
+import { ProductCard } from "@/components/product-card";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { JsonLd } from "@/components/json-ld";
 import { productImageUrl } from "@/lib/supabase/storage";
 import { getDefaultVariant } from "@/lib/colors";
 import { productHref, isDepartment, seriesHref, seriesIndexHref, type Department } from "@/lib/department";
@@ -10,6 +12,7 @@ import { SITE_URL } from "@/lib/site";
 import { Container } from "@/components/container";
 
 type Params = { department: string; productSlug: string };
+type SearchParams = { finish?: string };
 
 export async function generateMetadata({
   params,
@@ -35,6 +38,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    alternates: { canonical: productHref(product) },
     openGraph: {
       title,
       description,
@@ -43,16 +47,31 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProductPage({ params }: { params: Promise<Params> }) {
+export default async function ProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<Params>;
+  searchParams: Promise<SearchParams>;
+}) {
   const { department: raw, productSlug } = await params;
+  const { finish: finishCode } = await searchParams;
   if (!isDepartment(raw)) notFound();
   const department: Department = raw;
 
   const product = await getProductBySlug(department, productSlug);
   if (!product) notFound();
 
-  const reviews = await getApprovedReviews(product.id);
+  const [reviews, finishes, related] = await Promise.all([
+    getApprovedReviews(product.id),
+    getActiveFinishes(),
+    getRelatedProducts(department, product.id, product.series_id, product.category_id),
+  ]);
   const defaultVariant = getDefaultVariant(product.variants);
+  const finishCodes = Object.fromEntries(finishes.map((f) => [f.name, f.code]));
+  const initialFinishName = finishCode ? finishes.find((f) => f.code === finishCode)?.name : undefined;
+  const averageRating =
+    reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : null;
 
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -61,6 +80,14 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
     sku: product.sku ?? undefined,
     image: product.product_images.map((img) => productImageUrl(img.storage_path)),
     brand: { "@type": "Brand", name: "Flow" },
+    ...(product.description && { description: product.description }),
+    ...(averageRating != null && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: averageRating.toFixed(1),
+        reviewCount: reviews.length,
+      },
+    }),
     ...(product.price != null && {
       offers: {
         "@type": "Offer",
@@ -78,34 +105,34 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
 
   return (
     <Container className="py-12">
-      <script
-        type="application/ld+json"
-        // Escape "<" so admin-entered text can't break out of the script tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c") }}
+      <JsonLd data={productJsonLd} />
+      <Breadcrumbs
+        items={[
+          { name: "Series", href: seriesIndexHref(department) },
+          ...(product.series ? [{ name: product.series.name, href: seriesHref(product.series) }] : []),
+          { name: product.name },
+        ]}
       />
-      <div className="mb-8 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <Link href={seriesIndexHref(department)} className="transition-colors hover:text-foreground">
-          Series
-        </Link>
-        {product.series && (
-          <>
-            <span>/</span>
-            <Link href={seriesHref(product.series)} className="transition-colors hover:text-foreground">
-              {product.series.name}
-            </Link>
-          </>
-        )}
-        <span>/</span>
-        <span className="text-foreground">{product.name}</span>
-        {defaultVariant && (
-          <>
-            <span>/</span>
-            <span className="text-foreground">{defaultVariant.color_name}</span>
-          </>
-        )}
-      </div>
 
-      <ProductDetail product={product} reviews={reviews} />
+      <ProductDetail
+        product={product}
+        reviews={reviews}
+        initialFinishName={initialFinishName ?? defaultVariant?.color_name}
+        finishCodes={finishCodes}
+      />
+
+      {related.length > 0 && (
+        <section className="mt-20 border-t border-border pt-12" aria-labelledby="related-heading">
+          <h2 id="related-heading" className="mb-6 font-heading text-2xl text-foreground">
+            {product.series ? `More from ${product.series.name}` : "You may also like"}
+          </h2>
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
+            {related.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
     </Container>
   );
 }

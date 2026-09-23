@@ -59,7 +59,7 @@ export function InquiryDialog({
     startTransition(async () => {
       const result = await submitInquiry(null, formData);
       if (result.success) {
-        toast.success("Sent — we'll be in touch shortly.");
+        toast.success(result.reference ? `Sent — your reference is ${result.reference}. We've emailed you a copy.` : "Sent — we'll be in touch shortly.");
         formRef.current?.reset();
         setOpen(false);
         onSubmitted?.();

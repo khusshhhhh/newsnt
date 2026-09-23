@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { Download, FileText, Mail, Minus, Plus } from "lucide-react";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import { documentUrl } from "@/lib/supabase/storage";
 import { getDefaultVariant } from "@/lib/colors";
-import { basketKey, useQuoteBasket } from "@/lib/quote-basket";
+import { basketKey, openQuoteBasket, useQuoteBasket } from "@/lib/quote-basket";
 import { departmentCopy } from "@/lib/department";
 import { STOCK_STATUS_LABEL } from "@/lib/stock-status";
 import { ProductGallery } from "@/components/product-gallery";
@@ -26,13 +26,50 @@ import type { ProductWithRelations, Review } from "@/lib/supabase/types";
 export function ProductDetail({
   product,
   reviews = [],
+  initialFinishName,
+  finishCodes = {},
 }: {
   product: ProductWithRelations;
   reviews?: Review[];
+  /** Pre-selects this colour — from the page's `?finish=` param, so a shared link opens on the same finish. */
+  initialFinishName?: string;
+  /** Colour name → finish code, for writing the selected finish back into the URL. */
+  finishCodes?: Record<string, string>;
 }) {
   const defaultVariant = useMemo(() => getDefaultVariant(product.variants), [product.variants]);
-  const [selectedId, setSelectedId] = useState<string | null>(defaultVariant?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () =>
+      product.variants.find((v) => initialFinishName && v.color_name.toLowerCase() === initialFinishName.toLowerCase())
+        ?.id ??
+      defaultVariant?.id ??
+      null
+  );
   const selectedVariant = product.variants.find((v) => v.id === selectedId) ?? null;
+
+  function selectVariant(id: string | null) {
+    setSelectedId(id);
+    // Keep the URL in step (without a navigation) so the link can be shared.
+    const variant = product.variants.find((v) => v.id === id);
+    const code = variant ? finishCodes[variant.color_name] : undefined;
+    const url = new URL(window.location.href);
+    if (code) url.searchParams.set("finish", code);
+    else url.searchParams.delete("finish");
+    window.history.replaceState(window.history.state, "", url);
+  }
+
+  // Sticky mobile action bar: shown only once the main price/actions card
+  // has scrolled out of view.
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const [actionsVisible, setActionsVisible] = useState(true);
+  useEffect(() => {
+    const el = actionsRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => setActionsVisible(entry.isIntersecting), {
+      rootMargin: "-64px 0px 0px 0px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const images = useMemo(() => {
     if (selectedVariant && selectedVariant.product_images.length > 0) {
@@ -65,13 +102,15 @@ export function ProductDetail({
       department: product.department,
       variantId: selectedVariant?.id ?? null,
       variantLabel: selectedVariant?.color_name ?? null,
+      unitPrice: selectedVariant?.price ?? product.price,
     });
+    const view = { label: "View quote", onClick: openQuoteBasket };
     if (replaced) {
-      toast.info(`Started a new quote request for ${departmentCopy(product.department).label}.`);
+      toast.info(`Started a new quote request for ${departmentCopy(product.department).label}.`, { action: view });
     } else if (selectedVariant) {
-      toast.success(`Added ${selectedVariant.color_name} to your quote request.`);
+      toast.success(`Added ${selectedVariant.color_name} to your quote request.`, { action: view });
     } else {
-      toast.success("Added to your quote request.");
+      toast.success("Added to your quote request.", { action: view });
     }
   }
 
@@ -105,17 +144,20 @@ export function ProductDetail({
         </Reveal>
 
         <Reveal delay={0.18} className="mt-8 rounded-2xl border border-border bg-card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div ref={actionsRef} className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Price</span>
               <p className="mt-1 font-heading text-2xl font-medium text-foreground">
                 {formatPrice(selectedVariant?.price ?? product.price)}
               </p>
-              {stockStatus !== "in_stock" && (
-                <span className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-muted-foreground">
-                  {STOCK_STATUS_LABEL[stockStatus]}
-                </span>
-              )}
+              <span
+                className={cn(
+                  "mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium",
+                  stockStatus === "in_stock" ? "bg-muted text-foreground" : "bg-foreground/10 text-foreground"
+                )}
+              >
+                {STOCK_STATUS_LABEL[stockStatus]}
+              </span>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {inBasket ? (
@@ -163,6 +205,15 @@ export function ProductDetail({
               </InquiryDialog>
             </div>
           </div>
+          {resources.length > 0 && (
+            <a
+              href="#resources"
+              className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              <Download className="size-3.5" />
+              Spec sheets &amp; downloads ({resources.length})
+            </a>
+          )}
         </Reveal>
 
         {product.variants.length > 0 && (
@@ -178,7 +229,7 @@ export function ProductDetail({
                 <SwatchButton
                   label="Default"
                   active={selectedId === null}
-                  onClick={() => setSelectedId(null)}
+                  onClick={() => selectVariant(null)}
                   hex={null}
                 />
               )}
@@ -187,7 +238,7 @@ export function ProductDetail({
                   key={variant.id}
                   label={variant.color_name}
                   active={selectedId === variant.id}
-                  onClick={() => setSelectedId(variant.id)}
+                  onClick={() => selectVariant(variant.id)}
                   hex={variant.color_hex}
                 />
               ))}
@@ -208,7 +259,7 @@ export function ProductDetail({
         )}
 
         {resources.length > 0 && (
-          <Reveal delay={0.32} className="mt-10 border-t border-border pt-8">
+          <Reveal delay={0.32} className="mt-10 scroll-mt-24 border-t border-border pt-8" id="resources">
             <SectionHeading index={hasSpecs ? 2 : 1} title="Resources" />
             <div className="flex flex-col gap-2">
               {resources.map((resource) => (
@@ -229,6 +280,32 @@ export function ProductDetail({
         )}
 
         <ReviewsSection productId={product.id} reviews={reviews} />
+      </div>
+
+      {/* Mobile: keep the key actions in reach once the main card scrolls away. */}
+      <div
+        aria-hidden={actionsVisible}
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur transition-transform duration-200 lg:hidden",
+          actionsVisible ? "pointer-events-none translate-y-full" : "translate-y-0"
+        )}
+      >
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {formatPrice(selectedVariant?.price ?? product.price)}
+            {selectedVariant ? ` · ${selectedVariant.color_name}` : ""}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={addToQuote}
+          tabIndex={actionsVisible ? -1 : 0}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+        >
+          <Plus className="size-4" />
+          {inBasket ? `In quote (${quantityInBasket})` : "Add to quote"}
+        </button>
       </div>
     </div>
   );
@@ -270,14 +347,14 @@ function SwatchButton({
       type="button"
       onClick={onClick}
       title={label}
-      aria-label={label}
+      aria-label={`Colour: ${label}`}
       aria-pressed={active}
-      className="relative flex flex-col items-center gap-1"
+      className="relative -m-1.5 flex flex-col items-center gap-1 rounded-full p-1.5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
     >
       <motion.span
         whileTap={{ scale: 0.92 }}
         className={cn(
-          "flex size-5 items-center justify-center rounded-full border transition-shadow",
+          "flex size-6 items-center justify-center rounded-full border transition-shadow",
           active ? "ring-1 ring-foreground ring-offset-1 ring-offset-background" : "border-border"
         )}
         style={{ backgroundColor: hex ?? "transparent" }}
