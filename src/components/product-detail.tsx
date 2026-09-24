@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { preload } from "react-dom";
+import { getImageProps } from "next/image";
 import { toast } from "sonner";
 import { Download, FileText, Mail, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
-import { documentUrl } from "@/lib/supabase/storage";
+import { documentUrl, productImageUrl } from "@/lib/supabase/storage";
 import { getDefaultVariant } from "@/lib/colors";
 import { basketKey, openQuoteBasket, useQuoteBasket } from "@/lib/quote-basket";
 import { departmentCopy } from "@/lib/department";
@@ -44,6 +46,24 @@ export function ProductDetail({
       null
   );
   const selectedVariant = product.variants.find((v) => v.id === selectedId) ?? null;
+
+  /**
+   * Starts fetching a colour's main photo — at exactly the URL/size the
+   * gallery will request — when its swatch is hovered, focused or touched,
+   * so by the time it's clicked the cross-fade can usually start at once.
+   */
+  function warmVariant(variantId: string | null) {
+    const variant = product.variants.find((v) => v.id === variantId);
+    const image = variant?.product_images[0] ?? product.product_images[0];
+    if (!image) return;
+    const { props } = getImageProps({
+      src: productImageUrl(image.storage_path),
+      alt: "",
+      fill: true,
+      sizes: "(min-width: 1024px) 45vw, 100vw",
+    });
+    preload(props.src, { as: "image", imageSrcSet: props.srcSet, imageSizes: props.sizes });
+  }
 
   function selectVariant(id: string | null) {
     setSelectedId(id);
@@ -117,7 +137,7 @@ export function ProductDetail({
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
       <Reveal className="lg:sticky lg:top-24 lg:self-start">
         <ProductGallery
-          key={selectedVariant?.id ?? "default"}
+          setKey={selectedVariant?.id ?? "default"}
           images={images}
           productName={product.name}
         />
@@ -135,7 +155,7 @@ export function ProductDetail({
           <h1 className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-heading leading-[0.98] tracking-tight text-foreground">
             <span className="text-4xl font-medium sm:text-5xl">{product.name}</span>
             {selectedVariant && (
-              <span className="text-xl font-normal text-muted-foreground sm:text-2xl">
+              <span key={selectedVariant.id} className="animate-fade-in text-xl font-normal text-muted-foreground sm:text-2xl">
                 {selectedVariant.color_name}
               </span>
             )}
@@ -146,7 +166,10 @@ export function ProductDetail({
           <div ref={actionsRef} className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Price</span>
-              <p className="mt-1 font-heading text-2xl font-medium text-foreground">
+              <p
+                key={selectedVariant?.price ?? product.price ?? "none"}
+                className="mt-1 animate-fade-in font-heading text-2xl font-medium text-foreground"
+              >
                 {formatPrice(selectedVariant?.price ?? product.price)}
               </p>
               <span
@@ -219,7 +242,7 @@ export function ProductDetail({
           <Reveal delay={0.22} className="mt-6">
             <div className="flex items-baseline justify-between">
               <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">Colour</span>
-              <span className="text-xs text-muted-foreground">
+              <span key={selectedVariant?.id ?? "default"} className="animate-fade-in text-xs text-muted-foreground">
                 {selectedVariant?.color_name ?? "Default"}
               </span>
             </div>
@@ -229,6 +252,7 @@ export function ProductDetail({
                   label="Default"
                   active={selectedId === null}
                   onClick={() => selectVariant(null)}
+                  onWarm={() => warmVariant(null)}
                   hex={null}
                 />
               )}
@@ -238,6 +262,7 @@ export function ProductDetail({
                   label={variant.color_name}
                   active={selectedId === variant.id}
                   onClick={() => selectVariant(variant.id)}
+                  onWarm={() => warmVariant(variant.id)}
                   hex={variant.color_hex}
                 />
               ))}
@@ -335,16 +360,21 @@ function SwatchButton({
   hex,
   active,
   onClick,
+  onWarm,
 }: {
   label: string;
   hex: string | null;
   active: boolean;
   onClick: () => void;
+  onWarm: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      onPointerEnter={onWarm}
+      onPointerDown={onWarm}
+      onFocus={onWarm}
       title={label}
       aria-label={`Colour: ${label}`}
       aria-pressed={active}

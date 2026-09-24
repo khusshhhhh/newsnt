@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { AnimatePresence, motion } from "motion/react";
+
 import { ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productImageUrl } from "@/lib/supabase/storage";
@@ -14,9 +14,10 @@ import type { ProductImage } from "@/lib/supabase/types";
 const SWIPE_PX = 50;
 
 /**
- * Give this a `key` that changes whenever the image *set* changes (e.g. the
- * selected color) — remounting is how the active thumbnail resets, rather
- * than syncing it with an effect.
+ * Pass a `setKey` that changes whenever the image *set* changes (e.g. the
+ * selected colour): the gallery goes back to the first image, but stays
+ * mounted so the old photo can cross-fade into the new one instead of the
+ * frame blanking while it loads.
  *
  * On touch screens the main photo swipes left/right between images, and the
  * full-screen view pinches, double-taps and drags to zoom.
@@ -24,19 +25,31 @@ const SWIPE_PX = 50;
 export function ProductGallery({
   images,
   productName,
+  setKey,
 }: {
   images: ProductImage[];
   productName: string;
+  setKey?: string;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [direction, setDirection] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   // Images the visitor is about to look at: their full-size version starts
   // loading on thumbnail hover, or on touching the main photo (its
   // neighbours), so it's usually ready by the time it's shown.
   const [warmed, setWarmed] = useState<Set<number>>(() => new Set());
   const swipeRef = useRef<{ x: number; y: number; swiped: boolean } | null>(null);
-  const active = images[activeIndex];
+
+  // A new image set (colour change) starts again from its first photo —
+  // adjusted during render rather than in an effect, so there's no frame
+  // showing the old index against the new set.
+  const [currentSetKey, setCurrentSetKey] = useState(setKey);
+  if (currentSetKey !== setKey) {
+    setCurrentSetKey(setKey);
+    setActiveIndex(0);
+    setWarmed(new Set());
+  }
+
+  const active = images[Math.min(activeIndex, images.length - 1)];
   const count = images.length;
 
   function warm(...indexes: number[]) {
@@ -46,8 +59,7 @@ export function ProductGallery({
     });
   }
 
-  function show(index: number, dir = 0) {
-    setDirection(dir);
+  function show(index: number) {
     setActiveIndex(((index % count) + count) % count);
   }
 
@@ -83,7 +95,7 @@ export function ProductGallery({
           const dy = e.clientY - start.y;
           if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
             start.swiped = true;
-            show(activeIndex + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+            show(activeIndex + (dx < 0 ? 1 : -1));
           }
         }}
         aria-label="Open full-size image"
@@ -104,29 +116,7 @@ export function ProductGallery({
               className="pointer-events-none object-contain p-10 opacity-0"
             />
           ))}
-        <AnimatePresence mode="wait" initial={false} custom={direction}>
-          <motion.div
-            key={active.id}
-            custom={direction}
-            initial={{ opacity: 0, x: direction * 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: direction * -24 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="absolute inset-0"
-          >
-            <Image
-              src={productImageUrl(active.storage_path)}
-              alt={active.alt_text ?? productName}
-              fill
-              preload={activeIndex === 0}
-              sizes="(min-width: 1024px) 45vw, 100vw"
-              placeholder="blur"
-              blurDataURL={active.blur_data_url || BLUR_DATA_URL}
-              draggable={false}
-              className="object-contain p-10"
-            />
-          </motion.div>
-        </AnimatePresence>
+        <CrossfadeImage image={active} productName={productName} preload={activeIndex === 0} />
         <span className="absolute bottom-3 right-3 flex size-9 items-center justify-center rounded-full bg-background/90 text-foreground opacity-0 shadow-sm ring-1 ring-border transition-opacity group-hover:opacity-100">
           <ZoomIn className="size-4" />
         </span>
@@ -146,12 +136,12 @@ export function ProductGallery({
       </button>
 
       {count > 1 && (
-        <div className="flex gap-2 overflow-x-auto">
+        <div key={setKey} className="flex animate-fade-in gap-2 overflow-x-auto">
           {images.map((image, index) => (
             <button
               key={image.id}
               type="button"
-              onClick={() => show(index, Math.sign(index - activeIndex))}
+              onClick={() => show(index)}
               onPointerEnter={() => warm(index)}
               onFocus={() => warm(index)}
               aria-label={`Show image ${index + 1} of ${count}`}
@@ -181,9 +171,90 @@ export function ProductGallery({
         open={lightboxOpen}
         onOpenChange={setLightboxOpen}
         index={activeIndex}
-        onIndexChange={(index, dir) => show(index, dir)}
+        onIndexChange={(index) => show(index)}
       />
     </div>
+  );
+}
+
+const CROSSFADE_MS = 450;
+
+type Layer = { image: ProductImage; ready: boolean };
+
+/**
+ * The main photo, cross-faded whenever it changes (a thumbnail, a swipe, or
+ * a colour switch). The outgoing photo stays fully visible until the
+ * incoming one has actually loaded, then the two fade over each other — so
+ * a switch never flashes an empty frame or a half-drawn image, however slow
+ * the network. The very first photo shows with its blur preview as usual.
+ */
+function CrossfadeImage({
+  image,
+  productName,
+  preload,
+}: {
+  image: ProductImage;
+  productName: string;
+  preload: boolean;
+}) {
+  const [layers, setLayers] = useState<Layer[]>(() => [{ image, ready: true }]);
+
+  // Queue the new photo on top (hidden) as soon as it's asked for. Only the
+  // newest settled layer is kept underneath, so rapid clicking through
+  // colours never stacks up more than two images.
+  const top = layers[layers.length - 1];
+  if (top.image.id !== image.id) {
+    const settled = layers.filter((l) => l.ready && l.image.id !== image.id).slice(-1);
+    // Switching straight back to a photo that's already loaded just brings it forward.
+    const loaded = layers.find((l) => l.ready && l.image.id === image.id);
+    setLayers([...settled, loaded ?? { image, ready: false }]);
+  }
+
+  function markReady(id: string) {
+    setLayers((prev) => prev.map((l) => (l.image.id === id ? { ...l, ready: true } : l)));
+  }
+
+  // Once the newest layer is in, drop the ones it faded over.
+  const newest = layers[layers.length - 1];
+  useEffect(() => {
+    if (!newest.ready || layers.length < 2) return;
+    const id = setTimeout(() => setLayers((prev) => prev.slice(-1)), CROSSFADE_MS);
+    return () => clearTimeout(id);
+  }, [newest, layers.length]);
+
+  return (
+    <>
+      {layers.map((layer, i) => {
+        const isNewest = i === layers.length - 1;
+        // The newest layer fades in once loaded; everything under it fades out at the same time.
+        const visible = isNewest ? layer.ready : !newest.ready;
+        const isFirstPaint = layers.length === 1 && i === 0;
+        return (
+          <div
+            key={layer.image.id}
+            aria-hidden={!isNewest}
+            className="absolute inset-0 transition-opacity ease-out motion-reduce:transition-none"
+            style={{ opacity: visible ? 1 : 0, transitionDuration: `${CROSSFADE_MS}ms` }}
+          >
+            <Image
+              src={productImageUrl(layer.image.storage_path)}
+              alt={isNewest ? (layer.image.alt_text ?? productName) : ""}
+              fill
+              preload={isFirstPaint && preload}
+              // Swapped-in photos load at once rather than lazily — they're already on screen.
+              loading={isFirstPaint ? undefined : "eager"}
+              sizes="(min-width: 1024px) 45vw, 100vw"
+              placeholder={isFirstPaint ? "blur" : "empty"}
+              blurDataURL={layer.image.blur_data_url || BLUR_DATA_URL}
+              draggable={false}
+              onLoad={() => markReady(layer.image.id)}
+              onError={() => markReady(layer.image.id)}
+              className="object-contain p-10"
+            />
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -200,7 +271,7 @@ function Lightbox({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   index: number;
-  onIndexChange: (index: number, direction: number) => void;
+  onIndexChange: (index: number) => void;
 }) {
   const active = images[index];
   const hasMultiple = images.length > 1;
@@ -208,8 +279,8 @@ function Lightbox({
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "ArrowRight") onIndexChange(index + 1, 1);
-      if (e.key === "ArrowLeft") onIndexChange(index - 1, -1);
+      if (e.key === "ArrowRight") onIndexChange(index + 1);
+      if (e.key === "ArrowLeft") onIndexChange(index - 1);
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
@@ -231,7 +302,7 @@ function Lightbox({
           key={active.id}
           image={active}
           productName={productName}
-          onSwipe={hasMultiple ? (dir) => onIndexChange(index + dir, dir) : undefined}
+          onSwipe={hasMultiple ? (dir) => onIndexChange(index + dir) : undefined}
           onSwipeDown={() => onOpenChange(false)}
         />
 
@@ -239,7 +310,7 @@ function Lightbox({
           <>
             <button
               type="button"
-              onClick={() => onIndexChange(index - 1, -1)}
+              onClick={() => onIndexChange(index - 1)}
               aria-label="Previous image"
               className="absolute left-2 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent sm:left-4"
             >
@@ -247,7 +318,7 @@ function Lightbox({
             </button>
             <button
               type="button"
-              onClick={() => onIndexChange(index + 1, 1)}
+              onClick={() => onIndexChange(index + 1)}
               aria-label="Next image"
               className="absolute right-2 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent sm:right-4"
             >
