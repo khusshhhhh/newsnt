@@ -26,8 +26,8 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
    - [`0006_newsletter_subscribers.sql`](supabase/migrations/0006_newsletter_subscribers.sql) — footer newsletter signups
    - [`0007_admin_roles.sql`](supabase/migrations/0007_admin_roles.sql) — restricts catalog writes to an
      `admins` allowlist instead of any authenticated user (see step 3 below — **run this last**)
-   - [`0008_activity_log.sql`](supabase/migrations/0008_activity_log.sql) — audit trail for admin writes,
-     viewable at `/admin/activity`
+   - [`0008_activity_log.sql`](supabase/migrations/0008_activity_log.sql) — audit trail for admin writes
+     (retired and dropped by 0033/0034)
    - [`0009_media_bucket_limits.sql`](supabase/migrations/0009_media_bucket_limits.sql) — server-side file
      size/type limits on the `media` storage bucket
    - `0010`–`0016` — category/series photo galleries, per-color SKUs & pricing, product resources,
@@ -67,6 +67,9 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
      discount on quotes and orders (`discount_type` percent/amount + `discount_value`; `total` stays
      the post-discount figure), and `get_quote_by_token` returns it so the customer's quote page
      shows subtotal, discount and total.
+   - [`0033_stop_activity_logging.sql`](supabase/migrations/0033_stop_activity_logging.sql) and
+     [`0034_drop_activity_log.sql`](supabase/migrations/0034_drop_activity_log.sql) — retire the admin
+     activity log: `respond_to_quote` stops writing to it, then the `activity_log` table is dropped.
 
    **Run 0030, 0031 and 0032 before deploying the matching code** — the admin panel reads their new
    columns. (The public inquiry form falls back safely if 0031 is missing, so no leads are lost.)
@@ -99,7 +102,7 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
    - `ADMIN_DIGEST_EMAIL` (optional) — where the daily summary goes; defaults to
      `INQUIRY_NOTIFICATION_EMAIL`.
    - `ERROR_WEBHOOK_URL` (optional) — server errors are always recorded in `error_events` and shown
-     under Activity → System health; set this to also POST each one to Slack/Discord/etc.
+     under System health on the admin dashboard; set this to also POST each one to Slack/Discord/etc.
 5. Install dependencies and run the dev server:
 
    ```bash
@@ -177,8 +180,8 @@ gallery. Managed from the "Colors" section on a product's admin edit page.
 - `/admin/reports` — inquiries per week, quote conversion, most-requested products, order value
 - `/admin/reviews`, `/admin/photos` — moderation queues (Pending/Approved/Rejected) for
   customer-submitted reviews and project photos, with approve/reject-all
-- `/admin/activity` — audit trail with filters and field-level changes, plus System health
-  (failed inquiry emails with a Retry button, recent server errors)
+- `/admin` dashboard — also shows System health (failed inquiry emails with a Retry button, recent
+  server errors) whenever there's something to act on
 - `/admin/trash` — deleted products, series and customers; restore or delete forever
 - `/admin/team` — owners manage who can sign in and their role
 - `/quote/[token]` — the customer-facing accept/decline page linked from quote emails

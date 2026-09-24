@@ -306,33 +306,6 @@ export type NewsletterSubscriber = {
   created_at: string;
 };
 
-export type ActivityAction = "create" | "update" | "delete" | "restore";
-export type ActivityEntityType =
-  | "product"
-  | "series"
-  | "category"
-  | "inquiry"
-  | "review"
-  | "project_photo"
-  | "finish"
-  | "customer"
-  | "customer_note"
-  | "quote"
-  | "order"
-  | "admin";
-
-export type ActivityLogEntry = {
-  id: string;
-  actor_email: string | null;
-  action: ActivityAction;
-  entity_type: ActivityEntityType;
-  entity_id: string | null;
-  entity_name: string | null;
-  created_at: string;
-  actor_id: string | null;
-  changes: Record<string, { from: unknown; to: unknown }> | null;
-};
-
 export type Database = {
   public: {
     Tables: {
@@ -473,15 +446,6 @@ export type Database = {
         Row: NewsletterSubscriber;
         Insert: Partial<NewsletterSubscriber> & { email: string };
         Update: Partial<NewsletterSubscriber>;
-        Relationships: [];
-      };
-      activity_log: {
-        Row: ActivityLogEntry;
-        Insert: Partial<ActivityLogEntry> & {
-          action: ActivityAction;
-          entity_type: ActivityEntityType;
-        };
-        Update: Partial<ActivityLogEntry>;
         Relationships: [];
       };
       finishes: {
