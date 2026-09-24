@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { getAdminRow, getSessionUser } from "@/lib/admin-session";
 import { AAL2_COOKIE_NAME, verifyAal2Cookie } from "@/lib/admin-mfa";
 import type { AdminRole } from "@/lib/supabase/types";
 
@@ -34,10 +34,7 @@ export function roleCan(role: AdminRole, scope: AdminScope) {
  * friendly-error layer, not the only line of defence.
  */
 export async function requireAdmin(scope?: AdminScope) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) throw new AdminAuthError();
 
   const cookieStore = await cookies();
@@ -45,11 +42,7 @@ export async function requireAdmin(scope?: AdminScope) {
     throw new AdminAuthError("Enter your sign-in code to continue.");
   }
 
-  const { data: admin } = await supabase
-    .from("admins")
-    .select("role")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const admin = await getAdminRow(user.id);
   if (!admin) throw new AdminAuthError("This account isn't authorized for admin access.");
 
   const role = (admin.role ?? "owner") as AdminRole;

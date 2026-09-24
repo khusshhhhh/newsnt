@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { updateOrderStatus, updateOrderNotes } from "@/lib/actions/admin/orders";
+import { updateOrderDiscount, updateOrderStatus, updateOrderNotes } from "@/lib/actions/admin/orders";
 import {
   Dialog,
   DialogContent,
@@ -14,24 +14,40 @@ import {
 } from "@/components/ui/dialog";
 import { OrderPaymentPanel, PAYMENT_STATUS_LABEL } from "@/components/admin/order-payment-panel";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { DiscountField, TotalsSummary } from "@/components/admin/discount-field";
 import { departmentCopy } from "@/lib/department";
-import { formatPrice } from "@/lib/format";
+import { applyDiscount, discountFromRow, discountNote, itemsSubtotal, type Discount } from "@/lib/discount";
+import { formatAmount, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ORDER_STAGES } from "@/lib/order-stages";
 import type { Order, OrderStatus } from "@/lib/supabase/types";
 
 export type OrderWithCustomer = Order & {
   customer: { name: string; email: string; phone: string | null } | null;
 };
 
-const STAGES: { value: OrderStatus; label: string }[] = [
-  { value: "confirmed", label: "Confirmed" },
-  { value: "in_production", label: "In production" },
-  { value: "shipped", label: "Shipped" },
-  { value: "delivered", label: "Delivered" },
-  { value: "cancelled", label: "Cancelled" },
-];
+/** The order's post-discount total — the stored `total`, or re-derived for rows from before it was stored. */
+function orderTotal(order: OrderWithCustomer) {
+  return order.total != null ? Number(order.total) : applyDiscount(itemsSubtotal(order.items), discountFromRow(order)).total;
+}
 
-export function OrdersBoard({ orders: initialOrders }: { orders: OrderWithCustomer[] }) {
+function shortDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+}
+
+/**
+ * Orders as a Kanban board (drag cards between stages) or as a list — both
+ * share the same optimistic state and detail dialog, so a change made in
+ * one view is the same change in the other.
+ */
+export function OrdersBoard({
+  orders: initialOrders,
+  view = "board",
+}: {
+  orders: OrderWithCustomer[];
+  view?: "board" | "list";
+}) {
   const [orders, setOrders] = useState(initialOrders);
   const [dragOverStage, setDragOverStage] = useState<OrderStatus | null>(null);
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
@@ -63,8 +79,11 @@ export function OrdersBoard({ orders: initialOrders }: { orders: OrderWithCustom
 
   return (
     <>
+      {view === "list" ? (
+        <OrdersList orders={orders} onMove={moveOrder} onOpen={setDetailOrderId} />
+      ) : (
       <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
-        {STAGES.map((stage) => {
+        {ORDER_STAGES.map((stage) => {
           const items = orders.filter((o) => o.status === stage.value);
           return (
             <div
@@ -109,6 +128,7 @@ export function OrdersBoard({ orders: initialOrders }: { orders: OrderWithCustom
           );
         })}
       </div>
+      )}
 
       <Dialog open={detailOrder != null} onOpenChange={(open) => !open && setDetailOrderId(null)}>
         <DialogContent className={cn("sm:max-w-xl", FULL_SCREEN_ON_MOBILE)}>
@@ -163,7 +183,7 @@ export function OrdersBoard({ orders: initialOrders }: { orders: OrderWithCustom
               </div>
 
               <div className="flex gap-1 rounded-full border border-border p-1 text-xs w-fit">
-                {STAGES.map((stage) => (
+                {ORDER_STAGES.map((stage) => (
                   <button
                     key={stage.value}
                     type="button"
@@ -180,10 +200,16 @@ export function OrdersBoard({ orders: initialOrders }: { orders: OrderWithCustom
                 ))}
               </div>
 
+              <OrderDiscountPanel
+                key={`discount-${detailOrder.id}`}
+                order={detailOrder}
+                onSaved={(fields) => patchOrder(detailOrder.id, fields)}
+              />
+
               <OrderPaymentPanel
                 key={detailOrder.id}
                 order={detailOrder}
-                total={detailOrder.items.reduce((sum, i) => sum + (i.unitPrice ?? 0) * i.quantity, 0)}
+                total={orderTotal(detailOrder)}
                 onSaved={(fields) => patchOrder(detailOrder.id, fields)}
               />
 
@@ -211,7 +237,7 @@ function OrderCard({
   onOpen: () => void;
 }) {
   const [dragging, setDragging] = useState(false);
-  const total = order.items.reduce((sum, i) => sum + (i.unitPrice ?? 0) * i.quantity, 0);
+  const total = orderTotal(order);
   const hasPriced = order.items.some((i) => i.unitPrice != null);
 
   return (
@@ -238,7 +264,7 @@ function OrderCard({
         <p className="truncate text-xs text-muted-foreground">{order.customer?.name ?? "—"}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {order.items.length} item{order.items.length === 1 ? "" : "s"}
-          {hasPriced ? ` · ${formatPrice(total)}` : ""}
+          {hasPriced ? ` · ${formatAmount(total)}${discountNote(order)}` : ""}
         </p>
         <div className="mt-1 flex flex-wrap gap-1">
           <span
@@ -251,7 +277,7 @@ function OrderCard({
           </span>
           {order.fulfilment_date && (
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              Due {new Date(order.fulfilment_date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+              Due {shortDate(order.fulfilment_date)}
             </span>
           )}
         </div>
@@ -263,7 +289,7 @@ function OrderCard({
         aria-label={`Move ${order.order_number} to a different stage`}
         className="mt-2 h-6 w-full rounded-full border border-border bg-transparent px-1.5 text-[10px] text-muted-foreground"
       >
-        {STAGES.map((s) => (
+        {ORDER_STAGES.map((s) => (
           <option key={s.value} value={s.value}>
             {s.label}
           </option>
@@ -311,6 +337,188 @@ function OrderNotesField({
         placeholder="Delivery address, special instructions…"
       />
       {pending && <span className="text-xs text-muted-foreground">Saving…</span>}
+    </div>
+  );
+}
+
+const LIST_COLUMNS = "md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.7fr)_3.5rem_7.5rem_9rem_7rem_4.5rem]";
+
+function OrdersList({
+  orders,
+  onMove,
+  onOpen,
+}: {
+  orders: OrderWithCustomer[];
+  onMove: (id: string, status: OrderStatus) => void;
+  onOpen: (id: string) => void;
+}) {
+  if (orders.length === 0) {
+    return (
+      <div className="rounded-xl border border-border px-4 py-10 text-center text-sm text-muted-foreground">
+        No orders match.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border">
+      {/* Column headings — below md each row stacks into a compact card instead. */}
+      <div
+        className={cn(
+          "hidden items-center gap-3 border-b border-border bg-muted/40 px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid",
+          LIST_COLUMNS
+        )}
+      >
+        <span>Order</span>
+        <span>Customer</span>
+        <span className="text-right">Items</span>
+        <span className="text-right">Total</span>
+        <span>Stage</span>
+        <span>Payment</span>
+        <span className="text-right">Due</span>
+      </div>
+      <ul className="divide-y divide-border">
+        {orders.map((order) => {
+          const hasPriced = order.items.some((i) => i.unitPrice != null);
+          const totalText = hasPriced ? formatAmount(orderTotal(order)) : "—";
+          return (
+            <li
+              key={order.id}
+              className={cn(
+                "animate-fade-in grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-4 py-3 transition-colors hover:bg-muted/30",
+                LIST_COLUMNS
+              )}
+            >
+              <button type="button" onClick={() => onOpen(order.id)} data-admin-row className="min-w-0 text-left">
+                <span className="block truncate text-sm text-foreground hover:underline">{order.order_number}</span>
+                <span className="block text-xs text-muted-foreground">{shortDate(order.created_at)}</span>
+              </button>
+              <span className="text-right text-sm font-medium tabular-nums text-foreground md:hidden">{totalText}</span>
+
+              <div className="col-span-2 min-w-0 md:col-span-1">
+                <p className="truncate text-sm text-foreground">{order.customer?.name ?? "—"}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {order.customer?.email ?? ""}
+                  <span className="md:hidden">
+                    {" "}
+                    · {order.items.length} item{order.items.length === 1 ? "" : "s"}
+                  </span>
+                </p>
+              </div>
+
+              <span className="hidden text-right text-sm tabular-nums text-muted-foreground md:block">
+                {order.items.length}
+              </span>
+              <span className="hidden text-right text-sm tabular-nums text-foreground md:block">
+                {totalText}
+                {discountFromRow(order) && (
+                  <span className="block text-[11px] text-muted-foreground">{discountNote(order).trim()}</span>
+                )}
+              </span>
+
+              <select
+                value={order.status}
+                onChange={(e) => onMove(order.id, e.target.value as OrderStatus)}
+                aria-label={`Stage for ${order.order_number}`}
+                className="h-7 w-fit rounded-full border border-border bg-transparent px-2 text-xs text-foreground"
+              >
+                {ORDER_STAGES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex flex-wrap items-center justify-end gap-1.5 md:contents">
+                <span
+                  className={cn(
+                    "w-fit rounded-full px-2 py-0.5 text-[11px]",
+                    order.payment_status === "paid" ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {PAYMENT_STATUS_LABEL[order.payment_status] ?? "Unpaid"}
+                </span>
+                <span className="text-xs text-muted-foreground md:text-right">
+                  {order.fulfilment_date ? (
+                    <>
+                      <span className="md:hidden">Due </span>
+                      {shortDate(order.fulfilment_date)}
+                    </>
+                  ) : (
+                    <span className="hidden md:inline">—</span>
+                  )}
+                </span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** Subtotal → discount → total for an order, with the discount editable after the order was created. */
+function OrderDiscountPanel({
+  order,
+  onSaved,
+}: {
+  order: OrderWithCustomer;
+  onSaved: (fields: Partial<OrderWithCustomer>) => void;
+}) {
+  const saved = discountFromRow(order);
+  const [discount, setDiscount] = useState<Discount | null>(saved);
+  const [editing, setEditing] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const subtotal = itemsSubtotal(order.items);
+  const priced = order.items.some((i) => i.unitPrice != null);
+
+  function save() {
+    startTransition(async () => {
+      try {
+        const next = await updateOrderDiscount(order.id, discount);
+        onSaved(next);
+        setEditing(false);
+        toast.success(discount ? "Discount saved" : "Discount removed");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to save the discount");
+      }
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <TotalsSummary subtotal={subtotal} discount={editing ? discount : saved} priced={priced} />
+      {editing ? (
+        <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-border/60 p-3">
+          <DiscountField id={`order-discount-${order.id}`} subtotal={subtotal} discount={discount} onChange={setDiscount} />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDiscount(saved);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="button" size="sm" loading={pending} loadingText="Saving…" onClick={save}>
+              Save discount
+            </Button>
+          </div>
+        </div>
+      ) : (
+        priced && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="self-start text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            {saved ? "Change discount" : "Add a discount"}
+          </button>
+        )
+      )}
     </div>
   );
 }

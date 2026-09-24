@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { ExternalLink } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { getAdminRow, getSessionUser } from "@/lib/admin-session";
 import { AAL2_COOKIE_NAME, verifyAal2Cookie } from "@/lib/admin-mfa";
 import { roleCan } from "@/lib/admin-guard";
 import { ADMIN_NAV } from "@/lib/admin-nav";
@@ -18,10 +18,7 @@ import type { AdminRole } from "@/lib/supabase/types";
 const ROLE_LABEL: Record<AdminRole, string> = { owner: "Owner", editor: "Editor", sales: "Sales" };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
 
   // The login/verify pages render inside this layout too but have no chrome
   // of their own; middleware already keeps anyone who isn't fully signed in
@@ -30,8 +27,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const aal2Valid = user ? verifyAal2Cookie(cookieStore.get(AAL2_COOKIE_NAME)?.value, user.id) : false;
   if (!user || !aal2Valid) return <>{children}</>;
 
-  const [{ data: admin }, { data: stats }] = await Promise.all([
-    supabase.from("admins").select("role").eq("user_id", user.id).maybeSingle(),
+  const [admin, { data: stats }] = await Promise.all([
+    getAdminRow(user.id),
     supabase.rpc("admin_dashboard_stats"),
   ]);
   const role: AdminRole = admin?.role ?? "owner";

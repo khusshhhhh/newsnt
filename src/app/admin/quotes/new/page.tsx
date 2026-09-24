@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { QuoteBuilder, type QuoteBuilderInitial } from "@/components/admin/quote-builder";
 import { editableLinesFromQuoteItems } from "@/lib/quote-lines";
 import { isDepartment } from "@/lib/department";
+import { discountFromRow } from "@/lib/discount";
 
 export default async function NewQuotePage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
   const { from } = await searchParams;
@@ -12,7 +13,7 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
     const supabase = await createClient();
     const { data: quote } = await supabase
       .from("quotes")
-      .select("id, quote_number, department, items, notes, customer:customers(id, name, email, phone, department)")
+      .select("id, quote_number, department, items, notes, discount_type, discount_value, customer:customers(id, name, email, phone, department)")
       .eq("id", from)
       .maybeSingle();
     if (quote?.customer && isDepartment(quote.department)) {
@@ -23,6 +24,7 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
         department: quote.department,
         lines: editableLinesFromQuoteItems(quote.items),
         notes: quote.notes ?? "",
+        discount: discountFromRow(quote),
       };
     }
   }

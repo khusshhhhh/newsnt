@@ -1,27 +1,33 @@
-"use client";
+import { cn } from "@/lib/utils";
 
-import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
-
-/** Fades + slides an element up into place the first time it scrolls into view. */
+/**
+ * Fades + slides an element up as it scrolls into view. CSS-only (`.reveal`
+ * in globals.css, on a scroll-driven timeline), so it needs no client JS and
+ * never hides content that's already on screen while the page hydrates.
+ * `delay` staggers siblings by starting their fade slightly further into
+ * the scroll, which reads the same as a time delay for a row of cards.
+ */
 export function Reveal({
   delay = 0,
   y = 16,
   className,
+  style,
   children,
   ...props
-}: HTMLMotionProps<"div"> & { delay?: number; y?: number }) {
-  const reduceMotion = useReducedMotion();
-
+}: React.ComponentProps<"div"> & { delay?: number; y?: number }) {
   return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-10% 0px" }}
-      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
-      className={className}
+    <div
+      className={cn("reveal", className)}
+      style={
+        {
+          "--reveal-y": `${y}px`,
+          "--reveal-offset": `${Math.round(delay * 240)}px`,
+          ...style,
+        } as React.CSSProperties
+      }
       {...props}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }

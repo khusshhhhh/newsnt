@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { mediaUrl } from "@/lib/supabase/storage";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -109,14 +108,10 @@ export function CatalogNav({
         </button>
       ))}
 
-      <AnimatePresence>
-        {active && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="fixed inset-x-0 top-16 z-40 border-b border-border bg-popover"
+      {active && (
+          <div
+            key={active.key}
+            className="fixed inset-x-0 top-16 z-40 border-b border-border bg-popover animate-in fade-in-0 slide-in-from-top-1.5 duration-200 ease-out motion-reduce:animate-none"
           >
             <div className="mx-auto w-full max-w-[1440px] px-6 py-10 sm:px-8 lg:px-12">
               {active.viewAllHref && active.items.length > 0 && (
@@ -139,9 +134,8 @@ export function CatalogNav({
                 onNavigate={() => setOpenTab(null)}
               />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+      )}
     </div>
   );
 }

@@ -9,7 +9,8 @@ import { ilikeContainsPattern } from "@/lib/search";
 import { logActivity } from "@/lib/data/activity";
 import { QuotePdfDocument } from "@/lib/pdf/quote-pdf";
 import { SITE_URL } from "@/lib/site";
-import { departmentSchema } from "./_shared";
+import { departmentSchema, discountColumns, discountSchema } from "./_shared";
+import { applyDiscount, discountFromRow, itemsSubtotal, type Discount } from "@/lib/discount";
 import type { AdminInquiryProduct } from "@/lib/inquiry-lines";
 import type { Department } from "@/lib/department";
 import type { QuoteLineItem } from "@/lib/supabase/types";
@@ -27,6 +28,7 @@ const quoteSchema = z.object({
   inquiryId: z.string().uuid(),
   notes: z.string().trim().max(2000).default(""),
   items: z.array(lineItemSchema).min(1, "Add at least one product to the quote"),
+  discount: discountSchema,
 });
 
 export type QuoteInput = z.infer<typeof quoteSchema>;
@@ -38,6 +40,7 @@ const newQuoteSchema = z.object({
   department: departmentSchema,
   notes: z.string().trim().max(2000).default(""),
   items: z.array(lineItemSchema).min(1, "Add at least one product to the quote"),
+  discount: discountSchema,
 });
 
 export type NewQuoteInput = z.infer<typeof newQuoteSchema>;
@@ -54,10 +57,6 @@ function quoteFilename(quoteNumber: string, customerName: string) {
   return `quote-${quoteNumber.toLowerCase()}-${safeName}.pdf`;
 }
 
-function quoteTotal(items: QuoteLineItem[]) {
-  return items.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.quantity, 0);
-}
-
 async function renderQuotePdf(params: {
   quoteNumber: string;
   customerName: string;
@@ -65,6 +64,7 @@ async function renderQuotePdf(params: {
   customerPhone: string | null;
   items: QuoteLineItem[];
   notes: string;
+  discount: Discount | null;
 }) {
   return renderToBuffer(
     <QuotePdfDocument
@@ -74,6 +74,7 @@ async function renderQuotePdf(params: {
       customerPhone={params.customerPhone}
       items={params.items}
       notes={params.notes}
+      discount={params.discount}
     />
   );
 }
@@ -125,6 +126,7 @@ export async function previewQuotePdf(rawInput: QuoteInput) {
     customerPhone: inquiry.phone,
     items: parsed.data.items,
     notes: parsed.data.notes,
+    discount: parsed.data.discount ?? null,
   });
 
   return {
@@ -147,6 +149,7 @@ async function dispatchQuote(params: {
   inquiryId: string | null;
   notes: string;
   items: QuoteLineItem[];
+  discount: Discount | null;
   parentQuoteId?: string | null;
 }) {
   const quoteNumber = generateQuoteNumber();
@@ -157,8 +160,9 @@ async function dispatchQuote(params: {
     customerPhone: params.customerPhone,
     items: params.items,
     notes: params.notes,
+    discount: params.discount,
   });
-  const total = quoteTotal(params.items);
+  const { total } = applyDiscount(itemsSubtotal(params.items), params.discount);
 
   const { supabase } = await requireAdmin("sales");
 
@@ -185,6 +189,7 @@ async function dispatchQuote(params: {
       department: params.department,
       items: params.items,
       notes: params.notes || null,
+      ...discountColumns(params.discount),
       total,
     })
     .select("accept_token, expires_at")
@@ -261,6 +266,7 @@ export async function sendQuotePdf(rawInput: QuoteInput) {
     inquiryId: inquiry.id,
     notes: parsed.data.notes,
     items: parsed.data.items,
+    discount: parsed.data.discount ?? null,
   });
 }
 
@@ -286,6 +292,7 @@ export async function createAndSendQuote(rawInput: NewQuoteInput) {
     inquiryId: null,
     notes: parsed.data.notes,
     items: parsed.data.items,
+    discount: parsed.data.discount ?? null,
     parentQuoteId: parsed.data.parentQuoteId ?? null,
   });
 }
@@ -331,7 +338,7 @@ export async function downloadStoredQuotePdf(quoteId: string) {
   const { supabase } = await requireAdmin("sales");
   const { data: quote, error } = await supabase
     .from("quotes")
-    .select("quote_number, items, notes, customer:customers(name, email, phone)")
+    .select("quote_number, items, notes, discount_type, discount_value, customer:customers(name, email, phone)")
     .eq("id", quoteId)
     .single();
   if (error || !quote || !quote.customer) throw new Error("Quote not found");
@@ -343,6 +350,7 @@ export async function downloadStoredQuotePdf(quoteId: string) {
     customerPhone: quote.customer.phone,
     items: quote.items as QuoteLineItem[],
     notes: quote.notes ?? "",
+    discount: discountFromRow(quote),
   });
 
   return {

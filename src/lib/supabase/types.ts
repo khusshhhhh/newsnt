@@ -222,6 +222,9 @@ export type QuoteLineItem = {
   unitPrice: number | null;
 };
 
+/** How a quote/order discount was entered — see lib/discount.ts. */
+export type DiscountType = "percent" | "amount";
+
 export type QuoteStatus = "sent" | "accepted" | "declined";
 
 export type Quote = {
@@ -233,6 +236,8 @@ export type Quote = {
   items: QuoteLineItem[];
   notes: string | null;
   total: number | null;
+  discount_type: DiscountType | null;
+  discount_value: number | null;
   status: QuoteStatus;
   accept_token: string;
   sent_at: string;
@@ -264,6 +269,8 @@ export type Order = {
   deposit_amount: number | null;
   amount_paid: number;
   fulfilment_date: string | null;
+  discount_type: DiscountType | null;
+  discount_value: number | null;
 };
 
 export type ModerationStatus = "pending" | "approved" | "rejected";
@@ -633,6 +640,8 @@ export type Database = {
           items: QuoteLineItem[];
           notes: string | null;
           total: number | null;
+          discount_type: DiscountType | null;
+          discount_value: number | null;
           status: QuoteStatus;
           department: Department;
           sent_at: string;

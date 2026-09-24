@@ -3,6 +3,10 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Devices with a real hovering pointer (mouse/trackpad) — hover-driven UI
+   like the series showcase only switches on here; touch phones and tablets
+   get a tap-first layout instead. */
+@custom-variant can-hover (@media (hover: hover) and (pointer: fine));
 
 @theme {
   --animate-ken-burns: ken-burns 16s ease-in-out infinite alternate;
@@ -187,5 +191,42 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-ken-burns {
     animation: none;
+  }
+}
+/* Page entrance (see [department]/template.tsx). Pure CSS, so it starts on
+   the first paint instead of waiting for hydration the way the previous
+   motion.div did — that kept every storefront page at opacity 0 until JS
+   loaded, which is what held back FCP/LCP. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-in {
+    animation: page-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+/* Scroll reveal (see components/reveal.tsx). Driven by a scroll timeline
+   rather than JS, so anything already on screen at load renders fully
+   visible straight away, and elements below the fold fade up as they enter.
+   Browsers without scroll timelines simply show the content. */
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--reveal-y, 16px));
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry var(--reveal-offset, 0px) entry calc(var(--reveal-offset, 0px) + 180px);
+    }
   }
 }

@@ -4,6 +4,16 @@ import { getCategories } from "@/lib/data/catalog";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
+/**
+ * Both departments are known at build time, so their pages that don't read
+ * the query string (home, about, series index, projects) are prerendered
+ * and served from the CDN, then refreshed when the catalog cache tag is
+ * invalidated by an admin edit. Pages that read searchParams stay dynamic.
+ */
+export function generateStaticParams() {
+  return DEPARTMENTS.map((department) => ({ department }));
+}
+
 export default async function DepartmentLayout({
   children,
   params,

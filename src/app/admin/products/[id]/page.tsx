@@ -8,7 +8,7 @@ import { ProductForm } from "@/components/admin/product-form";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
 import { VariantManager } from "@/components/admin/variant-manager";
 import { ResourceManager } from "@/components/admin/resource-manager";
-import { Tabs, TabsList, TabsTab, TabsIndicator, TabsPanel } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTab, TabsIndicator, TabsCount, TabsPanel } from "@/components/ui/tabs";
 import type { ProductImage, ProductVariantWithImages } from "@/lib/supabase/types";
 
 export default async function EditProductPage({
@@ -98,10 +98,14 @@ export default async function EditProductPage({
         <TabsList>
           <TabsIndicator />
           <TabsTab value="details">Details</TabsTab>
-          <TabsTab value="photos">Photos{images?.length ? ` (${images.length})` : ""}</TabsTab>
-          <TabsTab value="colors">Colors{sortedVariants.length ? ` (${sortedVariants.length})` : ""}</TabsTab>
+          <TabsTab value="photos">
+            Photos <TabsCount>{images?.length}</TabsCount>
+          </TabsTab>
+          <TabsTab value="colors">
+            Colors <TabsCount>{sortedVariants.length}</TabsCount>
+          </TabsTab>
           <TabsTab value="resources">
-            Resources{resources?.length ? ` (${resources.length})` : ""}
+            Resources <TabsCount>{resources?.length}</TabsCount>
           </TabsTab>
         </TabsList>
 

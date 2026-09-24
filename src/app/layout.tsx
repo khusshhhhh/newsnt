@@ -54,6 +54,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${jetbrainsMono.variable} ${satoshi.variable} h-full scroll-smooth antialiased`}
     >
       <head>
+        {/* Warm up the Adobe Fonts origins: the kit stylesheet is render-blocking, and its font files come from p.typekit.net. */}
+        <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://p.typekit.net" crossOrigin="anonymous" />
         {/* Adobe Fonts kit: Ofelia Display, used for the logo wordmark only (see .font-logo in globals.css). */}
         <link rel="stylesheet" href="https://use.typekit.net/xfy5mdx.css" />
       </head>

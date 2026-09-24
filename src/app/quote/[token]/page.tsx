@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { getPublicQuote } from "@/lib/actions/quote-response";
 import { QuoteResponseActions } from "./quote-response-actions";
 import { Logo } from "@/components/logo";
-import { formatPrice } from "@/lib/format";
+import { formatAmount, formatPrice } from "@/lib/format";
+import { applyDiscount, discountFromRow, discountLabel, itemsSubtotal } from "@/lib/discount";
 import { isPast } from "@/lib/dates";
 import { departmentCopy, isDepartment } from "@/lib/department";
 
@@ -14,7 +15,8 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
   const quote = await getPublicQuote(token);
   if (!quote) notFound();
 
-  const total = quote.total ?? quote.items.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.quantity, 0);
+  const applied = applyDiscount(itemsSubtotal(quote.items), discountFromRow(quote));
+  const total = quote.total ?? applied.total;
   const departmentLabel = isDepartment(quote.department) ? departmentCopy(quote.department).label : quote.department;
   const expired = quote.status === "sent" && isPast(quote.expires_at);
   const validUntil = quote.expires_at
@@ -60,9 +62,23 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
             ))}
           </ul>
 
+          {applied.amount > 0 && (
+            <div className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatAmount(applied.subtotal)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>{discountLabel(applied)}</span>
+                <span className="tabular-nums">−{formatAmount(applied.amount)}</span>
+              </div>
+            </div>
+          )}
           <div className="mt-4 flex items-center justify-between text-sm">
             <span className="font-medium text-foreground">Total</span>
-            <span className="font-heading text-lg text-foreground">{formatPrice(total)}</span>
+            <span className="font-heading text-lg text-foreground">
+              {applied.amount > 0 ? formatAmount(total) : formatPrice(total)}
+            </span>
           </div>
 
           {quote.notes && (
