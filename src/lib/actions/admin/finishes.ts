@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
-import { logActivity } from "@/lib/data/activity";
 import { fail, ok, revalidateCatalog } from "./_shared";
 
 const finishSchema = z.object({
@@ -46,12 +45,6 @@ export async function upsertFinish(_prevState: unknown, formData: FormData) {
     );
   }
 
-  await logActivity({
-    action: id ? "update" : "create",
-    entity_type: "finish",
-    entity_id: finish.id,
-    entity_name: parsed.data.name,
-  });
   revalidateCatalog();
   revalidatePath("/admin/finishes");
   revalidatePath("/", "layout");
@@ -60,12 +53,9 @@ export async function upsertFinish(_prevState: unknown, formData: FormData) {
 
 export async function deleteFinish(id: string) {
   const { supabase } = await requireAdmin("catalog");
-  const { data: finish } = await supabase.from("finishes").select("name").eq("id", id).maybeSingle();
-
   const { error } = await supabase.from("finishes").delete().eq("id", id);
   if (error) throw new Error(error.message);
 
-  await logActivity({ action: "delete", entity_type: "finish", entity_id: id, entity_name: finish?.name });
   revalidateCatalog();
   revalidatePath("/admin/finishes");
   revalidatePath("/", "layout");

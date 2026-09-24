@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
-import { logActivity } from "@/lib/data/activity";
 import { revalidateCatalog } from "./_shared";
 import type { ModerationStatus } from "@/lib/supabase/types";
 
@@ -14,7 +13,6 @@ export async function moderateReview(id: string, status: ModerationStatus) {
   const { error } = await supabase.from("reviews").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
 
-  await logActivity({ action: "update", entity_type: "review", entity_id: id, entity_name: status });
   revalidateCatalog();
   revalidatePath("/admin/reviews");
 }
@@ -24,7 +22,6 @@ export async function deleteReview(id: string) {
   const { error } = await supabase.from("reviews").delete().eq("id", id);
   if (error) throw new Error(error.message);
 
-  await logActivity({ action: "delete", entity_type: "review", entity_id: id });
   revalidateCatalog();
   revalidatePath("/admin/reviews");
 }
@@ -35,7 +32,6 @@ export async function moderateProjectPhoto(id: string, status: ModerationStatus)
   const { error } = await supabase.from("project_photos").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
 
-  await logActivity({ action: "update", entity_type: "project_photo", entity_id: id, entity_name: status });
   revalidateCatalog();
   revalidatePath("/admin/photos");
 }
@@ -55,7 +51,6 @@ export async function deleteProjectPhoto(id: string) {
     await supabase.storage.from("media").remove([photo.storage_path]);
   }
 
-  await logActivity({ action: "delete", entity_type: "project_photo", entity_id: id });
   revalidateCatalog();
   revalidatePath("/admin/photos");
 }
@@ -69,11 +64,6 @@ export async function bulkModerate(kind: "review" | "project_photo", ids: string
   const { error } = await supabase.from(table).update({ status }).in("id", ids);
   if (error) throw new Error(error.message);
 
-  await logActivity({
-    action: "update",
-    entity_type: kind,
-    entity_name: `${ids.length} ${kind === "review" ? "review(s)" : "photo(s)"} ${status}`,
-  });
   revalidateCatalog();
   revalidatePath(kind === "review" ? "/admin/reviews" : "/admin/photos");
   revalidatePath("/admin");

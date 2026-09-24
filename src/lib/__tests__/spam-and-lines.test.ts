@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { looksLikeBot } from "@/lib/rate-limit";
 import { inquiryLineCounts, inquiryReference } from "@/lib/notifications";
-import { diffFields } from "@/lib/data/activity";
 
 function form(fields: Record<string, string>) {
   const data = new FormData();
@@ -40,13 +39,5 @@ describe("inquiry lines", () => {
 
   it("makes a short uppercase reference", () => {
     expect(inquiryReference("abcdef12-3456-7890")).toBe("#ABCDEF12");
-  });
-});
-
-describe("diffFields", () => {
-  it("reports only fields that changed", () => {
-    expect(
-      diffFields<{ name: string; price: number; sku: string | null }>({ name: "A", price: 10, sku: null }, { name: "A", price: 12, sku: "X" }, ["name", "price", "sku"])
-    ).toEqual({ price: { from: 10, to: 12 }, sku: { from: null, to: "X" } });
   });
 });

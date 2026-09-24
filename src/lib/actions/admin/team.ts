@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logActivity } from "@/lib/data/activity";
 import { sendPasswordSetupEmail } from "@/lib/password-setup";
 import type { AdminRole } from "@/lib/supabase/types";
 
@@ -88,14 +87,13 @@ export async function inviteAdmin(rawInput: { email: string; role: AdminRole }) 
   if (error) throw new Error(error.message);
 
   const emailResult = await sendPasswordSetupEmail(email, "invite");
-  await logActivity({ action: "create", entity_type: "admin", entity_id: userId, entity_name: `${email} invited as ${role}` });
   revalidatePath("/admin/team");
   return { emailed: emailResult.sent };
 }
 
 export async function changeAdminRole(userId: string, role: AdminRole) {
   if (!ROLES.includes(role)) throw new Error("Invalid role");
-  const { user } = await requireAdmin("admins");
+  await requireAdmin("admins");
   const service = createAdminClient();
 
   if (role !== "owner") {
@@ -107,12 +105,6 @@ export async function changeAdminRole(userId: string, role: AdminRole) {
 
   const { error } = await service.from("admins").update({ role }).eq("user_id", userId);
   if (error) throw new Error(error.message);
-  await logActivity({
-    action: "update",
-    entity_type: "admin",
-    entity_id: userId,
-    entity_name: `Role changed to ${role}${userId === user.id ? " (self)" : ""}`,
-  });
   revalidatePath("/admin/team");
 }
 
@@ -131,6 +123,5 @@ export async function removeAdmin(userId: string) {
   if (error) throw new Error(error.message);
   await service.from("admin_mfa_sessions").delete().eq("user_id", userId);
 
-  await logActivity({ action: "delete", entity_type: "admin", entity_id: userId, entity_name: "Admin access removed" });
   revalidatePath("/admin/team");
 }

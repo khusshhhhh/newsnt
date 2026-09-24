@@ -112,7 +112,7 @@ export async function sendDailyDigest(supabase: ServiceClient) {
     d.pendingReviews + d.pendingPhotos > 0
       ? section("To moderate", `<p>${d.pendingReviews} review(s), ${d.pendingPhotos} project photo(s).</p>`)
       : "",
-    d.errors > 0 ? section("Server errors", `<p>${d.errors} in the last 24 hours — see System health on the Activity page.</p>`) : "",
+    d.errors > 0 ? section("Server errors", `<p>${d.errors} in the last 24 hours — see System health on the admin dashboard.</p>`) : "",
     `<p style="margin-top:24px"><a href="${SITE_URL}/admin">Open the admin panel</a></p>`,
   ].join("");
 

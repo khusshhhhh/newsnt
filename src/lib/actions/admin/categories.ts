@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slugify";
-import { logActivity } from "@/lib/data/activity";
 import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
 
 const categorySchema = z.object({
@@ -64,11 +63,6 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
       .insert(images.map((storage_path, index) => ({ category_id: categoryId, storage_path, display_order: index })));
   }
 
-  await logActivity({
-    action: id ? "update" : "create",
-    entity_type: "category",
-    entity_name: parsed.data.name,
-  });
   revalidateCatalog();
   revalidatePath("/admin/categories");
   revalidatePath("/", "layout");
@@ -77,11 +71,6 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
 
 export async function deleteCategory(id: string) {
   const { supabase } = await requireAdmin("catalog");
-  const { data: category } = await supabase
-    .from("categories")
-    .select("name")
-    .eq("id", id)
-    .maybeSingle();
   const { data: images } = await supabase
     .from("category_images")
     .select("storage_path")
@@ -94,12 +83,6 @@ export async function deleteCategory(id: string) {
     await supabase.storage.from("media").remove(paths);
   }
 
-  await logActivity({
-    action: "delete",
-    entity_type: "category",
-    entity_id: id,
-    entity_name: category?.name,
-  });
   revalidateCatalog();
   revalidatePath("/admin/categories");
   revalidatePath("/", "layout");

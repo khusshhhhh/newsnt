@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
 import { parseCsv } from "@/lib/csv";
 import { slugify } from "@/lib/slugify";
-import { logActivity } from "@/lib/data/activity";
 import { isDepartment } from "@/lib/department";
 import { revalidateCatalog } from "./_shared";
 
@@ -139,25 +138,14 @@ export async function importProductsCsv(
         continue;
       }
       summary.updated += 1;
-      await logActivity({ action: "update", entity_type: "product", entity_id: existingId, entity_name: name });
     } else {
-      const { data: inserted, error } = await supabase
-        .from("products")
-        .insert(payload)
-        .select("id")
-        .single();
+      const { error } = await supabase.from("products").insert(payload);
       if (error) {
         summary.skipped += 1;
         summary.errors.push(`Row ${line}: ${error.message}`);
         continue;
       }
       summary.created += 1;
-      await logActivity({
-        action: "create",
-        entity_type: "product",
-        entity_id: inserted.id,
-        entity_name: name,
-      });
     }
   }
 

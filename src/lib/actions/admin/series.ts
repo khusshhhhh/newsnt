@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slugify";
-import { logActivity } from "@/lib/data/activity";
 import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
 
 const seriesSchema = z.object({
@@ -75,11 +74,6 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
       .insert(images.map((storage_path, index) => ({ series_id: seriesId, storage_path, display_order: index })));
   }
 
-  await logActivity({
-    action: id ? "update" : "create",
-    entity_type: "series",
-    entity_name: parsed.data.name,
-  });
   revalidateCatalog();
   revalidatePath("/admin/series");
   revalidatePath("/", "layout");
@@ -89,15 +83,14 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
 /** Moves a series to trash (and off the storefront); restorable from /admin/trash. */
 export async function deleteSeries(id: string) {
   const { supabase } = await requireAdmin("catalog");
-  const { data: series, error } = await supabase
+  const { error } = await supabase
     .from("series")
     .update({ deleted_at: new Date().toISOString(), is_published: false })
     .eq("id", id)
-    .select("name")
+    .select("id")
     .single();
   if (error) throw new Error(error.message);
 
-  await logActivity({ action: "delete", entity_type: "series", entity_id: id, entity_name: series?.name });
   revalidateCatalog();
   revalidatePath("/admin/series");
   revalidatePath("/admin/trash");
@@ -106,15 +99,14 @@ export async function deleteSeries(id: string) {
 
 export async function restoreSeries(id: string) {
   const { supabase } = await requireAdmin("catalog");
-  const { data: series, error } = await supabase
+  const { error } = await supabase
     .from("series")
     .update({ deleted_at: null })
     .eq("id", id)
-    .select("name")
+    .select("id")
     .single();
   if (error) throw new Error(error.message);
 
-  await logActivity({ action: "restore", entity_type: "series", entity_id: id, entity_name: series?.name });
   revalidateCatalog();
   revalidatePath("/admin/series");
   revalidatePath("/admin/trash");
@@ -139,7 +131,6 @@ export async function purgeSeries(id: string) {
     await supabase.storage.from("media").remove(paths);
   }
 
-  await logActivity({ action: "delete", entity_type: "series", entity_id: id, entity_name: `${series.name} (permanently)` });
   revalidateCatalog();
   revalidatePath("/admin/series");
   revalidatePath("/admin/trash");

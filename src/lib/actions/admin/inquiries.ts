@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
-import { logActivity } from "@/lib/data/activity";
 import { isEligibleForPermanentDelete, daysUntilEligible } from "@/lib/trash";
 import type { InquiryStatus } from "@/lib/supabase/types";
 
@@ -21,7 +20,6 @@ export async function markInquiryStatus(id: string, status: InquiryStatus) {
   const { error } = await supabase.from("inquiries").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
 
-  await logActivity({ action: "update", entity_type: "inquiry", entity_id: id, entity_name: status });
   revalidateInquiries();
 }
 
@@ -36,12 +34,6 @@ export async function trashInquiry(id: string) {
     .single();
   if (error) throw new Error(error.message);
 
-  await logActivity({
-    action: "delete",
-    entity_type: "inquiry",
-    entity_id: id,
-    entity_name: inquiry?.name,
-  });
   revalidateInquiries(inquiry?.customer_id);
 }
 
@@ -55,12 +47,6 @@ export async function restoreInquiry(id: string) {
     .single();
   if (error) throw new Error(error.message);
 
-  await logActivity({
-    action: "update",
-    entity_type: "inquiry",
-    entity_id: id,
-    entity_name: `${inquiry?.name ?? "Inquiry"} restored from trash`,
-  });
   revalidateInquiries(inquiry?.customer_id);
 }
 
@@ -83,11 +69,5 @@ export async function permanentlyDeleteInquiry(id: string) {
   const { error } = await supabase.from("inquiries").delete().eq("id", id);
   if (error) throw new Error(error.message);
 
-  await logActivity({
-    action: "delete",
-    entity_type: "inquiry",
-    entity_id: id,
-    entity_name: `${inquiry.name} (permanently)`,
-  });
   revalidateInquiries(inquiry.customer_id);
 }

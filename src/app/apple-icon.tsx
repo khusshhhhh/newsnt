@@ -1,27 +1,11 @@
 import { ImageResponse } from "next/og";
+import { brandIconOptions } from "@/lib/brand-icon";
 
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
-export default function AppleIcon() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#111111",
-          color: "#ffffff",
-          fontSize: 104,
-          fontWeight: 900,
-        }}
-      >
-        A
-      </div>
-    ),
-    { ...size }
-  );
+// iOS applies its own rounded mask, so this one stays square.
+export default async function AppleIcon() {
+  const { element, options } = await brandIconOptions(size.width, false);
+  return new ImageResponse(element, options);
 }

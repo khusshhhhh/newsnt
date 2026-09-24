@@ -5,7 +5,6 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slugify";
 import { computeVariantSku } from "@/lib/colors";
-import { diffFields, logActivity } from "@/lib/data/activity";
 import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
 import type { StockStatus } from "@/lib/supabase/types";
 
@@ -88,30 +87,9 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
   const payload = { ...parsed.data, currency: "AUD" };
 
   if (id) {
-    const { data: before } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
     const { error } = await supabase.from("products").update(payload).eq("id", id);
     if (error) return fail(error.message);
 
-    await logActivity({
-      action: "update",
-      entity_type: "product",
-      entity_id: id,
-      entity_name: payload.name,
-      changes: diffFields(before, payload, [
-        "name",
-        "slug",
-        "sku",
-        "category_id",
-        "series_id",
-        "price",
-        "is_published",
-        "is_featured",
-        "stock_status",
-        "meta_title",
-        "meta_description",
-        "specs",
-      ]),
-    });
     revalidateCatalog();
     revalidatePath("/admin/products");
     revalidatePath("/", "layout");
@@ -122,12 +100,6 @@ export async function upsertProduct(_prevState: unknown, formData: FormData) {
 
   if (error) return fail(error.message);
 
-  await logActivity({
-    action: "create",
-    entity_type: "product",
-    entity_id: data.id,
-    entity_name: payload.name,
-  });
   revalidateCatalog();
   revalidatePath("/admin/products");
   revalidatePath("/", "layout");
@@ -150,16 +122,12 @@ function revalidateProducts() {
 export async function trashProducts(ids: string[]) {
   if (ids.length === 0) return;
   const { supabase } = await requireAdmin("catalog");
-  const { data: products, error } = await supabase
+  const { error } = await supabase
     .from("products")
     .update({ deleted_at: new Date().toISOString(), is_published: false, is_featured: false })
-    .in("id", ids)
-    .select("id, name");
+    .in("id", ids);
   if (error) throw new Error(error.message);
 
-  for (const product of products ?? []) {
-    await logActivity({ action: "delete", entity_type: "product", entity_id: product.id, entity_name: product.name });
-  }
   revalidateProducts();
 }
 
@@ -171,16 +139,12 @@ export async function deleteProduct(id: string) {
 export async function restoreProducts(ids: string[]) {
   if (ids.length === 0) return;
   const { supabase } = await requireAdmin("catalog");
-  const { data: products, error } = await supabase
+  const { error } = await supabase
     .from("products")
     .update({ deleted_at: null })
-    .in("id", ids)
-    .select("id, name");
+    .in("id", ids);
   if (error) throw new Error(error.message);
 
-  for (const product of products ?? []) {
-    await logActivity({ action: "restore", entity_type: "product", entity_id: product.id, entity_name: product.name });
-  }
   revalidateProducts();
 }
 
@@ -202,7 +166,6 @@ export async function purgeProduct(id: string) {
   const paths = (images ?? []).map((img) => img.storage_path);
   if (paths.length > 0) await supabase.storage.from("media").remove(paths);
 
-  await logActivity({ action: "delete", entity_type: "product", entity_id: id, entity_name: `${product.name} (permanently)` });
   revalidateProducts();
 }
 
@@ -212,11 +175,6 @@ export async function bulkSetStockStatus(ids: string[], stockStatus: StockStatus
   const { supabase } = await requireAdmin("catalog");
   const { error } = await supabase.from("products").update({ stock_status: stockStatus }).in("id", ids);
   if (error) throw new Error(error.message);
-  await logActivity({
-    action: "update",
-    entity_type: "product",
-    entity_name: `${ids.length} product(s) set to ${stockStatus.replace(/_/g, " ")}`,
-  });
   revalidateProducts();
 }
 
@@ -237,11 +195,6 @@ export async function bulkSetCategory(ids: string[], categoryId: string) {
     .in("id", ids)
     .eq("department", category.department);
   if (error) throw new Error(error.message);
-  await logActivity({
-    action: "update",
-    entity_type: "product",
-    entity_name: `${ids.length} product(s) moved to ${category.name}`,
-  });
   revalidateProducts();
 }
 
@@ -304,12 +257,6 @@ export async function bulkSetPublished(ids: string[], isPublished: boolean) {
     .in("id", ids)
     .is("deleted_at", null);
   if (error) throw new Error(error.message);
-  await logActivity({
-    action: "update",
-    entity_type: "product",
-    entity_id: ids.length === 1 ? ids[0] : null,
-    entity_name: `${ids.length} product(s) ${isPublished ? "published" : "unpublished"}`,
-  });
 
   revalidateCatalog();
   revalidatePath("/admin/products");
@@ -430,12 +377,6 @@ export async function duplicateProduct(id: string) {
     });
   }
 
-  await logActivity({
-    action: "create",
-    entity_type: "product",
-    entity_id: newProduct.id,
-    entity_name: `${product.name} (Copy)`,
-  });
   revalidateCatalog();
   revalidatePath("/admin/products");
   revalidatePath("/", "layout");

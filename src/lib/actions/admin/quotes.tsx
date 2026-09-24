@@ -6,7 +6,6 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { requireAdmin } from "@/lib/admin-guard";
 import { escapeHtml, escapeHtmlMultiline, sendEmail } from "@/lib/email";
 import { ilikeContainsPattern } from "@/lib/search";
-import { logActivity } from "@/lib/data/activity";
 import { QuotePdfDocument } from "@/lib/pdf/quote-pdf";
 import { SITE_URL } from "@/lib/site";
 import { departmentSchema, discountColumns, discountSchema } from "./_shared";
@@ -234,13 +233,6 @@ async function dispatchQuote(params: {
     }
   }
 
-  await logActivity({
-    action: "update",
-    entity_type: "quote",
-    entity_id: inquiryId ?? params.customerId,
-    entity_name: `Quote ${version > 1 ? `v${version} ` : ""}sent to ${params.customerEmail} (${quoteNumber}, $${total.toFixed(2)})`,
-  });
-
   revalidatePath("/admin/inquiries");
   revalidatePath("/admin/customers");
   revalidatePath(`/admin/customers/${params.customerId}`);
@@ -328,7 +320,6 @@ export async function sendQuoteReminder(quoteId: string) {
   }
 
   await supabase.from("quotes").update({ reminder_sent_at: new Date().toISOString() }).eq("id", quoteId);
-  await logActivity({ action: "update", entity_type: "quote", entity_id: quoteId, entity_name: `Reminder sent for ${quote.quote_number}` });
   revalidatePath("/admin/quotes");
   revalidatePath("/admin");
 }

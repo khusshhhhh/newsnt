@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
-import { logActivity } from "@/lib/data/activity";
 
 export async function addCustomerNote(customerId: string, body: string) {
   const trimmed = body.trim();
@@ -17,7 +16,6 @@ export async function addCustomerNote(customerId: string, body: string) {
 
   if (error) throw new Error(error.message);
 
-  await logActivity({ action: "create", entity_type: "customer_note", entity_id: customerId });
   revalidatePath(`/admin/customers/${customerId}`);
   return data;
 }
@@ -40,26 +38,24 @@ function revalidateCustomers(id: string) {
 /** Hides a customer from the CRM lists; restorable from /admin/trash. Their inquiries, quotes and orders are untouched. */
 export async function trashCustomer(id: string) {
   const { supabase } = await requireAdmin("sales");
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("customers")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", id)
-    .select("name")
+    .select("id")
     .single();
   if (error) throw new Error(error.message);
-  await logActivity({ action: "delete", entity_type: "customer", entity_id: id, entity_name: data?.name });
   revalidateCustomers(id);
 }
 
 export async function restoreCustomer(id: string) {
   const { supabase } = await requireAdmin("sales");
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("customers")
     .update({ deleted_at: null })
     .eq("id", id)
-    .select("name")
+    .select("id")
     .single();
   if (error) throw new Error(error.message);
-  await logActivity({ action: "restore", entity_type: "customer", entity_id: id, entity_name: data?.name });
   revalidateCustomers(id);
 }

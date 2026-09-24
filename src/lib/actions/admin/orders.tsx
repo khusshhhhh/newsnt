@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { diffFields, logActivity } from "@/lib/data/activity";
 import { OrderPdfDocument, type OrderDocumentKind } from "@/lib/pdf/order-pdf";
 import { departmentSchema, discountColumns, discountSchema } from "./_shared";
 import { discountFromRow, discountedTotal, type Discount } from "@/lib/discount";
@@ -69,13 +68,6 @@ export async function createOrder(rawInput: CreateOrderInput) {
     await supabase.from("inquiries").update({ status: "won" }).eq("id", parsed.data.inquiryId);
   }
 
-  await logActivity({
-    action: "create",
-    entity_type: "order",
-    entity_id: data.id,
-    entity_name: orderNumber,
-  });
-
   revalidatePath("/admin/orders");
   revalidatePath("/admin/inquiries");
   revalidatePath(`/admin/customers/${parsed.data.customerId}`);
@@ -95,8 +87,6 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
     .single();
 
   if (error) throw new Error(error.message);
-
-  await logActivity({ action: "update", entity_type: "order", entity_id: orderId, entity_name: status });
 
   revalidatePath("/admin/orders");
   revalidatePath("/admin");
@@ -123,7 +113,7 @@ export async function updateOrderDiscount(orderId: string, rawDiscount: Discount
   const { supabase } = await requireAdmin("sales");
   const { data: order, error: loadError } = await supabase
     .from("orders")
-    .select("order_number, items, discount_type, discount_value")
+    .select("items")
     .eq("id", orderId)
     .single();
   if (loadError || !order) throw new Error("Order not found");
@@ -135,13 +125,6 @@ export async function updateOrderDiscount(orderId: string, rawDiscount: Discount
     .eq("id", orderId);
   if (error) throw new Error(error.message);
 
-  await logActivity({
-    action: "update",
-    entity_type: "order",
-    entity_id: orderId,
-    entity_name: `${order.order_number} discount`,
-    changes: diffFields(order, next, ["discount_type", "discount_value"]),
-  });
   revalidatePath("/admin/orders");
   revalidatePath("/admin/reports");
   return next;
@@ -166,12 +149,6 @@ export async function updateOrderPayment(orderId: string, rawInput: OrderPayment
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid payment details");
 
   const { supabase } = await requireAdmin("sales");
-  const { data: before } = await supabase
-    .from("orders")
-    .select("payment_status, deposit_amount, amount_paid, fulfilment_date, order_number")
-    .eq("id", orderId)
-    .maybeSingle();
-
   const next = {
     payment_status: parsed.data.paymentStatus,
     deposit_amount: parsed.data.depositAmount,
@@ -184,13 +161,6 @@ export async function updateOrderPayment(orderId: string, rawInput: OrderPayment
     .eq("id", orderId);
   if (error) throw new Error(error.message);
 
-  await logActivity({
-    action: "update",
-    entity_type: "order",
-    entity_id: orderId,
-    entity_name: `${before?.order_number ?? "Order"} payment/fulfilment`,
-    changes: diffFields(before, next, ["payment_status", "deposit_amount", "amount_paid", "fulfilment_date"]),
-  });
   revalidatePath("/admin/orders");
   revalidatePath("/admin/reports");
 }
