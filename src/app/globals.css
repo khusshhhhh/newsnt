@@ -12,6 +12,17 @@
   --animate-ken-burns: ken-burns 16s ease-in-out infinite alternate;
   --animate-shimmer: shimmer 1.8s ease-in-out infinite;
   --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-indeterminate: indeterminate 1.2s ease-in-out infinite;
+}
+
+/* A segment sweeping across a progress track, for steps with no measurable progress. */
+@keyframes indeterminate {
+  from {
+    left: -35%;
+  }
+  to {
+    left: 100%;
+  }
 }
 
 @keyframes ken-burns {
@@ -169,11 +180,7 @@
     letter-spacing: -0.02em;
   }
   /* Loaded via the Adobe Fonts kit link in layout.tsx's <head>. Logo wordmark only. */
-  .font-logo {
-    font-family: "ofelia-display", sans-serif;
-    font-weight: 800;
-    font-style: normal;
-  }
+
   .no-scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;

@@ -368,13 +368,16 @@ export async function duplicateProduct(id: string) {
     const newPath = `${prefix}/${crypto.randomUUID()}-${image.storage_path.split("/").pop()}`;
     const { error: copyError } = await supabase.storage.from("media").copy(image.storage_path, newPath);
     if (copyError) continue;
-    await supabase.from("product_images").insert({
+    const row = {
       product_id: newProduct.id,
       variant_id: newVariantId,
       storage_path: newPath,
+      // undefined (not null) on a database without 0035, so the column is simply left out.
+      blur_data_url: image.blur_data_url ?? undefined,
       alt_text: image.alt_text,
       display_order: image.display_order,
-    });
+    };
+    await supabase.from("product_images").insert(row);
   }
 
   revalidateCatalog();

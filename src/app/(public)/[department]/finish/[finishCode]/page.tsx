@@ -99,7 +99,7 @@ export default async function FinishPage({
         <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
           {products.map((product, i) => (
             <Reveal key={product.id} delay={Math.min(i, 6) * 0.05}>
-              <ProductCard product={product} preferredColorName={finish.name} />
+              <ProductCard product={product} preferredColorName={finish.name} eager={i < 4} />
             </Reveal>
           ))}
         </div>

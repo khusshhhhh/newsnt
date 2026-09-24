@@ -13,19 +13,22 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+// Nothing on first paint uses the mono face, so don't spend a preload on it
+// for every page — it still loads on demand wherever `font-mono` appears.
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 const satoshi = localFont({
   variable: "--font-heading",
   display: "swap",
   src: [
-    { path: "../font/Satoshi-Regular.otf", weight: "400", style: "normal" },
-    { path: "../font/Satoshi-Medium.otf", weight: "500", style: "normal" },
-    { path: "../font/Satoshi-Bold.otf", weight: "700", style: "normal" },
-    { path: "../font/Satoshi-Black.otf", weight: "900", style: "normal" },
+    { path: "../font/Satoshi-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../font/Satoshi-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../font/Satoshi-Bold.woff2", weight: "700", style: "normal" },
+    { path: "../font/Satoshi-Black.woff2", weight: "900", style: "normal" },
   ],
 });
 
@@ -53,13 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable} ${satoshi.variable} h-full scroll-smooth antialiased`}
     >
-      <head>
-        {/* Warm up the Adobe Fonts origins: the kit stylesheet is render-blocking, and its font files come from p.typekit.net. */}
-        <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://p.typekit.net" crossOrigin="anonymous" />
-        {/* Adobe Fonts kit: Ofelia Display, used for the logo wordmark only (see .font-logo in globals.css). */}
-        <link rel="stylesheet" href="https://use.typekit.net/xfy5mdx.css" />
-      </head>
+
       <body className="min-h-full flex flex-col">
         <NextTopLoader color="#171717" height={2} showSpinner={false} shadow={false} />
         <a

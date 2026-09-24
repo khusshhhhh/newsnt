@@ -269,7 +269,7 @@ export default async function AdminDashboardPage() {
                 className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
               >
                 <div className="relative size-12 shrink-0 overflow-hidden rounded-md border border-border/60 bg-card">
-                  {image && <Image src={mediaUrl(image.storage_path)} alt="" fill className="object-contain p-1.5" />}
+                  {image && <Image src={mediaUrl(image.storage_path)} alt="" fill sizes="48px" className="object-contain p-1.5" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">

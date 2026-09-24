@@ -12,9 +12,9 @@ const isDev = process.env.NODE_ENV === "development";
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
-  "style-src 'self' 'unsafe-inline' https://use.typekit.net https://p.typekit.net",
-  `img-src 'self' blob: data: ${supabaseOrigin} https://p.typekit.net`,
-  "font-src 'self' data: https://use.typekit.net",
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' blob: data: ${supabaseOrigin}`,
+  "font-src 'self' data:",
   `media-src 'self' blob: ${supabaseOrigin}`,
   `connect-src 'self' ${supabaseOrigin} https://vitals.vercel-insights.com https://va.vercel-scripts.com${isDev ? " ws:" : ""}`,
   "frame-src 'self' blob:",
@@ -38,6 +38,11 @@ const nextConfig: NextConfig = {
   images: {
     // AVIF first: noticeably smaller than WebP for product/hero photography, which is most of each page's bytes.
     formats: ["image/avif", "image/webp"],
+    // Every uploaded photo lives at a unique UUID path that never changes, so
+    // an optimized copy can be kept for a month instead of the 4-hour default —
+    // fewer cold re-encodes (AVIF is slow to encode) and faster repeat visits.
+    // A replaced /public image needs a new filename to bust this.
+    minimumCacheTTL: 2678400,
     remotePatterns: [
       {
         protocol: "https",

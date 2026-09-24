@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slugify";
-import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
+import { isMissingBlurColumn, withoutBlur } from "@/lib/blur-placeholder";
+import { departmentSchema, fail, galleryFromForm, ok, revalidateCatalog } from "./_shared";
 
 const seriesSchema = z.object({
   department: departmentSchema,
@@ -25,11 +26,12 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const rawSlug = String(formData.get("slug") ?? "");
   const name = String(formData.get("name") ?? "");
-  const images = formData
-    .getAll("hero_images")
-    .map(String)
-    .filter(Boolean)
-    .slice(0, MAX_SERIES_IMAGES);
+  const { supabase } = await requireAdmin("catalog");
+  const { data: existingImages } = id
+    ? await supabase.from("series_images").select("*").eq("series_id", id)
+    : { data: [] };
+  const gallery = galleryFromForm(formData, "hero_images", MAX_SERIES_IMAGES, existingImages ?? []);
+  const images = gallery.map((img) => img.path);
 
   const parsed = seriesSchema.safeParse({
     department: formData.get("department"),
@@ -45,21 +47,19 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
 
-  const { supabase } = await requireAdmin("catalog");
-  const { data: series, error } = id
-    ? await supabase.from("series").update(parsed.data).eq("id", id).select("id").single()
-    : await supabase.from("series").insert(parsed.data).select("id").single();
+  const save = (row: typeof parsed.data & { hero_blur_data_url?: string | null }) =>
+    id
+      ? supabase.from("series").update(row).eq("id", id).select("id").single()
+      : supabase.from("series").insert(row).select("id").single();
+  let { data: series, error } = await save({ ...parsed.data, hero_blur_data_url: gallery[0]?.blur ?? null });
+  if (isMissingBlurColumn(error)) ({ data: series, error } = await save(parsed.data));
 
-  if (error) return fail(error.message);
+  if (error || !series) return fail(error?.message ?? "Failed to save series");
   const seriesId = series.id;
 
   // Reconcile the gallery: drop storage objects for images the admin
   // removed, then replace the row set with the submitted order so
   // `display_order` always matches the order shown in the uploader.
-  const { data: existingImages } = await supabase
-    .from("series_images")
-    .select("storage_path")
-    .eq("series_id", seriesId);
   const removedPaths = (existingImages ?? [])
     .map((img) => img.storage_path)
     .filter((path) => !images.includes(path));
@@ -69,9 +69,14 @@ export async function upsertSeries(_prevState: unknown, formData: FormData) {
   }
   await supabase.from("series_images").delete().eq("series_id", seriesId);
   if (images.length > 0) {
-    await supabase
-      .from("series_images")
-      .insert(images.map((storage_path, index) => ({ series_id: seriesId, storage_path, display_order: index })));
+    const rows = gallery.map((img, index) => ({
+      series_id: seriesId,
+      storage_path: img.path,
+      blur_data_url: img.blur,
+      display_order: index,
+    }));
+    const { error: imagesError } = await supabase.from("series_images").insert(rows);
+    if (isMissingBlurColumn(imagesError)) await supabase.from("series_images").insert(rows.map(withoutBlur));
   }
 
   revalidateCatalog();

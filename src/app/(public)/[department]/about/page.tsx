@@ -5,7 +5,10 @@ import type { Metadata } from "next";
 import { getCategories, getPublishedSeries } from "@/lib/data/catalog";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import type { StaticImageData } from "next/image";
+import hiralPhoto from "@/assets/images/hiralpro.webp";
+import khushPhoto from "@/assets/images/khushpro.webp";
+import vivekPhoto from "@/assets/images/vivekpro.webp";
 import {
   DEPARTMENTS,
   departmentCopy,
@@ -22,28 +25,29 @@ const FOUNDERS: Array<{
   initials: string;
   role: string;
   note: string;
-  photo?: string;
+  // Static imports: hashed, immutable URLs and a build-time blur preview.
+  photo?: StaticImageData;
 }> = [
   {
     name: "Hiral Mahida",
     initials: "HM",
     role: "Founder, Operations & Manufacturing",
     note: "Turns a drawing into a product that survives daily use, on time, at the tolerance it was drawn to.",
-    photo: "/images/hiralpro.png",
+    photo: hiralPhoto,
   },
   {
     name: "Khush Patel",
     initials: "KP",
     role: "Administration",
     note: "",
-    photo: "/images/khushpro.png",
+    photo: khushPhoto,
   },
   {
     name: "Vivek Virani",
     initials: "VV",
     role: "Sales",
     note: "",
-    photo: "/images/vivekpro.png",
+    photo: vivekPhoto,
   },
 ];
 
@@ -166,7 +170,6 @@ export default async function AboutPage({ params }: { params: Promise<Params> })
                       fill
                       sizes="(min-width: 640px) 33vw, 90vw"
                       placeholder="blur"
-                      blurDataURL={BLUR_DATA_URL}
                       className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-110"
                     />
                   ) : (

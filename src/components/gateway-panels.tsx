@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { departmentCopy, departmentHref, type Department } from "@/lib/department";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { blurFor } from "@/lib/blur-placeholder";
 import { Reveal } from "@/components/reveal";
 import { cn } from "@/lib/utils";
 
 export type GatewayPanelData = {
   department: Department;
-  heroImage: string | null;
+  heroImage: string | StaticImageData | null;
+  heroBlur?: string | null;
   eyebrow: string;
 };
 
@@ -53,6 +54,7 @@ const BASIS_CLASS: Record<PanelState, string> = {
 function GatewayPanel({
   department,
   heroImage,
+  heroBlur,
   eyebrow,
   state,
   onEnter,
@@ -91,10 +93,10 @@ function GatewayPanel({
             src={heroImage}
             alt=""
             fill
-            priority
+            preload
             sizes="(min-width: 640px) 70vw, 100vw"
             placeholder="blur"
-            blurDataURL={BLUR_DATA_URL}
+            blurDataURL={blurFor(heroImage, heroBlur)}
             className={cn(
               "animate-ken-burns object-cover transition-[opacity,filter] duration-700 ease-out",
               collapsed ? "opacity-50 grayscale-[0.4]" : "opacity-90"

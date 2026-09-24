@@ -344,6 +344,7 @@ export function ProductList({
                             src={mediaUrl(image.storage_path)}
                             alt=""
                             fill
+                            sizes="44px"
                             className="object-contain p-1.5"
                           />
                         )}

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slugify";
-import { departmentSchema, fail, ok, revalidateCatalog } from "./_shared";
+import { isMissingBlurColumn, withoutBlur } from "@/lib/blur-placeholder";
+import { departmentSchema, fail, galleryFromForm, ok, revalidateCatalog } from "./_shared";
 
 const categorySchema = z.object({
   department: departmentSchema,
@@ -19,11 +20,12 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const rawSlug = String(formData.get("slug") ?? "");
   const name = String(formData.get("name") ?? "");
-  const images = formData
-    .getAll("images")
-    .map(String)
-    .filter(Boolean)
-    .slice(0, MAX_CATEGORY_IMAGES);
+  const { supabase } = await requireAdmin("catalog");
+  const { data: existingImages } = id
+    ? await supabase.from("category_images").select("*").eq("category_id", id)
+    : { data: [] };
+  const gallery = galleryFromForm(formData, "images", MAX_CATEGORY_IMAGES, existingImages ?? []);
+  const images = gallery.map((img) => img.path);
 
   const parsed = categorySchema.safeParse({
     department: formData.get("department"),
@@ -34,7 +36,6 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
 
-  const { supabase } = await requireAdmin("catalog");
   const { data: category, error } = id
     ? await supabase.from("categories").update(parsed.data).eq("id", id).select("id").single()
     : await supabase.from("categories").insert(parsed.data).select("id").single();
@@ -45,10 +46,6 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
   // Reconcile the gallery: drop storage objects for images the admin
   // removed, then replace the row set with the submitted order so
   // `display_order` always matches the order shown in the uploader.
-  const { data: existingImages } = await supabase
-    .from("category_images")
-    .select("storage_path")
-    .eq("category_id", categoryId);
   const removedPaths = (existingImages ?? [])
     .map((img) => img.storage_path)
     .filter((path) => !images.includes(path));
@@ -58,9 +55,14 @@ export async function upsertCategory(_prevState: unknown, formData: FormData) {
   }
   await supabase.from("category_images").delete().eq("category_id", categoryId);
   if (images.length > 0) {
-    await supabase
-      .from("category_images")
-      .insert(images.map((storage_path, index) => ({ category_id: categoryId, storage_path, display_order: index })));
+    const rows = gallery.map((img, index) => ({
+      category_id: categoryId,
+      storage_path: img.path,
+      blur_data_url: img.blur,
+      display_order: index,
+    }));
+    const { error: imagesError } = await supabase.from("category_images").insert(rows);
+    if (isMissingBlurColumn(imagesError)) await supabase.from("category_images").insert(rows.map(withoutBlur));
   }
 
   revalidateCatalog();

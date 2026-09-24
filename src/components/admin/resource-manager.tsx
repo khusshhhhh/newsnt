@@ -1,16 +1,16 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, X } from "lucide-react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { documentUrl, DOCUMENTS_BUCKET } from "@/lib/supabase/storage";
+import { formatBytes, isAbortError, MAX_UPLOAD_BYTES, uniqueStoragePath, uploadWithProgress } from "@/lib/upload";
+import { UploadProgressBar } from "@/components/admin/upload-progress";
 import { addProductResource, deleteProductResource } from "@/lib/actions/admin/resources";
 import { Input } from "@/components/ui/input";
 import type { ProductResource } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "application/pdf",
   "application/msword",
@@ -18,12 +18,6 @@ const ALLOWED_TYPES = new Set([
   "image/jpeg",
   "image/png",
 ]);
-
-/** Strips anything but alphanumerics/dot/dash/underscore so the storage path stays predictable. */
-function sanitizeFilename(name: string) {
-  const trimmed = name.trim().replace(/[^a-zA-Z0-9._-]/g, "-");
-  return trimmed.slice(-100) || "upload";
-}
 
 export function ResourceManager({
   productId,
@@ -34,7 +28,10 @@ export function ResourceManager({
 }) {
   const [resources, setResources] = useState(initialResources);
   const [name, setName] = useState("");
-  const [uploading, setUploading] = useState(false);
+  /** Non-null while a file is uploading: its name/size and progress (null = saving the row). */
+  const [upload, setUpload] = useState<{ name: string; size: number; progress: number | null } | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+  const uploading = upload !== null;
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,27 +46,37 @@ export function ResourceManager({
       setError(`${file.name}: unsupported file type (use PDF, DOC, DOCX, JPEG, or PNG).`);
       return;
     }
-    if (file.size > MAX_FILE_BYTES) {
-      setError(`${file.name}: file is too large (max ${MAX_FILE_BYTES / (1024 * 1024)} MB).`);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`${file.name}: file is too large (max ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB).`);
       return;
     }
 
-    setUploading(true);
+    setUpload({ name: file.name, size: file.size, progress: 0 });
     setError(null);
+    const controller = new AbortController();
+    controllerRef.current = controller;
 
-    const supabase = createClient();
-    const path = `products/${productId}/resources/${crypto.randomUUID()}-${sanitizeFilename(file.name)}`;
-    const { error: uploadError } = await supabase.storage
-      .from(DOCUMENTS_BUCKET)
-      .upload(path, file, { upsert: false });
-
-    if (uploadError) {
-      setError(uploadError.message);
-      toast.error(uploadError.message);
-      setUploading(false);
+    const path = uniqueStoragePath(`products/${productId}/resources`, file);
+    try {
+      await uploadWithProgress({
+        bucket: DOCUMENTS_BUCKET,
+        path,
+        file,
+        signal: controller.signal,
+        onProgress: (progress) => setUpload((prev) => prev && { ...prev, progress }),
+      });
+    } catch (e) {
+      if (!isAbortError(e)) {
+        const message = e instanceof Error ? e.message : "Upload failed";
+        setError(message);
+        toast.error(message);
+      }
+      setUpload(null);
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
 
+    setUpload((prev) => prev && { ...prev, progress: null });
     try {
       const formData = new FormData();
       formData.set("name", name.trim());
@@ -88,7 +95,7 @@ export function ResourceManager({
       toast.error(message);
     }
 
-    setUploading(false);
+    setUpload(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -170,6 +177,31 @@ export function ResourceManager({
           />
         </label>
       </div>
+
+      {upload && (
+        <div className="animate-fade-in flex flex-col gap-2 rounded-lg border border-border/60 bg-card px-3 py-2.5">
+          <div className="flex items-center gap-3">
+            <FileText className="size-4 shrink-0 text-muted-foreground" />
+            <p className="min-w-0 flex-1 truncate text-sm text-foreground">{upload.name}</p>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {upload.progress == null
+                ? "Saving…"
+                : `${formatBytes(upload.size * upload.progress)} of ${formatBytes(upload.size)} · ${Math.round(upload.progress * 100)}%`}
+            </span>
+            {upload.progress != null && (
+              <button
+                type="button"
+                onClick={() => controllerRef.current?.abort()}
+                aria-label="Cancel upload"
+                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+          <UploadProgressBar value={upload.progress} />
+        </div>
+      )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>

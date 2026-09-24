@@ -42,7 +42,13 @@ function PhotoCard({ photo }: { photo: PhotoRow }) {
   return (
     <div className="overflow-hidden rounded-xl border border-border">
       <div className="relative aspect-video w-full bg-muted">
-        <Image src={mediaUrl(photo.storage_path)} alt={photo.caption ?? ""} fill className="object-cover" />
+        <Image
+          src={mediaUrl(photo.storage_path)}
+          alt={photo.caption ?? ""}
+          fill
+          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+          className="object-cover"
+        />
       </div>
       <div className="p-3">
         <p className="text-sm text-foreground">{photo.caption || "Untitled"}</p>

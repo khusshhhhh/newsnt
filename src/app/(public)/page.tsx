@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import type { StaticImageData } from "next/image";
 import { getDepartmentHeroImage } from "@/lib/data/catalog";
 import { mediaUrl } from "@/lib/supabase/storage";
 import type { Department } from "@/lib/department";
 import { GatewayPanels, type GatewayPanelData } from "@/components/gateway-panels";
 import { Logo } from "@/components/logo";
+import doorHardwareHero from "@/assets/images/door-hardware-hero.webp";
 
 export const metadata: Metadata = {
   title: "Flow — Tapware, Sanitaryware & Door Hardware",
@@ -11,9 +13,9 @@ export const metadata: Metadata = {
 
 // Static fallbacks for departments with no admin-uploaded hero yet — AI-generated
 // mood photography matching the site's monochrome, architectural aesthetic.
-const FALLBACK_HERO: Record<Department, string | null> = {
+const FALLBACK_HERO: Record<Department, StaticImageData | null> = {
   "sanitary-tapware": null,
-  "door-hardware": "/images/door-hardware-hero.png",
+  "door-hardware": doorHardwareHero,
 };
 
 export default async function GatewayPage() {
@@ -25,12 +27,14 @@ export default async function GatewayPage() {
   const panels: GatewayPanelData[] = [
     {
       department: "sanitary-tapware",
-      heroImage: tapwareHero ? mediaUrl(tapwareHero) : FALLBACK_HERO["sanitary-tapware"],
+      heroImage: tapwareHero ? mediaUrl(tapwareHero.path) : FALLBACK_HERO["sanitary-tapware"],
+      heroBlur: tapwareHero?.blur ?? null,
       eyebrow: "01",
     },
     {
       department: "door-hardware",
-      heroImage: hardwareHero ? mediaUrl(hardwareHero) : FALLBACK_HERO["door-hardware"],
+      heroImage: hardwareHero ? mediaUrl(hardwareHero.path) : FALLBACK_HERO["door-hardware"],
+      heroBlur: hardwareHero?.blur ?? null,
       eyebrow: "02",
     },
   ];

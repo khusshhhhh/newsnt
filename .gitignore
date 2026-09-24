@@ -45,3 +45,6 @@ next-env.d.ts
 
 # Supabase CLI local state (linked project ref, pooler URL)
 supabase/.temp/
+
+# optimize-media.mjs bookkeeping
+scripts/.optimize-media-replaced.json

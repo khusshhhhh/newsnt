@@ -130,6 +130,7 @@ function InquiryRow({ inquiry, lines }: { inquiry: Inquiry; lines: ResolvedInqui
                             src={mediaUrl(line.imagePath)}
                             alt=""
                             fill
+                            sizes="48px"
                             className="object-contain p-1"
                           />
                         )}

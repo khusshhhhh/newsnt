@@ -1,34 +1,29 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Loader2, X } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { GripVertical, X } from "lucide-react";
 import { mediaUrl, MEDIA_BUCKET } from "@/lib/supabase/storage";
+import { prepareImage } from "@/lib/compress-image";
+import { createLimiter, IMAGE_TYPES, MAX_UPLOAD_BYTES, uniqueStoragePath, uploadWithProgress } from "@/lib/upload";
+import { useReorder } from "@/lib/use-reorder";
+import { usePasteFiles } from "@/lib/use-paste-files";
+import { UploadProgressRing } from "@/components/admin/upload-progress";
 import { addProductImage, deleteProductImage, reorderProductImages } from "@/lib/actions/admin/images";
 import type { ProductImage } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
-
-// Matches the generic ImageUploader's limits and the `media` bucket's own
-// file_size_limit/allowed_mime_types, so a rejection here would be rejected
-// by the bucket policy too — this just surfaces it before the network round trip.
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"]);
-
-/** Strips anything but alphanumerics/dot/dash/underscore so the storage path stays predictable. */
-function sanitizeFilename(name: string) {
-  const trimmed = name.trim().replace(/[^a-zA-Z0-9._-]/g, "-");
-  return trimmed.slice(-100) || "upload";
-}
 
 type PendingFile = {
   id: string;
   file: File;
   previewUrl: string;
-  status: "uploading" | "error";
+  status: "preparing" | "uploading" | "saving" | "error";
+  progress: number;
   error?: string;
 };
+
+const limit = createLimiter(3);
 
 export function ProductImageManager({
   productId,
@@ -44,43 +39,57 @@ export function ProductImageManager({
   const [images, setImages] = useState(initialImages);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
-  const [reorderIndex, setReorderIndex] = useState<number | null>(null);
   const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const imagesRef = useRef(images);
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
 
-  function reorder(fromIndex: number, toIndex: number) {
-    if (fromIndex === toIndex) return;
-    const next = [...images];
-    const [moved] = next.splice(fromIndex, 1);
-    next.splice(toIndex, 0, moved);
-    setImages(next);
-    startTransition(async () => {
-      try {
-        await reorderProductImages(productId, next.map((i) => i.id));
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to save photo order");
-      }
-    });
+  // Mouse drags from anywhere on a photo, touch from its grip, keyboard with the arrow keys.
+  const reorder = useReorder({
+    items: images,
+    setItems: setImages,
+    onCommit: (next) =>
+      startTransition(async () => {
+        try {
+          await reorderProductImages(productId, next.map((i) => i.id));
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Failed to save photo order");
+        }
+      }),
+  });
+  usePasteFiles(rootRef, (files) => handleFiles(files));
+
+  function patchPending(id: string, update: Partial<PendingFile>) {
+    setPendingFiles((prev) => prev.map((p) => (p.id === id ? { ...p, ...update } : p)));
   }
 
-  async function handleFiles(fileList: FileList | null) {
+  function failPending(item: PendingFile, message: string) {
+    patchPending(item.id, { status: "error", error: message });
+    toast.error(`${item.file.name}: ${message}`);
+  }
+
+  async function handleFiles(fileList: FileList | File[] | null) {
     if (!fileList || fileList.length === 0) return;
 
     const accepted: PendingFile[] = [];
     for (const file of Array.from(fileList)) {
-      if (!ALLOWED_TYPES.has(file.type)) {
+      if (!IMAGE_TYPES.has(file.type)) {
         toast.error(`${file.name}: unsupported file type (use JPEG, PNG, WebP, AVIF, or GIF).`);
         continue;
       }
-      if (file.size > MAX_FILE_BYTES) {
-        toast.error(`${file.name}: file is too large (max ${MAX_FILE_BYTES / (1024 * 1024)} MB).`);
+      if (file.size > MAX_UPLOAD_BYTES) {
+        toast.error(`${file.name}: file is too large (max ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB).`);
         continue;
       }
       accepted.push({
         id: crypto.randomUUID(),
         file,
         previewUrl: URL.createObjectURL(file),
-        status: "uploading",
+        status: "preparing",
+        progress: 0,
       });
     }
 
@@ -89,41 +98,57 @@ export function ProductImageManager({
 
     setPendingFiles((prev) => [...prev, ...accepted]);
 
-    const supabase = createClient();
     const prefix = variantId
       ? `products/${productId}/variants/${variantId}`
       : `products/${productId}`;
 
+    // Up to three files optimise and upload at once (the slow part)…
+    const uploads = accepted.map((item) =>
+      limit(async () => {
+        const { file, blurDataUrl } = await prepareImage(item.file);
+        patchPending(item.id, { status: "uploading" });
+        const path = uniqueStoragePath(prefix, file);
+        await uploadWithProgress({
+          bucket: MEDIA_BUCKET,
+          path,
+          file,
+          onProgress: (progress) => patchPending(item.id, { progress }),
+        });
+        patchPending(item.id, { status: "saving" });
+        return { path, blurDataUrl };
+      }).then(
+        (uploaded) => ({ ok: true as const, ...uploaded }),
+        (error: unknown) => ({ ok: false as const, error })
+      )
+    );
+    // …but the rows are saved one by one in the order the files were picked,
+    // so display_order matches what's on screen.
     let uploadedCount = 0;
 
-    for (const item of accepted) {
-      const path = `${prefix}/${crypto.randomUUID()}-${sanitizeFilename(item.file.name)}`;
-      const { error: uploadError } = await supabase.storage
-        .from(MEDIA_BUCKET)
-        .upload(path, item.file, { upsert: false });
-
-      if (uploadError) {
-        setPendingFiles((prev) =>
-          prev.map((p) => (p.id === item.id ? { ...p, status: "error", error: uploadError.message } : p))
-        );
-        toast.error(`${item.file.name}: ${uploadError.message}`);
+    for (const [index, item] of accepted.entries()) {
+      const result = await uploads[index];
+      if (!result.ok) {
+        failPending(item, result.error instanceof Error ? result.error.message : "Upload failed");
         continue;
       }
 
       try {
-        const inserted = await addProductImage(productId, path, images.length, variantId);
+        const inserted = await addProductImage(
+          productId,
+          result.path,
+          imagesRef.current.length,
+          variantId,
+          result.blurDataUrl
+        );
         if (inserted) {
+          imagesRef.current = [...imagesRef.current, inserted];
           setImages((prev) => [...prev, inserted]);
           uploadedCount += 1;
         }
         URL.revokeObjectURL(item.previewUrl);
         setPendingFiles((prev) => prev.filter((p) => p.id !== item.id));
       } catch (e) {
-        const message = e instanceof Error ? e.message : "Failed to save image";
-        setPendingFiles((prev) =>
-          prev.map((p) => (p.id === item.id ? { ...p, status: "error", error: message } : p))
-        );
-        toast.error(`${item.file.name}: ${message}`);
+        failPending(item, e instanceof Error ? e.message : "Failed to save image");
       }
     }
 
@@ -153,43 +178,46 @@ export function ProductImageManager({
   }
 
   const thumbSize = compact ? "h-20 w-20" : "h-28 w-28";
+  const sortable = images.length > 1;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={rootRef} className="flex flex-col gap-3">
       {(images.length > 0 || pendingFiles.length > 0) && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3" {...reorder.rootProps}>
           {images.map((image, index) => (
             <div
               key={image.id}
-              draggable
-              onDragStart={(e) => {
-                setReorderIndex(index);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (reorderIndex !== null) reorder(reorderIndex, index);
-                setReorderIndex(null);
-              }}
-              onDragEnd={() => setReorderIndex(null)}
-              title="Drag to reorder"
+              {...(sortable ? reorder.tileProps(index) : {})}
+              title={sortable ? "Drag or use the arrow keys to reorder" : undefined}
               className={cn(
-                "group relative cursor-grab overflow-hidden rounded-lg border border-border/60 bg-card active:cursor-grabbing",
+                "group relative overflow-hidden rounded-lg border border-border/60 bg-card outline-none transition-[transform,opacity,box-shadow] focus-visible:ring-2 focus-visible:ring-ring",
+                sortable && "can-hover:cursor-grab can-hover:active:cursor-grabbing",
                 thumbSize,
-                reorderIndex === index && "opacity-40"
+                reorder.draggingIndex === index && "scale-105 opacity-60 shadow-lg"
               )}
             >
               <Image
                 src={mediaUrl(image.storage_path)}
                 alt=""
                 fill
-                className="object-contain p-2"
+                sizes="112px"
+                draggable={false}
+                className="pointer-events-none object-contain p-2"
               />
+              {sortable && (
+                <span
+                  {...reorder.handleProps(index)}
+                  aria-hidden
+                  className="absolute left-1 top-1 z-10 flex size-6 items-center justify-center rounded-full bg-black/60 text-white can-hover:hidden"
+                >
+                  <GripVertical className="size-3.5" />
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => remove(image)}
-                className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white group-hover:flex"
+                aria-label="Remove photo"
+                className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white can-hover:hidden can-hover:group-hover:flex can-hover:group-focus-visible:flex"
               >
                 ×
               </button>
@@ -209,15 +237,13 @@ export function ProductImageManager({
               <img
                 src={item.previewUrl}
                 alt=""
-                className={cn(
-                  "h-full w-full object-contain p-2",
-                  item.status === "uploading" && "opacity-50"
-                )}
+                className="h-full w-full object-contain p-2"
               />
-              {item.status === "uploading" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/5">
-                  <Loader2 className="size-5 animate-spin text-foreground" />
-                </div>
+              {item.status !== "error" && (
+                <UploadProgressRing
+                  value={item.status === "uploading" ? item.progress : null}
+                  label={item.status === "saving" ? "Saving" : "Optimising"}
+                />
               )}
               {item.status === "error" && (
                 <button
@@ -257,8 +283,9 @@ export function ProductImageManager({
             : "border-border text-muted-foreground"
         )}
       >
-        <label className="flex h-full w-full cursor-pointer items-center justify-center px-2 text-center">
-          {dragActive ? "Drop to upload" : "Drop images or click to upload"}
+        <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-0.5 px-2 text-center">
+          <span>{dragActive ? "Drop to upload" : "Drop images or click to upload"}</span>
+          {!dragActive && <span className="hidden text-[0.65rem] text-muted-foreground/80 can-hover:inline">or hover here and paste</span>}
           <input
             ref={inputRef}
             type="file"

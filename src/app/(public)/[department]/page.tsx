@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { StaticImageData } from "next/image";
+import doorHardwareHero from "@/assets/images/door-hardware-hero.webp";
 import { getCategories, getFeaturedProducts, getPublishedSeries } from "@/lib/data/catalog";
 import { mediaUrl } from "@/lib/supabase/storage";
 import { ProductCard } from "@/components/product-card";
 import { SeriesShowcase } from "@/components/series-showcase";
-import { HeroMedia } from "@/components/hero-media";
+import { HeroMedia, type VideoSource } from "@/components/hero-media";
+import tapwareFilmPoster from "@/assets/images/tapware-showcase-poster.webp";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
 import { cn } from "@/lib/utils";
@@ -26,16 +29,30 @@ type Params = { department: string };
  */
 const HERO_MEDIA: Record<
   Department,
-  { video?: string; image?: string; alt: string; caption: string; chapters?: string[] }
+  {
+    video?: VideoSource[];
+    poster?: StaticImageData;
+    image?: StaticImageData;
+    alt: string;
+    caption: string;
+    chapters?: string[];
+  }
 > = {
   "sanitary-tapware": {
-    video: "/videos/tapware-showcase-hero.mp4",
+    // Smallest playable first: a 640px cut on phones, AV1 where supported, the original H.264 otherwise.
+    video: [
+      { src: "/videos/tapware-showcase-mobile-av1.mp4", type: `video/mp4; codecs="av01.0.04M.08"`, media: "(max-width: 767px)" },
+      { src: "/videos/tapware-showcase-mobile.mp4", type: "video/mp4", media: "(max-width: 767px)" },
+      { src: "/videos/tapware-showcase-av1.mp4", type: `video/mp4; codecs="av01.0.05M.08"` },
+      { src: "/videos/tapware-showcase-hero.mp4", type: "video/mp4" },
+    ],
+    poster: tapwareFilmPoster,
     alt: "Five tapware and shower finishes in motion — matte black, brushed gold, gun metal, brushed nickel, and satin chrome",
     caption: "Five finishes, in motion",
     chapters: ["Matte Black", "Brushed Gold", "Gun Metal", "Brushed Nickel", "Satin Chrome"],
   },
   "door-hardware": {
-    image: "/images/door-hardware-hero.png",
+    image: doorHardwareHero,
     alt: "Matte black door lever handle in soft daylight",
     caption: "Hardware, framed in light",
   },
@@ -238,7 +255,8 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
             </Reveal>
             <Reveal delay={0.1}>
               <HeroMedia
-                videoSrc={media.video}
+                videoSources={media.video}
+                poster={media.poster}
                 imageAlt={media.alt}
                 lazyPlay
                 className="aspect-video w-full rounded-[1.5rem] sm:aspect-video md:aspect-video md:rounded-[2rem]"

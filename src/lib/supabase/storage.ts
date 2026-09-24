@@ -1,19 +1,23 @@
-import { createPublicClient } from "./public";
-
 export const MEDIA_BUCKET = "media";
 export const DOCUMENTS_BUCKET = "documents";
 
-// `getPublicUrl` is a pure string builder (no network call), so a fresh
-// client here is cheap and correctly URL-encodes paths with special
-// characters, unlike the hand-concatenated string this used to build. Both
-// buckets share one client instance rather than each creating their own.
-const client = createPublicClient();
-const bucket = client.storage.from(MEDIA_BUCKET);
-const documentsBucket = client.storage.from(DOCUMENTS_BUCKET);
+const STORAGE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1`;
+
+/**
+ * Builds a public object URL exactly the way supabase-js's `getPublicUrl`
+ * does (`encodeURI` over the whole URL, leading slashes trimmed), without
+ * importing supabase-js. This module is used by client components on every
+ * storefront page (the header's catalog nav, product cards, galleries), so
+ * a plain string builder keeps the whole Supabase client out of the
+ * public JavaScript bundle.
+ */
+function publicObjectUrl(bucket: string, storagePath: string) {
+  return encodeURI(`${STORAGE_URL}/object/public/${bucket}/${storagePath.replace(/^\/+/, "")}`);
+}
 
 /** `storagePath` is the object path inside the `media` bucket. */
 export function mediaUrl(storagePath: string) {
-  return bucket.getPublicUrl(storagePath).data.publicUrl;
+  return publicObjectUrl(MEDIA_BUCKET, storagePath);
 }
 
 /** product_images.storage_path stores paths relative to the media bucket. */
@@ -23,5 +27,5 @@ export function productImageUrl(storagePath: string) {
 
 /** product_resources.storage_path stores paths relative to the documents bucket. */
 export function documentUrl(storagePath: string) {
-  return documentsBucket.getPublicUrl(storagePath).data.publicUrl;
+  return publicObjectUrl(DOCUMENTS_BUCKET, storagePath);
 }

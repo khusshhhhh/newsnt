@@ -77,6 +77,7 @@ export default async function CategoryPage({
             <Reveal key={product.id} delay={Math.min(i, 6) * 0.05}>
               <ProductCard
                 product={product}
+                eager={i < 4}
                 preferredColorName={finishes.find((f) => f.code === finishCode)?.name}
               />
             </Reveal>

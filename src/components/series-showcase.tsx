@@ -8,12 +8,17 @@ import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { mediaUrl } from "@/lib/supabase/storage";
 import { seriesHref } from "@/lib/department";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { blurFor } from "@/lib/blur-placeholder";
 import { FALLBACK_HERO } from "@/lib/fallback-hero";
 import type { Series } from "@/lib/supabase/types";
 
 function seriesImage(s: Series) {
   return s.hero_image_url ? mediaUrl(s.hero_image_url) : FALLBACK_HERO[s.department];
+}
+
+function seriesBlur(s: Series) {
+  const image = seriesImage(s);
+  return image ? blurFor(image, s.hero_blur_data_url) : undefined;
 }
 
 /**
@@ -68,7 +73,7 @@ function SeriesHoverShowcase({ series }: { series: Series[] }) {
                 fill
                 sizes="55vw"
                 placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
+                blurDataURL={seriesBlur(current)}
                 className="object-cover"
               />
             ) : (
@@ -202,7 +207,7 @@ function SeriesTouchRail({ series }: { series: Series[] }) {
                   fill
                   sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 82vw"
                   placeholder="blur"
-                  blurDataURL={BLUR_DATA_URL}
+                  blurDataURL={seriesBlur(s)}
                   className="object-cover"
                 />
               ) : (

@@ -64,9 +64,9 @@ export default async function SeriesDetailPage({
   // Falls back to the single legacy `hero_image_url` for series saved
   // before the gallery uploader existed and never re-saved since.
   const heroImages = series.images.length > 0
-    ? series.images.map((image) => mediaUrl(image.storage_path))
+    ? series.images.map((image) => ({ src: mediaUrl(image.storage_path), blur: image.blur_data_url }))
     : series.hero_image_url
-      ? [mediaUrl(series.hero_image_url)]
+      ? [{ src: mediaUrl(series.hero_image_url), blur: series.hero_blur_data_url }]
       : [];
 
   return (

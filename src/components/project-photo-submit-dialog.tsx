@@ -29,6 +29,7 @@ export function ProjectPhotoSubmitDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [photoUploading, setPhotoUploading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -63,7 +64,13 @@ export function ProjectPhotoSubmitDialog({
           <HoneypotField />
           <div className="flex flex-col gap-1.5">
             <Label>Photo</Label>
-            <ImageUploader folder="project-submissions" fieldName="storage_path" value={[]} max={1} />
+            <ImageUploader
+              folder="project-submissions"
+              fieldName="storage_path"
+              value={[]}
+              max={1}
+              onUploadingChange={setPhotoUploading}
+            />
           </div>
           {series.length > 0 && (
             <div className="flex flex-col gap-1.5">
@@ -94,8 +101,8 @@ export function ProjectPhotoSubmitDialog({
             <Label htmlFor="project-email">Email</Label>
             <Input id="project-email" name="submitter_email" type="email" required autoComplete="email" />
           </div>
-          <Button type="submit" disabled={pending} className="mt-1">
-            {pending ? "Sending…" : "Submit photo"}
+          <Button type="submit" disabled={pending || photoUploading} className="mt-1">
+            {pending ? "Sending…" : photoUploading ? "Waiting for photo…" : "Submit photo"}
           </Button>
         </form>
       </DialogContent>

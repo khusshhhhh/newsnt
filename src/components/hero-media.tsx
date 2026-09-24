@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import { Volume2, VolumeX } from "lucide-react";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { blurFor } from "@/lib/blur-placeholder";
 import { cn } from "@/lib/utils";
 
 /**
  * The hero's visual panel: a looping ambient product video when one is
  * configured for the department, falling back to a ken-burns still image
  * otherwise. Sound defaults off (autoplaying video must be muted to play in
- * most browsers) with a toggle, since the clip does carry ambient water audio.
+ * most browsers); the toggle only appears for a clip that has an audio track.
+ *
+ * `videoSources` are tried in order, so list the smallest first: a
+ * phone-sized cut (with `media`), AV1 before H.264. `poster` fills the frame
+ * until the first frame decodes instead of an empty box.
  *
  * `chapters` labels equal-length segments of a multi-shot video (one per
  * design/finish it cuts between) and renders Instagram-story-style progress
@@ -20,8 +24,12 @@ import { cn } from "@/lib/utils";
  * `lazyPlay` defers playback (and full preload) until the panel scrolls into
  * view, for video placed below the fold rather than autoplaying in the hero.
  */
+export type VideoSource = { src: string; type: string; media?: string };
+
 export function HeroMedia({
-  videoSrc,
+  videoSources,
+  poster,
+  hasAudio = false,
   imageSrc,
   imageAlt,
   caption,
@@ -29,8 +37,10 @@ export function HeroMedia({
   className,
   lazyPlay = false,
 }: {
-  videoSrc?: string;
-  imageSrc?: string;
+  videoSources?: VideoSource[];
+  poster?: StaticImageData;
+  hasAudio?: boolean;
+  imageSrc?: string | StaticImageData;
   imageAlt: string;
   caption?: string;
   chapters?: string[];
@@ -73,6 +83,7 @@ export function HeroMedia({
     return () => observer.disconnect();
   }, [lazyPlay]);
 
+  const hasVideo = Boolean(videoSources && videoSources.length > 0);
   const hasChapters = Boolean(chapters && chapters.length > 0);
   const activeChapterIndex = chapters
     ? Math.min(chapters.length - 1, Math.floor(progress * chapters.length))
@@ -86,27 +97,32 @@ export function HeroMedia({
         className
       )}
     >
-      {videoSrc ? (
+      {hasVideo && videoSources ? (
         <video
           ref={videoRef}
           className="h-full w-full object-cover"
-          src={videoSrc}
+          poster={poster?.src}
           autoPlay={!lazyPlay}
           muted
           loop
           playsInline
-          preload={lazyPlay ? "metadata" : "auto"}
+          // Below the fold there's a poster to show, so fetch nothing until it scrolls into view.
+          preload={lazyPlay ? (poster ? "none" : "metadata") : "auto"}
           aria-label={imageAlt}
-        />
+        >
+          {videoSources.map((source) => (
+            <source key={source.src} src={source.src} type={source.type} media={source.media} />
+          ))}
+        </video>
       ) : imageSrc ? (
         <Image
           src={imageSrc}
           alt={imageAlt}
           fill
-          priority
+          preload
           sizes="(min-width: 1024px) 40vw, 90vw"
           placeholder="blur"
-          blurDataURL={BLUR_DATA_URL}
+          blurDataURL={blurFor(imageSrc)}
           className="animate-ken-burns object-cover"
         />
       ) : null}
@@ -137,7 +153,7 @@ export function HeroMedia({
         </div>
       )}
 
-      {videoSrc && (
+      {hasVideo && hasAudio && (
         <button
           type="button"
           onClick={toggleSound}
@@ -157,7 +173,7 @@ export function HeroMedia({
           >
             {hasChapters && chapters ? chapters[activeChapterIndex] : caption}
           </p>
-          {videoSrc && (
+          {hasVideo && (
             <span className="flex shrink-0 items-center gap-1.5 text-[0.65rem] font-medium uppercase tracking-wide text-white/60">
               <span className="relative flex size-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60" />

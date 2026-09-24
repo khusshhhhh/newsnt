@@ -2,25 +2,27 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
+import { isMissingBlurColumn, sanitizeBlurDataUrl, withoutBlur } from "@/lib/blur-placeholder";
 import { revalidateCatalog } from "./_shared";
 
 export async function addProductImage(
   productId: string,
   storagePath: string,
   displayOrder: number,
-  variantId: string | null = null
+  variantId: string | null = null,
+  blurDataUrl: string | null = null
 ) {
   const { supabase } = await requireAdmin("catalog");
-  const { data, error } = await supabase
-    .from("product_images")
-    .insert({
-      product_id: productId,
-      variant_id: variantId,
-      storage_path: storagePath,
-      display_order: displayOrder,
-    })
-    .select()
-    .single();
+  const row = {
+    product_id: productId,
+    variant_id: variantId,
+    storage_path: storagePath,
+    blur_data_url: sanitizeBlurDataUrl(blurDataUrl),
+    display_order: displayOrder,
+  };
+  const insert = (values: typeof row) => supabase.from("product_images").insert(values).select().single();
+  let { data, error } = await insert(row);
+  if (isMissingBlurColumn(error)) ({ data, error } = await insert(withoutBlur(row)));
 
   if (error) throw new Error(error.message);
   revalidateCatalog();

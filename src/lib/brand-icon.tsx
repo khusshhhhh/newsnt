@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-// Satoshi Black — the site's heading face — read once at module scope.
+// Satoshi Black — the site's heading face — read once at module scope. The
+// .otf is kept for this alone: ImageResponse (Satori) can't read WOFF2, which
+// is what the pages themselves load (layout.tsx).
 const satoshiBlack = readFile(join(process.cwd(), "src/font/Satoshi-Black.otf"));
 
 /** The "F" monogram used for the favicon and the Apple touch icon. */

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mediaUrl } from "@/lib/supabase/storage";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { blurFor } from "@/lib/blur-placeholder";
 import { FALLBACK_HERO } from "@/lib/fallback-hero";
 import { categoryHref, departmentCopy, finishHref, seriesHref, seriesIndexHref, type Department } from "@/lib/department";
 import type { CategoryWithImages, Finish, Series } from "@/lib/supabase/types";
@@ -15,7 +15,8 @@ type NavItem = {
   id: string;
   name: string;
   href: string;
-  image?: string | null;
+  image?: string | StaticImageData | null;
+  blur?: string | null;
   swatch?: string | null;
   description?: string | null;
 };
@@ -61,6 +62,7 @@ export function CatalogNav({
     name: s.name,
     href: seriesHref(s),
     image: s.hero_image_url ? mediaUrl(s.hero_image_url) : (FALLBACK_HERO[department] ?? null),
+    blur: s.hero_blur_data_url,
     description: s.design_story,
   }));
 
@@ -69,6 +71,7 @@ export function CatalogNav({
     name: c.name,
     href: categoryHref(c),
     image: c.images[0] ? mediaUrl(c.images[0].storage_path) : null,
+    blur: c.images[0]?.blur_data_url,
     description: null,
   }));
 
@@ -194,7 +197,7 @@ function NavPreviewList({
                 fill
                 sizes="320px"
                 placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
+                blurDataURL={blurFor(current.image, current.blur)}
                 className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />

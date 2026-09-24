@@ -28,8 +28,11 @@ function priceLabel(product: ProductWithRelations) {
 export function ProductCard({
   product,
   preferredColorName,
+  eager = false,
 }: {
   product: ProductWithRelations;
+  /** Load the photo immediately instead of lazily — for the first row of a listing, which is on screen at load. */
+  eager?: boolean;
   /** Pre-selects a color on load — used on a finish's own listing page so the card already shows that finish instead of its default color. */
   preferredColorName?: string;
 }) {
@@ -54,9 +57,10 @@ export function ProductCard({
             src={productImageUrl(image.storage_path)}
             alt={image.alt_text ?? product.name}
             fill
+            loading={eager ? "eager" : undefined}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
             placeholder="blur"
-            blurDataURL={BLUR_DATA_URL}
+            blurDataURL={image.blur_data_url || BLUR_DATA_URL}
             className="object-contain p-8 transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (
