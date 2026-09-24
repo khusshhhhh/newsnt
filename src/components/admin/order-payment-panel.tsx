@@ -8,7 +8,7 @@ import { downloadBase64File } from "@/lib/download-file";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatPrice } from "@/lib/format";
+import { formatAmount } from "@/lib/format";
 import type { Order, PaymentStatus } from "@/lib/supabase/types";
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -83,7 +83,7 @@ export function OrderPaymentPanel({
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-foreground">Payment & delivery</span>
         <span className="text-xs text-muted-foreground">
-          Total {formatPrice(total)} · Balance {formatPrice(balance)}
+          Total {formatAmount(total)} · Balance {formatAmount(balance)}
         </span>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

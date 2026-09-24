@@ -6,7 +6,8 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { diffFields, logActivity } from "@/lib/data/activity";
 import { OrderPdfDocument, type OrderDocumentKind } from "@/lib/pdf/order-pdf";
-import { departmentSchema } from "./_shared";
+import { departmentSchema, discountColumns, discountSchema } from "./_shared";
+import { discountFromRow, discountedTotal, type Discount } from "@/lib/discount";
 import type { OrderStatus, PaymentStatus, QuoteLineItem } from "@/lib/supabase/types";
 
 const ORDER_STATUSES: OrderStatus[] = ["confirmed", "in_production", "shipped", "delivered", "cancelled"];
@@ -24,6 +25,7 @@ const createOrderSchema = z.object({
   customerId: z.string().uuid(),
   department: departmentSchema,
   items: z.array(orderItemSchema).min(1, "Add at least one product to the order"),
+  discount: discountSchema,
   notes: z.string().trim().max(2000).optional(),
   quoteId: z.string().uuid().nullable().optional(),
   inquiryId: z.string().uuid().nullable().optional(),
@@ -54,7 +56,8 @@ export async function createOrder(rawInput: CreateOrderInput) {
       inquiry_id: parsed.data.inquiryId ?? null,
       department: parsed.data.department,
       items: parsed.data.items,
-      total: parsed.data.items.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.quantity, 0),
+      ...discountColumns(parsed.data.discount),
+      total: discountedTotal(parsed.data.items, parsed.data.discount),
       notes: parsed.data.notes || null,
     })
     .select()
@@ -110,6 +113,38 @@ export async function updateOrderNotes(orderId: string, notes: string) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin/orders");
+}
+
+/** Sets or clears an existing order's discount and re-derives its total from the stored line items. */
+export async function updateOrderDiscount(orderId: string, rawDiscount: Discount | null) {
+  const parsed = discountSchema.safeParse(rawDiscount);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid discount");
+
+  const { supabase } = await requireAdmin("sales");
+  const { data: order, error: loadError } = await supabase
+    .from("orders")
+    .select("order_number, items, discount_type, discount_value")
+    .eq("id", orderId)
+    .single();
+  if (loadError || !order) throw new Error("Order not found");
+
+  const next = { ...discountColumns(parsed.data), total: discountedTotal(order.items, parsed.data) };
+  const { error } = await supabase
+    .from("orders")
+    .update({ ...next, updated_at: new Date().toISOString() })
+    .eq("id", orderId);
+  if (error) throw new Error(error.message);
+
+  await logActivity({
+    action: "update",
+    entity_type: "order",
+    entity_id: orderId,
+    entity_name: `${order.order_number} discount`,
+    changes: diffFields(order, next, ["discount_type", "discount_value"]),
+  });
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin/reports");
+  return next;
 }
 
 const PAYMENT_STATUSES: PaymentStatus[] = ["unpaid", "deposit_paid", "paid", "refunded"];
@@ -179,6 +214,7 @@ export async function downloadOrderDocument(orderId: string, kind: OrderDocument
       customerEmail={order.customer.email}
       customerPhone={order.customer.phone}
       items={order.items as QuoteLineItem[]}
+      discount={discountFromRow(order)}
       notes={order.notes}
       paymentStatus={order.payment_status}
       amountPaid={Number(order.amount_paid ?? 0)}

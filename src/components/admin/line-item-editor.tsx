@@ -1,9 +1,10 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { formatPrice } from "@/lib/format";
+import { DiscountField, TotalsSummary } from "@/components/admin/discount-field";
 import { cn } from "@/lib/utils";
 import { includedLines, lineItemsTotal, type EditableLine } from "@/lib/quote-lines";
+import type { Discount } from "@/lib/discount";
 
 export {
   editableLinesFromResolved,
@@ -14,13 +15,21 @@ export {
   type EditableLine,
 } from "@/lib/quote-lines";
 
-/** Editable rows (include toggle, quantity, price) for a quote or order being prepared, plus a running total. */
+/**
+ * Editable rows (include toggle, quantity, price) for a quote or order being
+ * prepared, plus a running total. Pass `onDiscountChange` to also offer a
+ * whole-document discount (percentage or fixed amount).
+ */
 export function LineItemEditor({
   lines,
   onChange,
+  discount = null,
+  onDiscountChange,
 }: {
   lines: EditableLine[];
   onChange: (next: EditableLine[]) => void;
+  discount?: Discount | null;
+  onDiscountChange?: (next: Discount | null) => void;
 }) {
   function patchLine(key: string, changes: Partial<EditableLine>) {
     onChange(lines.map((l) => (l.key === key ? { ...l, ...changes } : l)));
@@ -89,12 +98,16 @@ export function LineItemEditor({
         ))}
       </div>
 
-      <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
-        <span className="text-muted-foreground">
-          {includedLines(lines).length} product{includedLines(lines).length === 1 ? "" : "s"} included
-        </span>
-        <span className="font-medium text-foreground">{formatPrice(hasPricedLine ? total : null)}</span>
-      </div>
+      {onDiscountChange && (
+        <DiscountField subtotal={total} discount={discount} onChange={onDiscountChange} />
+      )}
+
+      <TotalsSummary
+        subtotal={total}
+        discount={onDiscountChange ? discount : null}
+        priced={hasPricedLine}
+        leading={`${includedLines(lines).length} product${includedLines(lines).length === 1 ? "" : "s"} included`}
+      />
     </div>
   );
 }

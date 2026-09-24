@@ -6,7 +6,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  // Only the admin panel has a Supabase session to refresh or gate. The
+  // storefront and the public /quote page never read one, so running this
+  // there only added an Auth round-trip (getUser) to every page view and
+  // prefetch — scoping it to /admin keeps public pages off that path.
+  matcher: ["/admin/:path*"],
 };

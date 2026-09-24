@@ -27,6 +27,7 @@ import { previewQuotePdf, sendQuotePdf } from "@/lib/actions/admin/quotes";
 import { downloadBase64File } from "@/lib/download-file";
 import { cn } from "@/lib/utils";
 import type { ResolvedInquiryLine } from "@/lib/inquiry-lines";
+import type { Discount } from "@/lib/discount";
 
 /**
  * Lets an admin review/adjust the products an inquiry referenced (quantity,
@@ -47,11 +48,12 @@ export function QuoteDialog({
   const [open, setOpen] = useState(false);
   const [lines, setLines] = useState<EditableLine[]>(() => editableLinesFromResolved(initialLines));
   const [notes, setNotes] = useState("");
+  const [discount, setDiscount] = useState<Discount | null>(null);
   const [downloading, startDownload] = useTransition();
   const [sending, startSend] = useTransition();
 
   function buildPayload() {
-    return { inquiryId, notes, items: toQuoteLineItems(lines) };
+    return { inquiryId, notes, items: toQuoteLineItems(lines), discount };
   }
 
   function handleDownload() {
@@ -95,6 +97,7 @@ export function QuoteDialog({
         if (next) {
           setLines(editableLinesFromResolved(initialLines));
           setNotes("");
+          setDiscount(null);
         }
       }}
     >
@@ -106,12 +109,12 @@ export function QuoteDialog({
         <DialogHeader>
           <DialogTitle>Quote for {customerName}</DialogTitle>
           <DialogDescription>
-            Adjust quantities or pricing if needed, then download the PDF or email it directly to{" "}
+            Adjust quantities, pricing or add a discount if needed, then download the PDF or email it directly to{" "}
             {customerEmail}.
           </DialogDescription>
         </DialogHeader>
 
-        <LineItemEditor lines={lines} onChange={setLines} />
+        <LineItemEditor lines={lines} onChange={setLines} discount={discount} onDiscountChange={setDiscount} />
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="quote-notes">Notes for customer (optional)</Label>

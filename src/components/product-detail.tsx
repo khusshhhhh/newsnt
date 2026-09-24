@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "motion/react";
 import { toast } from "sonner";
 import { Download, FileText, Mail, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -349,12 +348,11 @@ function SwatchButton({
       title={label}
       aria-label={`Colour: ${label}`}
       aria-pressed={active}
-      className="relative -m-1.5 flex flex-col items-center gap-1 rounded-full p-1.5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+      className="group/swatch relative -m-1.5 flex flex-col items-center gap-1 rounded-full p-1.5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
     >
-      <motion.span
-        whileTap={{ scale: 0.92 }}
+      <span
         className={cn(
-          "flex size-6 items-center justify-center rounded-full border transition-shadow",
+          "flex size-6 items-center justify-center rounded-full border transition-[box-shadow,transform] duration-150 group-active/swatch:scale-[0.92]",
           active ? "ring-1 ring-foreground ring-offset-1 ring-offset-background" : "border-border"
         )}
         style={{ backgroundColor: hex ?? "transparent" }}
@@ -362,7 +360,7 @@ function SwatchButton({
         {!hex && (
           <span className="size-full rounded-full bg-[repeating-linear-gradient(45deg,var(--border),var(--border)_2px,transparent_2px,transparent_5px)]" />
         )}
-      </motion.span>
+      </span>
     </button>
   );
 }

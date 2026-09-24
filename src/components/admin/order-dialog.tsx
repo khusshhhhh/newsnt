@@ -25,6 +25,7 @@ import {
 import { createOrder } from "@/lib/actions/admin/orders";
 import { cn } from "@/lib/utils";
 import type { Department } from "@/lib/department";
+import type { Discount } from "@/lib/discount";
 
 /** Reviews a quote's (or inquiry's) line items and creates an order from them — used from a customer's quote history or a "Won" pipeline card. */
 export function OrderDialog({
@@ -34,6 +35,7 @@ export function OrderDialog({
   quoteId,
   inquiryId,
   lines: initialLines,
+  discount: initialDiscount = null,
   triggerLabel = "Convert to order",
   onCreated,
 }: {
@@ -43,12 +45,15 @@ export function OrderDialog({
   quoteId?: string | null;
   inquiryId?: string | null;
   lines: EditableLine[];
+  /** Carried over from the quote being converted, so the order keeps the agreed price. */
+  discount?: Discount | null;
   triggerLabel?: string;
   onCreated?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [lines, setLines] = useState<EditableLine[]>(initialLines);
   const [notes, setNotes] = useState("");
+  const [discount, setDiscount] = useState<Discount | null>(initialDiscount);
   const [creating, startCreate] = useTransition();
 
   function handleCreate() {
@@ -64,6 +69,7 @@ export function OrderDialog({
           quoteId: quoteId ?? null,
           inquiryId: inquiryId ?? null,
           items: toQuoteLineItems(lines),
+          discount,
           notes,
         });
         toast.success(`Order ${order.order_number} created`);
@@ -85,6 +91,7 @@ export function OrderDialog({
         if (next) {
           setLines(initialLines);
           setNotes("");
+          setDiscount(initialDiscount);
         }
       }}
     >
@@ -100,7 +107,7 @@ export function OrderDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <LineItemEditor lines={lines} onChange={setLines} />
+        <LineItemEditor lines={lines} onChange={setLines} discount={discount} onDiscountChange={setDiscount} />
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="order-notes">Internal notes (optional)</Label>

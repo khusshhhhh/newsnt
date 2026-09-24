@@ -49,10 +49,15 @@ export function SeriesCarouselSkeleton({ count = 3 }: { count?: number }) {
   );
 }
 
+// Storefront skeletons are at least a viewport tall: while a route streams
+// in, the footer (rendered by the layout, outside the loading boundary) is
+// then always below the fold, instead of painting on-screen and being pushed
+// down when the real content arrives — a large layout shift.
+
 /** Mirrors DepartmentHomePage's hero + series row + featured grid, so the whole route fades in as one shape. */
 export function DepartmentHomeSkeleton() {
   return (
-    <div>
+    <div className="min-h-dvh">
       <section className="border-b border-border bg-background">
         <Container className="flex flex-col gap-6 py-24 md:py-36">
           <Skeleton className="h-4 w-24" />
@@ -85,7 +90,7 @@ export function DepartmentHomeSkeleton() {
 /** Mirrors a catalog listing page: a title block over a product grid. */
 export function CatalogPageSkeleton({ withSubtitle = true }: { withSubtitle?: boolean }) {
   return (
-    <Container className="py-12">
+    <Container className="min-h-dvh py-12">
       <div className="mb-8">
         <Skeleton className="h-9 w-56" />
         {withSubtitle && <Skeleton className="mt-3 h-4 w-40" />}
@@ -98,7 +103,7 @@ export function CatalogPageSkeleton({ withSubtitle = true }: { withSubtitle?: bo
 /** Mirrors a page with a breadcrumb row above the title, e.g. series/category and product pages. */
 export function BreadcrumbCatalogSkeleton() {
   return (
-    <Container className="py-12">
+    <Container className="min-h-dvh py-12">
       <div className="mb-8 flex gap-2">
         <Skeleton className="h-4 w-14" />
         <Skeleton className="h-4 w-4" />
@@ -115,7 +120,7 @@ export function BreadcrumbCatalogSkeleton() {
 /** Mirrors SeriesIndexPage: heading + intro copy over the series carousel. */
 export function SeriesIndexSkeleton() {
   return (
-    <Container className="py-16">
+    <Container className="min-h-dvh py-16">
       <div className="mb-12 max-w-2xl">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="mt-3 h-4 w-full" />
@@ -129,7 +134,7 @@ export function SeriesIndexSkeleton() {
 /** Mirrors SearchPage's underline search field sitting above the results grid. */
 export function SearchPageSkeleton() {
   return (
-    <Container className="py-12">
+    <Container className="min-h-dvh py-12">
       <div className="mb-10 max-w-xl">
         <Skeleton className="mb-2 h-4 w-32" />
         <Skeleton className="h-10 w-full" />
@@ -143,7 +148,7 @@ export function SearchPageSkeleton() {
 /** Mirrors SeriesDetailPage's full-bleed hero band + category pills + product grid. */
 export function SeriesDetailSkeleton() {
   return (
-    <div>
+    <div className="min-h-dvh">
       <div className="relative h-[45vh] min-h-80 overflow-hidden border-b border-border bg-card">
         <div className="absolute inset-x-0 bottom-0 w-full py-10">
           <Container>
@@ -166,7 +171,7 @@ export function SeriesDetailSkeleton() {
 /** Mirrors ProductPage's breadcrumb + gallery/details two-column layout. */
 export function ProductDetailSkeleton() {
   return (
-    <Container className="py-12">
+    <Container className="min-h-dvh py-12">
       <div className="mb-8 flex gap-2">
         <Skeleton className="h-4 w-14" />
         <Skeleton className="h-4 w-4" />
@@ -373,24 +378,6 @@ export function AdminCustomerDetailSkeleton() {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-/** Mirrors the two-panel gateway (very first) home page while hero images resolve. */
-export function GatewaySkeleton() {
-  return (
-    <div className="flex min-h-screen flex-col sm:flex-row">
-      {Array.from({ length: 2 }).map((_, i) => (
-        <div key={i} className="relative flex min-h-[60vh] flex-1 flex-col justify-end overflow-hidden bg-card sm:min-h-screen">
-          <Skeleton className="absolute inset-0 rounded-none" />
-          <div className="relative z-10 p-8 pb-16 sm:p-12 sm:pb-20">
-            <Skeleton className="h-3 w-6 bg-foreground/10" />
-            <Skeleton className="mt-3 h-12 w-48 bg-foreground/10 sm:h-14 md:h-16" />
-            <Skeleton className="mt-3 h-4 w-40 bg-foreground/10" />
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

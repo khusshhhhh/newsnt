@@ -36,6 +36,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   images: {
+    // AVIF first: noticeably smaller than WebP for product/hero photography, which is most of each page's bytes.
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",

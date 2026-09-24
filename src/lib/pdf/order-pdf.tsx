@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { PaymentStatus, QuoteLineItem } from "@/lib/supabase/types";
+import { applyDiscount, discountLabel, itemsSubtotal, type Discount } from "@/lib/discount";
 
 export type OrderDocumentKind = "invoice" | "packing-slip";
 
@@ -49,6 +50,7 @@ export function OrderPdfDocument({
   customerEmail,
   customerPhone,
   items,
+  discount = null,
   notes,
   paymentStatus,
   amountPaid,
@@ -61,13 +63,15 @@ export function OrderPdfDocument({
   customerEmail: string;
   customerPhone: string | null;
   items: QuoteLineItem[];
+  discount?: Discount | null;
   notes: string | null;
   paymentStatus: PaymentStatus;
   amountPaid: number;
   fulfilmentDate: string | null;
 }) {
   const isInvoice = kind === "invoice";
-  const total = items.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.quantity, 0);
+  const applied = applyDiscount(itemsSubtotal(items), discount);
+  const total = applied.total;
   const title = isInvoice ? "Invoice" : "Packing slip";
   const date = new Date(createdAt).toLocaleDateString("en-AU", { dateStyle: "long" });
 
@@ -132,6 +136,18 @@ export function OrderPdfDocument({
 
         {isInvoice && (
           <View style={styles.totalsBlock}>
+            {applied.amount > 0 && (
+              <>
+                <View style={styles.totalRow}>
+                  <Text>Subtotal</Text>
+                  <Text>{money(applied.subtotal)}</Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text>{discountLabel(applied)}</Text>
+                  <Text>-{money(applied.amount)}</Text>
+                </View>
+              </>
+            )}
             <View style={styles.totalRow}>
               <Text>Total (AUD)</Text>
               <Text style={styles.grandTotal}>{money(total)}</Text>

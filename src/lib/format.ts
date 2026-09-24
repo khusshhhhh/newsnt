@@ -11,3 +11,13 @@ export function formatPrice(price: number | null) {
     return `A$${price.toLocaleString("en-AU")}`;
   }
 }
+
+/** Like formatPrice but keeps cents when there are any — for discounts and discounted totals, where rounding to the dollar would misstate them. */
+export function formatAmount(amount: number) {
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}

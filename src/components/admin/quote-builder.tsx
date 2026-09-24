@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatPrice } from "@/lib/format";
 import { DEPARTMENTS, departmentCopy, type Department } from "@/lib/department";
 import type { AdminInquiryProduct, AdminInquiryProductVariant } from "@/lib/inquiry-lines";
+import type { Discount } from "@/lib/discount";
 
 export type QuoteBuilderInitial = {
   parentQuoteId: string;
@@ -32,6 +33,7 @@ export type QuoteBuilderInitial = {
   department: Department;
   lines: EditableLine[];
   notes: string;
+  discount: Discount | null;
 };
 
 type CustomerResult = {
@@ -86,6 +88,7 @@ export function QuoteBuilder({ initial }: { initial?: QuoteBuilderInitial } = {}
   const [department, setDepartment] = useState<Department>(initial?.department ?? "sanitary-tapware");
   const [lines, setLines] = useState<EditableLine[]>(initial?.lines ?? []);
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [discount, setDiscount] = useState<Discount | null>(initial?.discount ?? null);
 
   const [productQuery, setProductQuery] = useState("");
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
@@ -149,6 +152,7 @@ export function QuoteBuilder({ initial }: { initial?: QuoteBuilderInitial } = {}
           department,
           notes,
           items: toQuoteLineItems(lines),
+          discount,
           parentQuoteId: initial?.parentQuoteId ?? null,
         });
         toast.success("Quote sent");
@@ -326,7 +330,7 @@ export function QuoteBuilder({ initial }: { initial?: QuoteBuilderInitial } = {}
 
         {lines.length > 0 && (
           <div className="mt-4">
-            <LineItemEditor lines={lines} onChange={setLines} />
+            <LineItemEditor lines={lines} onChange={setLines} discount={discount} onDiscountChange={setDiscount} />
           </div>
         )}
       </section>

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { OrderDialog } from "@/components/admin/order-dialog";
 import { editableLinesFromQuoteItems } from "@/components/admin/line-item-editor";
 import { formatPrice } from "@/lib/format";
+import { discountFromRow, discountNote } from "@/lib/discount";
 import type { Department } from "@/lib/department";
 import type { Quote, QuoteStatus } from "@/lib/supabase/types";
 
@@ -71,7 +72,8 @@ export function QuoteHistory({
             </div>
             <p className="text-xs text-muted-foreground">
               {quote.items.length} item{quote.items.length === 1 ? "" : "s"} ·{" "}
-              {formatPrice(quote.total)} · {new Date(quote.sent_at).toLocaleString()}
+              {formatPrice(quote.total)}
+              {discountNote(quote)} · {new Date(quote.sent_at).toLocaleString()}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -83,6 +85,7 @@ export function QuoteHistory({
                 quoteId={quote.id}
                 inquiryId={quote.inquiry_id}
                 lines={editableLinesFromQuoteItems(quote.items)}
+                discount={discountFromRow(quote)}
               />
             )}
             <Button

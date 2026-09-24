@@ -11,6 +11,7 @@ import { OrderDialog } from "@/components/admin/order-dialog";
 import type { EditableLine } from "@/components/admin/line-item-editor";
 import type { Department } from "@/lib/department";
 import type { QuoteStatus } from "@/lib/supabase/types";
+import type { Discount } from "@/lib/discount";
 
 export function QuoteRowActions({
   quoteId,
@@ -20,6 +21,7 @@ export function QuoteRowActions({
   customerName,
   department,
   lines,
+  discount = null,
   canRemind = false,
   reminded = false,
 }: {
@@ -30,6 +32,7 @@ export function QuoteRowActions({
   customerName: string;
   department: Department;
   lines: EditableLine[];
+  discount?: Discount | null;
   canRemind?: boolean;
   reminded?: boolean;
 }) {
@@ -70,6 +73,7 @@ export function QuoteRowActions({
           department={department}
           quoteId={quoteId}
           lines={lines}
+          discount={discount}
         />
       )}
       {canRemind && (

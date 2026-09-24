@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { QuoteLineItem } from "@/lib/supabase/types";
+import { applyDiscount, discountLabel, itemsSubtotal, type Discount } from "@/lib/discount";
 
 const styles = StyleSheet.create({
   page: { padding: 40, paddingBottom: 64, fontSize: 10, fontFamily: "Helvetica", color: "#1a1a1a" },
@@ -30,6 +31,7 @@ const styles = StyleSheet.create({
   variantLabel: { fontSize: 8.5, color: "#666", marginTop: 1 },
   totalsBlock: { marginTop: 14, alignItems: "flex-end" },
   totalLine: { fontSize: 11 },
+  subLine: { flexDirection: "row", gap: 16, fontSize: 10, color: "#444", marginBottom: 3 },
   grandTotal: { fontSize: 14, fontFamily: "Helvetica-Bold", marginTop: 4 },
   unpricedNote: { fontSize: 8, color: "#999", marginTop: 4 },
   notesBlock: { marginTop: 26 },
@@ -45,12 +47,12 @@ const styles = StyleSheet.create({
   },
 });
 
-function formatMoney(value: number | null) {
+function formatMoney(value: number | null, maximumFractionDigits = 0) {
   if (value == null) return "On enquiry";
   return new Intl.NumberFormat("en-AU", {
     style: "currency",
     currency: "AUD",
-    maximumFractionDigits: 0,
+    maximumFractionDigits,
   }).format(value);
 }
 
@@ -61,6 +63,7 @@ export function QuotePdfDocument({
   customerPhone,
   items,
   notes,
+  discount = null,
 }: {
   quoteNumber: string;
   customerName: string;
@@ -68,8 +71,9 @@ export function QuotePdfDocument({
   customerPhone: string | null;
   items: QuoteLineItem[];
   notes: string;
+  discount?: Discount | null;
 }) {
-  const total = items.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.quantity, 0);
+  const applied = applyDiscount(itemsSubtotal(items), discount);
   const hasUnpriced = items.some((item) => item.unitPrice == null);
   const today = new Date().toLocaleDateString("en-AU", {
     year: "numeric",
@@ -126,8 +130,20 @@ export function QuotePdfDocument({
         </View>
 
         <View style={styles.totalsBlock}>
+          {applied.amount > 0 && (
+            <>
+              <View style={styles.subLine}>
+                <Text>Subtotal</Text>
+                <Text>{formatMoney(applied.subtotal, 2)}</Text>
+              </View>
+              <View style={[styles.subLine, { marginBottom: 8 }]}>
+                <Text>{discountLabel(applied)}</Text>
+                <Text>-{formatMoney(applied.amount, 2)}</Text>
+              </View>
+            </>
+          )}
           <Text style={styles.totalLine}>Total (AUD)</Text>
-          <Text style={styles.grandTotal}>{formatMoney(total)}</Text>
+          <Text style={styles.grandTotal}>{formatMoney(applied.total, applied.amount > 0 ? 2 : 0)}</Text>
           {hasUnpriced && (
             <Text style={styles.unpricedNote}>
               Items priced on enquiry are excluded from the total above.

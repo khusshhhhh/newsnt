@@ -11,6 +11,7 @@ import { daysAgoIso, isPast } from "@/lib/dates";
 import { ilikeContainsPattern } from "@/lib/search";
 import { buildHref, pageCount, pageRange, parsePage } from "@/lib/admin-list";
 import { editableLinesFromQuoteItems } from "@/lib/quote-lines";
+import { discountFromRow, discountNote } from "@/lib/discount";
 import { cn } from "@/lib/utils";
 import type { QuoteStatus } from "@/lib/supabase/types";
 
@@ -142,7 +143,8 @@ export default async function AdminQuotesPage({
                   </Link>
                 )}
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {quote.items.length} item{quote.items.length === 1 ? "" : "s"} · {formatPrice(quote.total)} · sent{" "}
+                  {quote.items.length} item{quote.items.length === 1 ? "" : "s"} · {formatPrice(quote.total)}
+                  {discountNote(quote)} · sent{" "}
                   {shortDate(quote.sent_at)}
                   {quote.status === "sent" && quote.expires_at && !expired && ` · valid until ${shortDate(quote.expires_at)}`}
                   {quote.reminder_sent_at && ` · reminded ${shortDate(quote.reminder_sent_at)}`}
@@ -158,6 +160,7 @@ export default async function AdminQuotesPage({
                   customerName={quote.customer.name}
                   department={quote.department}
                   lines={editableLinesFromQuoteItems(quote.items)}
+                  discount={discountFromRow(quote)}
                   canRemind={canRemind}
                   reminded={Boolean(quote.reminder_sent_at)}
                 />

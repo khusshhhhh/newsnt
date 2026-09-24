@@ -63,8 +63,12 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
      quote expiry/reminders/versions, order payment fields, trash for products/series/customers,
      inquiry email tracking, a richer activity log, the `error_events` table, and typo-tolerant search.
      Existing admins all become **owners**.
+   - [`0032_quote_order_discounts.sql`](supabase/migrations/0032_quote_order_discounts.sql) — a
+     discount on quotes and orders (`discount_type` percent/amount + `discount_value`; `total` stays
+     the post-discount figure), and `get_quote_by_token` returns it so the customer's quote page
+     shows subtotal, discount and total.
 
-   **Run 0030 and 0031 before deploying the matching code** — the admin panel reads their new
+   **Run 0030, 0031 and 0032 before deploying the matching code** — the admin panel reads their new
    columns. (The public inquiry form falls back safely if 0031 is missing, so no leads are lost.)
 3. In Supabase → Authentication, create your own admin user (email + password), then add
    them to the `admins` table so `0007_admin_roles.sql`'s write policies let them in:
