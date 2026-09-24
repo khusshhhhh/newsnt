@@ -5,7 +5,7 @@ const IGNORED_MESSAGES = [/not signed in as an admin/i, /sign-in code to continu
 
 /**
  * Records every server error (render, route handler, server action, proxy)
- * in the `error_events` table (0031), where /admin/activity shows it under
+ * in the `error_events` table (0031), where the admin dashboard shows it under
  * "System health". Plain REST rather than supabase-js so it works in any
  * runtime, and never throws — error reporting must not cause errors.
  *

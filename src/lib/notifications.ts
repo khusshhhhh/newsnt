@@ -50,7 +50,7 @@ async function itemsHtml(inquiry: InquiryForNotification) {
 /**
  * Emails staff about a new inquiry. Returns an error string when it didn't
  * go out (or email isn't configured), so the caller can record it for the
- * retry button in /admin/activity.
+ * retry button in System health on the admin dashboard.
  */
 export async function sendStaffInquiryNotification(inquiry: InquiryForNotification): Promise<string | null> {
   const notifyTo = process.env.INQUIRY_NOTIFICATION_EMAIL;

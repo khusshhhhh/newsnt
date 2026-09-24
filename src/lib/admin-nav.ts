@@ -18,7 +18,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
   {
     label: null,
     links: [
-      { href: "/admin", label: "Dashboard", icon: "LayoutDashboard" },
+      { href: "/admin", label: "Dashboard", icon: "LayoutDashboard", badge: "errors_24h" },
       { href: "/admin/reports", label: "Reports", icon: "BarChart3", scope: "sales" },
     ],
   },
@@ -50,7 +50,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
   {
     label: "System",
     links: [
-      { href: "/admin/activity", label: "Activity", icon: "History", badge: "errors_24h" },
       { href: "/admin/trash", label: "Trash", icon: "Trash2" },
       { href: "/admin/team", label: "Team", icon: "ShieldCheck", scope: "admins" },
     ],

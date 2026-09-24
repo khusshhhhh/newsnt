@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { BarChart, weeklyBuckets } from "@/components/admin/bar-chart";
+import { SystemHealth } from "@/components/admin/system-health";
 import { formatPrice } from "@/lib/format";
 import { daysAgoIso } from "@/lib/dates";
 import { mediaUrl } from "@/lib/supabase/storage";
@@ -91,13 +92,13 @@ export default async function AdminDashboardPage() {
     sales && stats.failed_notifications > 0 && {
       label: `${stats.failed_notifications} inquiry email${stats.failed_notifications === 1 ? "" : "s"} failed`,
       hint: "Staff weren't notified — retry from System health",
-      href: "/admin/activity#system-health",
+      href: "#system-health",
       icon: MailWarning,
     },
     stats.errors_24h > 0 && {
       label: `${stats.errors_24h} server error${stats.errors_24h === 1 ? "" : "s"} today`,
       hint: "See System health",
-      href: "/admin/activity#system-health",
+      href: "#system-health",
       icon: AlertTriangle,
     },
   ].filter(Boolean) as { label: string; hint: string; href: string; icon: typeof Inbox }[];
@@ -166,6 +167,8 @@ export default async function AdminDashboardPage() {
           </p>
         )}
       </section>
+
+      {((sales && stats.failed_notifications > 0) || stats.errors_24h > 0) && <SystemHealth role={role} />}
 
       <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
         {sales && (
