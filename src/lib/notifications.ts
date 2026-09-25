@@ -1,7 +1,18 @@
 import { escapeHtml, escapeHtmlMultiline, sendEmail } from "@/lib/email";
 import { createPublicClient } from "@/lib/supabase/public";
-import { departmentCopy, isDepartment } from "@/lib/department";
+import { departmentCopy, isDepartment, seriesIndexHref } from "@/lib/department";
 import { SITE_URL } from "@/lib/site";
+import {
+  customerSignOff,
+  emailButton,
+  emailDetails,
+  emailItems,
+  emailLayout,
+  emailParagraph,
+  emailQuote,
+  emailSteps,
+  siteLink,
+} from "@/lib/email-layout";
 import type { InquiryItem } from "@/lib/supabase/types";
 
 export type InquiryForNotification = {
@@ -31,20 +42,26 @@ export function inquiryLineCounts(inquiry: Pick<InquiryForNotification, "items" 
   return counts;
 }
 
-async function productNames(ids: string[]) {
-  if (ids.length === 0) return new Map<string, string>();
+async function products(ids: string[]) {
+  if (ids.length === 0) return new Map<string, { name: string; sku: string | null }>();
   const { data } = await createPublicClient().from("products").select("id, name, sku").in("id", ids);
-  return new Map((data ?? []).map((p) => [p.id, p.sku ? `${p.name} (${p.sku})` : p.name]));
+  return new Map((data ?? []).map((p) => [p.id, { name: p.name, sku: p.sku }]));
 }
 
 async function itemsHtml(inquiry: InquiryForNotification) {
   const counts = inquiryLineCounts(inquiry);
   if (counts.size === 0) return "";
-  const names = await productNames([...counts.keys()]);
-  const rows = [...counts.entries()]
-    .map(([id, qty]) => `<li>${qty} × ${escapeHtml(names.get(id) ?? "Unlisted product")}</li>`)
-    .join("");
-  return `<p><strong>Products:</strong></p><ul>${rows}</ul>`;
+  const found = await products([...counts.keys()]);
+  return emailItems(
+    [...counts.entries()].map(([id, quantity]) => {
+      const product = found.get(id);
+      return {
+        nameHtml: escapeHtml(product?.name ?? "Unlisted product"),
+        metaHtml: product?.sku ? `SKU ${escapeHtml(product.sku)}` : undefined,
+        quantity,
+      };
+    })
+  );
 }
 
 /**
@@ -57,17 +74,31 @@ export async function sendStaffInquiryNotification(inquiry: InquiryForNotificati
   if (!notifyTo) return null;
 
   const department = isDepartment(inquiry.department) ? departmentCopy(inquiry.department).label : inquiry.department;
+  const subject = `New inquiry ${inquiryReference(inquiry.id)} — ${inquiry.name}`;
   const result = await sendEmail({
     to: notifyTo,
-    subject: `New inquiry ${inquiryReference(inquiry.id)} — ${inquiry.name}`,
-    html: `
-      <p><strong>Department:</strong> ${escapeHtml(department)}</p>
-      <p><strong>From:</strong> ${escapeHtml(inquiry.name)} (${escapeHtml(inquiry.email)}${inquiry.phone ? `, ${escapeHtml(inquiry.phone)}` : ""})</p>
-      ${await itemsHtml(inquiry)}
-      <p><strong>Message:</strong></p>
-      <p>${escapeHtmlMultiline(inquiry.message)}</p>
-      <p><a href="${SITE_URL}/admin/inquiries">Open in the admin panel</a></p>
-    `,
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `${inquiry.name} sent a ${department} inquiry.`,
+      eyebrow: `New inquiry ${inquiryReference(inquiry.id)}`,
+      heading: `${inquiry.name} wants a quote`,
+      audience: "staff",
+      body: [
+        emailDetails([
+          ["Department", escapeHtml(department)],
+          ["Name", escapeHtml(inquiry.name)],
+          ["Email", `<a href="mailto:${escapeHtml(inquiry.email)}" style="color:#111111;">${escapeHtml(inquiry.email)}</a>`],
+          ...(inquiry.phone
+            ? ([["Phone", `<a href="tel:${escapeHtml(inquiry.phone.replace(/[^\d+]/g, ""))}" style="color:#111111;">${escapeHtml(inquiry.phone)}</a>`]] as [string, string][])
+            : []),
+          ["Reference", inquiryReference(inquiry.id)],
+        ]),
+        await itemsHtml(inquiry),
+        inquiry.message ? emailQuote(escapeHtmlMultiline(inquiry.message), "Message") : "",
+        emailButton(`${SITE_URL}/admin/inquiries`, "Open in the admin panel"),
+      ].join(""),
+    }),
   });
   if (result.skipped) return "Email isn't configured (RESEND_API_KEY / EMAIL_FROM).";
   return result.error ?? null;
@@ -75,18 +106,41 @@ export async function sendStaffInquiryNotification(inquiry: InquiryForNotificati
 
 /** "We've got your request" receipt for the customer. Returns true when sent. */
 export async function sendCustomerInquiryReceipt(inquiry: InquiryForNotification): Promise<boolean> {
-  const department = isDepartment(inquiry.department) ? departmentCopy(inquiry.department).label : "Flow";
+  const department = isDepartment(inquiry.department) ? inquiry.department : undefined;
+  const label = department ? `Flow ${departmentCopy(department).label}` : "Flow";
+  const reference = inquiryReference(inquiry.id);
+  const subject = `We've received your request ${reference}`;
   const result = await sendEmail({
     to: inquiry.email,
-    subject: `We've received your request ${inquiryReference(inquiry.id)}`,
-    html: `
-      <p>Hi ${escapeHtml(inquiry.name)},</p>
-      <p>Thanks for getting in touch with Flow ${escapeHtml(department)}. We've received your request and a member of the team will get back to you soon.</p>
-      ${await itemsHtml(inquiry)}
-      <p><strong>Your message:</strong></p>
-      <p>${escapeHtmlMultiline(inquiry.message)}</p>
-      <p>Your reference is <strong>${inquiryReference(inquiry.id)}</strong> — mention it if you reply to this email.</p>
-    `,
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `Thanks for getting in touch with ${label} — your reference is ${reference}.`,
+      eyebrow: `Request ${reference}`,
+      heading: "Thanks — we've got your request",
+      audience: "customer",
+      department,
+      body: [
+        emailParagraph(`Hi ${escapeHtml(inquiry.name)},`),
+        emailParagraph(
+          `Thanks for getting in touch with ${escapeHtml(label)}. We've received your request and a member of the team will get back to you soon.`
+        ),
+        emailDetails([
+          ["Reference", `<strong>${reference}</strong>`],
+          ["Department", escapeHtml(department ? departmentCopy(department).label : inquiry.department)],
+        ]),
+        await itemsHtml(inquiry),
+        inquiry.message ? emailQuote(escapeHtmlMultiline(inquiry.message), "Your message") : "",
+        emailSteps([
+          ["We review your request", "Someone from our team checks the products, finishes and quantities you asked about."],
+          ["We send your quote", "You'll get a detailed quote by email, with a PDF you can share with your builder or designer."],
+          ["Accept online", "Happy with it? Accept in a couple of clicks and we'll confirm lead times and delivery."],
+        ]),
+        department ? emailButton(siteLink(seriesIndexHref(department)), "Keep exploring the range", "secondary") : "",
+        emailParagraph(`Mention <strong>${reference}</strong> if you reply to this email — it helps us find your request quickly.`),
+        customerSignOff(),
+      ].join(""),
+    }),
   });
   return !result.skipped && !result.error;
 }

@@ -5,6 +5,18 @@ import { z } from "zod";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { requireAdmin } from "@/lib/admin-guard";
 import { escapeHtml, escapeHtmlMultiline, sendEmail } from "@/lib/email";
+import {
+  customerSignOff,
+  emailButton,
+  emailDetails,
+  emailItems,
+  emailLayout,
+  emailNote,
+  emailParagraph,
+  emailQuote,
+  emailSteps,
+} from "@/lib/email-layout";
+import { formatAmount } from "@/lib/format";
 import { ilikeContainsPattern } from "@/lib/search";
 import { QuotePdfDocument } from "@/lib/pdf/quote-pdf";
 import { SITE_URL } from "@/lib/site";
@@ -197,17 +209,54 @@ async function dispatchQuote(params: {
   const expiresOn = quote.expires_at ? new Date(quote.expires_at).toLocaleDateString("en-AU", { dateStyle: "long" }) : null;
 
   const acceptUrl = `${SITE_URL}/quote/${quote.accept_token}`;
+  const hasUnpriced = params.items.some((item) => item.unitPrice == null);
+  const totalUnits = params.items.reduce((sum, item) => sum + item.quantity, 0);
+  const subject = `Your quote from Flow (${quoteNumber})`;
   const result = await sendEmail({
     to: params.customerEmail,
-    subject: `Your quote from Flow (${quoteNumber})`,
-    html: `
-      <p>Hi ${escapeHtml(params.customerName)},</p>
-      <p>Thanks for your interest — your quote is attached as a PDF.</p>
-      ${params.notes ? `<p>${escapeHtmlMultiline(params.notes)}</p>` : ""}
-      <p><a href="${acceptUrl}">View this quote and accept or decline it</a>.</p>
-      ${expiresOn ? `<p>This quote is valid until ${expiresOn}.</p>` : ""}
-      <p>Let us know if you have any questions.</p>
-    `,
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `Your Flow quote ${quoteNumber} is ready — review it and accept online${expiresOn ? ` before ${expiresOn}` : ""}.`,
+      eyebrow: version > 1 ? `Quote ${quoteNumber} · Revision ${version}` : `Quote ${quoteNumber}`,
+      heading: version > 1 ? "Your updated quote is ready" : "Your quote is ready",
+      audience: "customer",
+      department: params.department,
+      reason: "You're receiving this because you requested a quote from Flow.",
+      body: [
+        emailParagraph(`Hi ${escapeHtml(params.customerName)},`),
+        emailParagraph(
+          version > 1
+            ? "Thanks for your patience — we've revised your quote. The full breakdown is attached as a PDF, and you can accept or decline it online in a couple of clicks."
+            : "Thanks for your interest in Flow. We've put together your quote — the full breakdown is attached as a PDF, and you can accept or decline it online in a couple of clicks."
+        ),
+        emailDetails([
+          ["Quote", escapeHtml(quoteNumber)],
+          ["Items", `${params.items.length} product${params.items.length === 1 ? "" : "s"}, ${totalUnits} unit${totalUnits === 1 ? "" : "s"}`],
+          ...(hasUnpriced ? [] : ([["Total (AUD)", formatAmount(total)]] as [string, string][])),
+          ...(expiresOn ? ([["Valid until", expiresOn]] as [string, string][]) : []),
+        ]),
+        emailButton(acceptUrl, "Review &amp; accept your quote"),
+        emailItems(
+          params.items.map((item) => ({
+            nameHtml: escapeHtml(item.name),
+            metaHtml: [item.variantLabel, item.seriesName && `${item.seriesName} series`, item.sku && `SKU ${item.sku}`]
+              .filter(Boolean)
+              .map((part) => escapeHtml(part as string))
+              .join(" &middot; "),
+            quantity: item.quantity,
+          }))
+        ),
+        params.notes ? emailQuote(escapeHtmlMultiline(params.notes), "A note from our team") : "",
+        emailSteps([
+          ["Review the quote", "Check the products, finishes and quantities in the attached PDF."],
+          ["Accept online", "Use the button above — no need to print, sign or scan anything."],
+          ["We confirm your order", "Our team will be in touch to confirm lead times and delivery."],
+        ]),
+        hasUnpriced ? emailNote("Some items are priced on enquiry — we'll confirm those with you directly.") : "",
+        customerSignOff(),
+      ].join(""),
+    }),
     attachments: [{ filename: quoteFilename(quoteNumber, params.customerName), content: buffer }],
   });
 
@@ -294,7 +343,7 @@ export async function sendQuoteReminder(quoteId: string) {
   const { supabase } = await requireAdmin("sales");
   const { data: quote, error } = await supabase
     .from("quotes")
-    .select("quote_number, status, accept_token, expires_at, customer:customers(name, email)")
+    .select("quote_number, status, department, accept_token, expires_at, customer:customers(name, email)")
     .eq("id", quoteId)
     .single();
   if (error || !quote?.customer) throw new Error("Quote not found");
@@ -305,15 +354,31 @@ export async function sendQuoteReminder(quoteId: string) {
 
   const acceptUrl = `${SITE_URL}/quote/${quote.accept_token}`;
   const expiresOn = quote.expires_at ? new Date(quote.expires_at).toLocaleDateString("en-AU", { dateStyle: "long" }) : null;
+  const subject = `Following up on your quote ${quote.quote_number}`;
   const result = await sendEmail({
     to: quote.customer.email,
-    subject: `Following up on your quote ${quote.quote_number}`,
-    html: `
-      <p>Hi ${escapeHtml(quote.customer.name)},</p>
-      <p>Just checking in on quote ${escapeHtml(quote.quote_number)} we sent you. Happy to answer any questions or adjust it.</p>
-      <p><a href="${acceptUrl}">View the quote and accept or decline it</a>.</p>
-      ${expiresOn ? `<p>It's valid until ${expiresOn}.</p>` : ""}
-    `,
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `Just checking in on quote ${quote.quote_number}${expiresOn ? ` — it's valid until ${expiresOn}` : ""}.`,
+      eyebrow: `Quote ${quote.quote_number}`,
+      heading: "Just checking in",
+      audience: "customer",
+      department: quote.department,
+      reason: "You're receiving this because you requested a quote from Flow.",
+      body: [
+        emailParagraph(`Hi ${escapeHtml(quote.customer.name)},`),
+        emailParagraph(
+          `We wanted to follow up on quote <strong>${escapeHtml(quote.quote_number)}</strong>. If anything needs changing — quantities, finishes, a different series — let us know and we'll happily revise it.`
+        ),
+        emailDetails([
+          ["Quote", escapeHtml(quote.quote_number)],
+          ...(expiresOn ? ([["Valid until", expiresOn]] as [string, string][]) : []),
+        ]),
+        emailButton(acceptUrl, "View your quote"),
+        customerSignOff(),
+      ].join(""),
+    }),
   });
   if (result.skipped || result.error) {
     throw new Error(result.skipped ? "Email isn't configured (RESEND_API_KEY / EMAIL_FROM)." : (result.error ?? "Failed to send"));

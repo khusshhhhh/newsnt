@@ -3,6 +3,7 @@ import type { Database } from "@/lib/supabase/types";
 import { escapeHtml, sendEmail } from "@/lib/email";
 import { sendStaffInquiryNotification, inquiryReference } from "@/lib/notifications";
 import { SITE_URL } from "@/lib/site";
+import { emailButton, emailDetails, emailHeading, emailLayout, emailList, emailParagraph } from "@/lib/email-layout";
 import type { InquiryItem } from "@/lib/supabase/types";
 
 type ServiceClient = SupabaseClient<Database>;
@@ -92,31 +93,49 @@ export async function sendDailyDigest(supabase: ServiceClient) {
     d.newInquiries.length === 0 && d.pendingReviews === 0 && d.pendingPhotos === 0 && d.quotesToFollowUp.length === 0 && d.errors === 0;
   if (nothingToReport) return { sent: false, reason: "Nothing to report" };
 
-  const section = (title: string, body: string) => `<h3 style="margin:20px 0 6px">${title}</h3>${body}`;
-  const html = [
-    `<p>Here's what needs attention in the Flow admin panel today.</p>`,
+  const total = d.newInquiries.length + d.quotesToFollowUp.length + d.pendingReviews + d.pendingPhotos;
+  const body = [
+    emailParagraph("Here's what needs attention in the Flow admin panel today."),
+    emailDetails([
+      ["New inquiries (24h)", String(d.newInquiries.length)],
+      ["Quotes waiting over a week", String(d.quotesToFollowUp.length)],
+      ["To moderate", `${d.pendingReviews} review${d.pendingReviews === 1 ? "" : "s"}, ${d.pendingPhotos} photo${d.pendingPhotos === 1 ? "" : "s"}`],
+      ["Server errors (24h)", String(d.errors)],
+    ]),
     d.newInquiries.length > 0
-      ? section(
-          `${d.newInquiries.length} new inquir${d.newInquiries.length === 1 ? "y" : "ies"} (last 24h)`,
-          `<ul>${d.newInquiries.map((i) => `<li>${escapeHtml(i.name)} — ${inquiryReference(i.id)}</li>`).join("")}</ul>`
-        )
+      ? emailHeading(`${d.newInquiries.length} new inquir${d.newInquiries.length === 1 ? "y" : "ies"}`) +
+        emailList(d.newInquiries.map((i) => `${escapeHtml(i.name)} <span style="color:#6b6b6b;">— ${inquiryReference(i.id)}</span>`))
       : "",
     d.quotesToFollowUp.length > 0
-      ? section(
-          `${d.quotesToFollowUp.length} quote${d.quotesToFollowUp.length === 1 ? "" : "s"} waiting over a week`,
-          `<ul>${d.quotesToFollowUp
-            .map((q) => `<li>${escapeHtml(q.quote_number)} — ${escapeHtml(q.customer?.name ?? "Unknown")}, sent ${new Date(q.sent_at).toLocaleDateString("en-AU")}</li>`)
-            .join("")}</ul>`
+      ? emailHeading(`${d.quotesToFollowUp.length} quote${d.quotesToFollowUp.length === 1 ? "" : "s"} to follow up`) +
+        emailList(
+          d.quotesToFollowUp.map(
+            (q) =>
+              `${escapeHtml(q.quote_number)} — ${escapeHtml(q.customer?.name ?? "Unknown")} <span style="color:#6b6b6b;">sent ${new Date(q.sent_at).toLocaleDateString("en-AU")}</span>`
+          )
         )
       : "",
-    d.pendingReviews + d.pendingPhotos > 0
-      ? section("To moderate", `<p>${d.pendingReviews} review(s), ${d.pendingPhotos} project photo(s).</p>`)
+    d.errors > 0
+      ? emailHeading("Server errors") +
+        emailParagraph(`${d.errors} in the last 24 hours — see System health on the admin dashboard.`)
       : "",
-    d.errors > 0 ? section("Server errors", `<p>${d.errors} in the last 24 hours — see System health on the admin dashboard.</p>`) : "",
-    `<p style="margin-top:24px"><a href="${SITE_URL}/admin">Open the admin panel</a></p>`,
+    emailButton(`${SITE_URL}/admin`, "Open the admin panel"),
   ].join("");
 
-  const result = await sendEmail({ to, subject: "Flow admin — daily summary", html });
+  const subject = "Flow admin — daily summary";
+  const html = emailLayout({
+    title: subject,
+    preheader:
+      total > 0
+        ? `${total} item${total === 1 ? "" : "s"} need${total === 1 ? "s" : ""} attention today.`
+        : `${d.errors} server error${d.errors === 1 ? "" : "s"} in the last 24 hours.`,
+    eyebrow: new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" }),
+    heading: "Your daily summary",
+    audience: "staff",
+    body,
+  });
+
+  const result = await sendEmail({ to, subject, html });
   return { sent: !result.skipped && !result.error, reason: result.error };
 }
 

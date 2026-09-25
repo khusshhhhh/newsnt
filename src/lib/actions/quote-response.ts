@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import { escapeHtml, sendEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
+import { emailButton, emailDetails, emailLayout, emailParagraph } from "@/lib/email-layout";
 
 /** Looked up by the unguessable `accept_token` in the emailed link — never by id, so there's nothing to enumerate. */
 export async function getPublicQuote(token: string) {
@@ -26,13 +27,30 @@ export async function respondToQuote(token: string, status: "accepted" | "declin
     after(async () => {
       const quote = await getPublicQuote(token);
       if (!quote) return;
+      const subject = `Quote ${quote.quote_number} ${status} by ${quote.customer_name}`;
       await sendEmail({
         to: notifyTo,
-        subject: `Quote ${quote.quote_number} ${status} by ${quote.customer_name}`,
-        html: `
-          <p><strong>${escapeHtml(quote.customer_name)}</strong> (${escapeHtml(quote.customer_email)}) has <strong>${status}</strong> quote ${escapeHtml(quote.quote_number)}.</p>
-          ${status === "accepted" ? `<p>Next step: <a href="${SITE_URL}/admin/quotes">turn it into an order</a>.</p>` : ""}
-        `,
+        subject,
+        html: emailLayout({
+          title: subject,
+          preheader: `${quote.customer_name} has ${status} quote ${quote.quote_number}.`,
+          eyebrow: `Quote ${quote.quote_number}`,
+          heading: `${quote.customer_name} ${status} their quote`,
+          audience: "staff",
+          body: [
+            emailDetails([
+              ["Customer", escapeHtml(quote.customer_name)],
+              ["Email", `<a href="mailto:${escapeHtml(quote.customer_email)}" style="color:#111111;">${escapeHtml(quote.customer_email)}</a>`],
+              ["Quote", escapeHtml(quote.quote_number)],
+              ["Decision", status === "accepted" ? "Accepted" : "Declined"],
+            ]),
+            status === "accepted"
+              ? emailParagraph("Next step: turn it into an order while it's fresh.") +
+                emailButton(`${SITE_URL}/admin/quotes`, "Create the order")
+              : emailParagraph("Worth a quick call to find out why — a revised quote might still win it.") +
+                emailButton(`${SITE_URL}/admin/quotes`, "Open quotes", "secondary"),
+          ].join(""),
+        }),
       });
     });
   }

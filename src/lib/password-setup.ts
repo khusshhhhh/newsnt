@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/site";
+import { emailButton, emailLayout, emailNote, emailParagraph, emailSteps } from "@/lib/email-layout";
 
 /**
  * Emails a one-time link to /admin/login/reset for setting (invite) or
@@ -18,17 +19,47 @@ export async function sendPasswordSetupEmail(email: string, kind: "invite" | "re
   }
 
   const url = `${SITE_URL}/admin/login/reset?token_hash=${encodeURIComponent(data.properties.hashed_token)}`;
+  const subject = kind === "invite" ? "You've been added to the Flow admin panel" : "Reset your Flow admin password";
   const result = await sendEmail({
     to: email,
-    subject: kind === "invite" ? "You've been added to the Flow admin panel" : "Reset your Flow admin password",
-    html:
+    subject,
+    html: emailLayout(
       kind === "invite"
-        ? `<p>You've been given access to the Flow admin panel.</p>
-           <p><a href="${url}">Set your password</a> to get started. The link works once and expires in an hour.</p>
-           <p>Each time you sign in you'll also be emailed a 6-digit code.</p>`
-        : `<p>Someone asked to reset the password for this Flow admin account.</p>
-           <p><a href="${url}">Choose a new password</a>. The link works once and expires in an hour.</p>
-           <p>If this wasn't you, you can ignore this email — your password hasn't changed.</p>`,
+        ? {
+            title: subject,
+            preheader: "Set your password to start using the Flow admin panel. The link expires in an hour.",
+            eyebrow: "Welcome to the team",
+            heading: "You've been added to the Flow admin panel",
+            audience: "staff",
+            reason: "Sent because an owner added this address to the Flow admin panel.",
+            body: [
+              emailParagraph(
+                "You've been given access to the Flow admin panel — where the team manages the catalogue, inquiries, quotes and orders."
+              ),
+              emailButton(url, "Set your password"),
+              emailSteps([
+                ["Set a password", "Use at least 12 characters. The button above works once and expires in an hour."],
+                ["Sign in", `Head to <a href="${SITE_URL}/admin/login" style="color:#111111;">the admin sign-in page</a> with your email and new password.`],
+                ["Enter your code", "Each time you sign in we'll email you a 6-digit code to confirm it's you."],
+              ]),
+              emailNote("Weren't expecting this? You can ignore this email — nothing happens until a password is set."),
+            ].join(""),
+          }
+        : {
+            title: subject,
+            preheader: "Choose a new password for your Flow admin account. The link expires in an hour.",
+            eyebrow: "Password reset",
+            heading: "Reset your password",
+            audience: "staff",
+            reason: "Sent because a password reset was requested for this Flow admin account.",
+            body: [
+              emailParagraph("Someone asked to reset the password for this Flow admin account."),
+              emailButton(url, "Choose a new password"),
+              emailNote("The link works once and expires in an hour."),
+              emailNote("<strong>Wasn't you?</strong> You can ignore this email — your password hasn't changed."),
+            ].join(""),
+          }
+    ),
   });
   return { sent: !result.skipped && !result.error };
 }

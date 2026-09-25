@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { emailCode, emailLayout, emailNote, emailParagraph } from "@/lib/email-layout";
 import { withinRateLimit } from "@/lib/rate-limit";
 import { sendPasswordSetupEmail } from "@/lib/password-setup";
 import {
@@ -49,14 +50,26 @@ async function sendOtpEmail(userId: string, email: string) {
     .eq("user_id", userId);
   if (updateError) throw new Error(updateError.message);
 
+  const subject = `Your Flow Admin sign-in code: ${code}`;
   const result = await sendEmail({
     to: email,
-    subject: `Your Flow Admin sign-in code: ${code}`,
-    html: `
-      <p>Your sign-in code is:</p>
-      <p style="font-size: 28px; font-weight: 700; letter-spacing: 4px;">${code}</p>
-      <p>It expires in 10 minutes. If you didn't try to sign in, you can ignore this email.</p>
-    `,
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: "Enter this code to finish signing in. It expires in 10 minutes.",
+      eyebrow: "Admin sign-in",
+      heading: "Your sign-in code",
+      audience: "staff",
+      reason: "Sent because someone signed in to the Flow admin panel with this account's password.",
+      body: [
+        emailParagraph("Enter this code on the sign-in page to finish signing in:"),
+        emailCode(code),
+        emailNote("It expires in 10 minutes and works once."),
+        emailNote(
+          "<strong>Didn't try to sign in?</strong> Someone may have your password — reset it from the sign-in page and let an owner know."
+        ),
+      ].join(""),
+    }),
   });
   if (result.skipped || result.error) {
     throw new Error(

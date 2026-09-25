@@ -105,6 +105,10 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
      old rows. Vercel sends it automatically once the variable is set in the project.
    - `ADMIN_DIGEST_EMAIL` (optional) — where the daily summary goes; defaults to
      `INQUIRY_NOTIFICATION_EMAIL`.
+   - `BRAND_PHONE`, `BRAND_ADDRESS`, `BRAND_INSTAGRAM_URL`, `BRAND_LINKEDIN_URL`,
+     `BRAND_FACEBOOK_URL`, `BRAND_PINTEREST_URL` (all optional) — contact details and social links
+     in the footer of customer emails (quotes, receipts). Only what's set is shown; the contact
+     email comes from `NEXT_PUBLIC_ENQUIRY_EMAIL`. Social links must start with `https://`.
    - `ERROR_WEBHOOK_URL` (optional) — server errors are always recorded in `error_events` and shown
      under System health on the admin dashboard; set this to also POST each one to Slack/Discord/etc.
 5. Install dependencies and run the dev server:
