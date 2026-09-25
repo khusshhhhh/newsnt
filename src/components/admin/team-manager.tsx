@@ -77,49 +77,55 @@ export function TeamManager({ members, currentUserId }: { members: TeamMember[];
       </form>
 
       <div className="divide-y divide-border rounded-xl border border-border">
-        {members.map((m) => (
-          <div key={m.userId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="truncate text-sm text-foreground">{m.email}</span>
-                {m.userId === currentUserId && <Badge variant="secondary">You</Badge>}
+        {members.map((m) => {
+          const isSelf = m.userId === currentUserId;
+          // Owners can't be removed, and an owner can't change another owner's role.
+          const otherOwner = m.role === "owner" && !isSelf;
+          return (
+            <div key={m.userId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm text-foreground">{m.email}</span>
+                  {isSelf && <Badge variant="secondary">You</Badge>}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Added {formatDate(m.createdAt)} · Last sign-in {formatDate(m.lastSignInAt)}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Added {formatDate(m.createdAt)} · Last sign-in {formatDate(m.lastSignInAt)}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                aria-label={`Role for ${m.email}`}
-                value={m.role}
-                disabled={pending}
-                onChange={(e) => run(() => changeAdminRole(m.userId, e.target.value as AdminRole), "Role updated")}
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-              >
-                {ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-              {m.userId !== currentUserId && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={pending}
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => {
-                    if (!window.confirm(`Remove admin access for ${m.email}? They'll be signed out of the admin panel.`)) return;
-                    run(() => removeAdmin(m.userId), `${m.email} removed`);
-                  }}
+              <div className="flex items-center gap-2">
+                <select
+                  aria-label={`Role for ${m.email}`}
+                  value={m.role}
+                  disabled={pending || otherOwner}
+                  title={otherOwner ? "Owners can't change another owner's role" : undefined}
+                  onChange={(e) => run(() => changeAdminRole(m.userId, e.target.value as AdminRole), "Role updated")}
+                  className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
                 >
-                  Remove
-                </Button>
-              )}
+                  {ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+                {!isSelf && m.role !== "owner" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={pending}
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => {
+                      if (!window.confirm(`Remove admin access for ${m.email}? They'll be signed out of the admin panel.`)) return;
+                      run(() => removeAdmin(m.userId), `${m.email} removed`);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

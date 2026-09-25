@@ -47,6 +47,11 @@ async function ownerCount(service: ReturnType<typeof createAdminClient>) {
   return count ?? 0;
 }
 
+async function roleOf(service: ReturnType<typeof createAdminClient>, userId: string) {
+  const { data } = await service.from("admins").select("role").eq("user_id", userId).maybeSingle();
+  return data?.role ?? null;
+}
+
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
   role: z.enum(ROLES),
@@ -83,6 +88,11 @@ export async function inviteAdmin(rawInput: { email: string; role: AdminRole }) 
     if (!userId) throw new Error(createError?.message ?? "Couldn't create this user.");
   }
 
+  // Re-inviting an existing owner would overwrite their role — same rule as changeAdminRole.
+  if ((await roleOf(service, userId)) === "owner" && role !== "owner") {
+    throw new Error("That person is already an owner — owners can't change another owner's role.");
+  }
+
   const { error } = await service.from("admins").upsert({ user_id: userId, role }, { onConflict: "user_id" });
   if (error) throw new Error(error.message);
 
@@ -91,16 +101,18 @@ export async function inviteAdmin(rawInput: { email: string; role: AdminRole }) 
   return { emailed: emailResult.sent };
 }
 
+/** Only owners get here (the "admins" scope). An owner can't change another owner's role. */
 export async function changeAdminRole(userId: string, role: AdminRole) {
   if (!ROLES.includes(role)) throw new Error("Invalid role");
-  await requireAdmin("admins");
+  const { user } = await requireAdmin("admins");
   const service = createAdminClient();
 
-  if (role !== "owner") {
-    const { data: current } = await service.from("admins").select("role").eq("user_id", userId).maybeSingle();
-    if (current?.role === "owner" && (await ownerCount(service)) <= 1) {
-      throw new Error("There must be at least one owner.");
-    }
+  const current = await roleOf(service, userId);
+  if (current === "owner" && userId !== user.id) {
+    throw new Error("You can't change another owner's role.");
+  }
+  if (current === "owner" && role !== "owner" && (await ownerCount(service)) <= 1) {
+    throw new Error("There must be at least one owner.");
   }
 
   const { error } = await service.from("admins").update({ role }).eq("user_id", userId);
@@ -108,16 +120,18 @@ export async function changeAdminRole(userId: string, role: AdminRole) {
   revalidatePath("/admin/team");
 }
 
-/** Removes admin access (the Supabase Auth user itself is kept) and ends their verified sessions. */
+/**
+ * Removes admin access (the Supabase Auth user itself is kept) and ends their verified sessions.
+ * Only owners get here (the "admins" scope), and only editors and sales can be removed — never an owner.
+ */
 export async function removeAdmin(userId: string) {
   const { user } = await requireAdmin("admins");
-  if (userId === user.id) throw new Error("You can't remove yourself — ask another owner.");
+  if (userId === user.id) throw new Error("You can't remove yourself.");
   const service = createAdminClient();
 
-  const { data: current } = await service.from("admins").select("role").eq("user_id", userId).maybeSingle();
-  if (current?.role === "owner" && (await ownerCount(service)) <= 1) {
-    throw new Error("There must be at least one owner.");
-  }
+  const current = await roleOf(service, userId);
+  if (!current) throw new Error("That person isn't on the team.");
+  if (current === "owner") throw new Error("Owners can't be removed.");
 
   const { error } = await service.from("admins").delete().eq("user_id", userId);
   if (error) throw new Error(error.message);
