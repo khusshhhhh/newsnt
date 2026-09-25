@@ -4,7 +4,6 @@ import { z } from "zod";
 import { createPublicClient } from "@/lib/supabase/public";
 import { looksLikeBot, withinRateLimit } from "@/lib/rate-limit";
 import { DEPARTMENTS } from "@/lib/department";
-import { isMissingBlurColumn, sanitizeBlurDataUrl, withoutBlur } from "@/lib/blur-placeholder";
 
 const schema = z.object({
   department: z.enum(DEPARTMENTS),
@@ -47,18 +46,15 @@ export async function submitProjectPhoto(
   }
 
   const supabase = createPublicClient();
-  const row = {
+  const { error } = await supabase.from("project_photos").insert({
     department: parsed.data.department,
     series_id: parsed.data.series_id ?? null,
     storage_path: parsed.data.storage_path,
-    blur_data_url: sanitizeBlurDataUrl(formData.get("storage_path_blur")),
     caption: parsed.data.caption ?? null,
     submitter_name: parsed.data.submitter_name,
     submitter_email: parsed.data.submitter_email,
-    status: "pending" as const,
-  };
-  let { error } = await supabase.from("project_photos").insert(row);
-  if (isMissingBlurColumn(error)) ({ error } = await supabase.from("project_photos").insert(withoutBlur(row)));
+    status: "pending",
+  });
 
   if (error) {
     return { error: "Something went wrong — try again." };

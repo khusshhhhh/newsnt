@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Image, { type StaticImageData } from "next/image";
 import { Volume2, VolumeX } from "lucide-react";
-import { blurFor } from "@/lib/blur-placeholder";
 import { cn } from "@/lib/utils";
 
 /**
@@ -121,8 +120,6 @@ export function HeroMedia({
           fill
           preload
           sizes="(min-width: 1024px) 40vw, 90vw"
-          placeholder="blur"
-          blurDataURL={blurFor(imageSrc)}
           className="animate-ken-burns object-cover"
         />
       ) : null}

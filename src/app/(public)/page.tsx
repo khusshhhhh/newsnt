@@ -27,14 +27,12 @@ export default async function GatewayPage() {
   const panels: GatewayPanelData[] = [
     {
       department: "sanitary-tapware",
-      heroImage: tapwareHero ? mediaUrl(tapwareHero.path) : FALLBACK_HERO["sanitary-tapware"],
-      heroBlur: tapwareHero?.blur ?? null,
+      heroImage: tapwareHero ? mediaUrl(tapwareHero) : FALLBACK_HERO["sanitary-tapware"],
       eyebrow: "01",
     },
     {
       department: "door-hardware",
-      heroImage: hardwareHero ? mediaUrl(hardwareHero.path) : FALLBACK_HERO["door-hardware"],
-      heroBlur: hardwareHero?.blur ?? null,
+      heroImage: hardwareHero ? mediaUrl(hardwareHero) : FALLBACK_HERO["door-hardware"],
       eyebrow: "02",
     },
   ];

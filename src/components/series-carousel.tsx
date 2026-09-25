@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { mediaUrl } from "@/lib/supabase/storage";
 import { seriesHref } from "@/lib/department";
-import { blurFor } from "@/lib/blur-placeholder";
 import { FALLBACK_HERO } from "@/lib/fallback-hero";
 import type { Series } from "@/lib/supabase/types";
 
@@ -69,8 +68,6 @@ function SeriesCard({ series, index }: { series: Series; index: number }) {
           alt={series.name}
           fill
           sizes="(min-width: 640px) 340px, 78vw"
-          placeholder="blur"
-          blurDataURL={blurFor(image, series.hero_blur_data_url)}
           className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
         />
       ) : (

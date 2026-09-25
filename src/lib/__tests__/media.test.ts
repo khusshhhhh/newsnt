@@ -1,33 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BLUR_DATA_URL, blurFor, sanitizeBlurDataUrl } from "@/lib/blur-placeholder";
 import { createLimiter, sanitizeFilename } from "@/lib/upload";
 import { documentUrl, mediaUrl } from "@/lib/supabase/storage";
-
-describe("sanitizeBlurDataUrl", () => {
-  it("accepts a small base64 raster data URL", () => {
-    const value = "data:image/webp;base64,UklGRkQAAABXRUJQVlA4IDgAAAA=";
-    expect(sanitizeBlurDataUrl(value)).toBe(value);
-  });
-
-  it("rejects anything else a public form could send", () => {
-    expect(sanitizeBlurDataUrl("data:image/svg+xml,<svg onload=alert(1)>")).toBeNull();
-    expect(sanitizeBlurDataUrl("https://example.com/x.png")).toBeNull();
-    expect(sanitizeBlurDataUrl(`data:image/webp;base64,${"A".repeat(5000)}`)).toBeNull();
-    expect(sanitizeBlurDataUrl(null)).toBeNull();
-    expect(sanitizeBlurDataUrl("")).toBeNull();
-  });
-});
-
-describe("blurFor", () => {
-  it("prefers the stored preview, then the flat placeholder", () => {
-    expect(blurFor("https://x/a.webp", "data:image/webp;base64,AA==")).toBe("data:image/webp;base64,AA==");
-    expect(blurFor("https://x/a.webp", null)).toBe(BLUR_DATA_URL);
-  });
-
-  it("leaves static imports to their build-time preview", () => {
-    expect(blurFor({ src: "/_next/static/a.webp", width: 1, height: 1 }, null)).toBeUndefined();
-  });
-});
 
 describe("storage URLs", () => {
   it("matches supabase-js getPublicUrl (encodeURI, leading slashes trimmed)", () => {

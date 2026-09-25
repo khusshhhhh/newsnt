@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 
 const SLIDE_INTERVAL_MS = 3500;
 
@@ -27,8 +26,7 @@ export function ImageSlider({
   priority = false,
   dots = true,
 }: {
-  // Each slide's URL and, when it has one, its stored blurred preview.
-  images: { src: string; blur?: string | null }[];
+  images: string[];
   alt: string;
   sizes?: string;
   priority?: boolean;
@@ -67,7 +65,7 @@ export function ImageSlider({
       {rotates && onScreen && (
         <Image
           key={`next-${(index + 1) % images.length}`}
-          src={images[(index + 1) % images.length].src}
+          src={images[(index + 1) % images.length]}
           alt=""
           aria-hidden
           fill
@@ -85,13 +83,11 @@ export function ImageSlider({
           className="absolute inset-0"
         >
           <Image
-            src={images[index].src}
+            src={images[index]}
             alt={alt}
             fill
             sizes={sizes}
             preload={priority && index === 0}
-            placeholder="blur"
-            blurDataURL={images[index].blur || BLUR_DATA_URL}
             className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
           />
         </motion.div>

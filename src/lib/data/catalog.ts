@@ -332,22 +332,20 @@ export const getPublishedProductSlugs = unstable_cache(
 );
 
 export const getDepartmentHeroImage = unstable_cache(
-  async (department: Department): Promise<{ path: string; blur: string | null } | null> => {
+  async (department: Department): Promise<string | null> => {
     const supabase = createPublicClient();
     const { data } = await supabase
       .from("series")
-      // "*" rather than naming hero_blur_data_url, so this keeps working on a
-      // database that hasn't had 0035_image_blur_placeholders.sql applied yet.
-      .select("*")
+      .select("hero_image_url")
       .eq("department", department)
       .eq("is_published", true)
       .not("hero_image_url", "is", null)
       .order("display_order", { ascending: true })
       .limit(1)
       .maybeSingle();
-    return data?.hero_image_url ? { path: data.hero_image_url, blur: data.hero_blur_data_url ?? null } : null;
+    return data?.hero_image_url ?? null;
   },
-  ["department-hero-image-v2"],
+  ["department-hero-image-v3"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );
 

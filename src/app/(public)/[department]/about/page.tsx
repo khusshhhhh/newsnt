@@ -25,7 +25,7 @@ const FOUNDERS: Array<{
   initials: string;
   role: string;
   note: string;
-  // Static imports: hashed, immutable URLs and a build-time blur preview.
+  // Static imports: hashed, immutable URLs.
   photo?: StaticImageData;
 }> = [
   {
@@ -169,7 +169,6 @@ export default async function AboutPage({ params }: { params: Promise<Params> })
                       alt={founder.name}
                       fill
                       sizes="(min-width: 640px) 33vw, 90vw"
-                      placeholder="blur"
                       className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-110"
                     />
                   ) : (

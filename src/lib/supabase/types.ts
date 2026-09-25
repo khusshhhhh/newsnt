@@ -53,8 +53,6 @@ export type Series = {
   slug: string;
   design_story: string | null;
   hero_image_url: string | null;
-  /** Blurred preview of hero_image_url (see 0035_image_blur_placeholders.sql). */
-  hero_blur_data_url: string | null;
   display_order: number;
   is_published: boolean;
   created_at: string;
@@ -65,7 +63,6 @@ export type SeriesImage = {
   id: string;
   series_id: string;
   storage_path: string;
-  blur_data_url: string | null;
   display_order: number;
   created_at: string;
 };
@@ -85,7 +82,6 @@ export type CategoryImage = {
   id: string;
   category_id: string;
   storage_path: string;
-  blur_data_url: string | null;
   display_order: number;
   created_at: string;
 };
@@ -123,7 +119,6 @@ export type ProductImage = {
   product_id: string;
   variant_id: string | null;
   storage_path: string;
-  blur_data_url: string | null;
   alt_text: string | null;
   display_order: number;
 };
@@ -296,7 +291,6 @@ export type ProjectPhoto = {
   department: Department;
   series_id: string | null;
   storage_path: string;
-  blur_data_url: string | null;
   caption: string | null;
   submitter_name: string;
   submitter_email: string;

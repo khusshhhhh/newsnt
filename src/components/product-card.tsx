@@ -6,7 +6,6 @@ import Link from "next/link";
 import type { ProductWithRelations } from "@/lib/supabase/types";
 import { productImageUrl } from "@/lib/supabase/storage";
 import { productHref } from "@/lib/department";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { getDefaultVariant } from "@/lib/colors";
 import { formatPrice } from "@/lib/format";
 import { STOCK_STATUS_LABEL } from "@/lib/stock-status";
@@ -59,8 +58,6 @@ export function ProductCard({
             fill
             loading={eager ? "eager" : undefined}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-            placeholder="blur"
-            blurDataURL={image.blur_data_url || BLUR_DATA_URL}
             className="object-contain p-8 transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (

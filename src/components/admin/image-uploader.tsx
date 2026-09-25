@@ -29,13 +29,9 @@ import { cn } from "@/lib/utils";
  * admin sees even though up to three files upload at once. Tiles can be
  * dragged (mouse, or the grip on touch screens) or moved with the arrow
  * keys to change the order, and images can be pasted in with Ctrl/Cmd+V.
- *
- * Alongside `fieldName`, a parallel `${fieldName}_blur` field carries each
- * new image's tiny blurred preview ("" for images that were already saved,
- * which the server keeps as they were).
  */
 /** `previewUrl` is kept for files uploaded this session so the tile doesn't flash while the remote copy loads. */
-type DoneItem = { key: string; status: "done"; path: string; previewUrl?: string; blurDataUrl?: string | null };
+type DoneItem = { key: string; status: "done"; path: string; previewUrl?: string };
 type PendingItem = {
   key: string;
   status: "preparing" | "uploading" | "error";
@@ -119,7 +115,7 @@ export function ImageUploader({
       await limit(async () => {
         if (controller.signal.aborted) return;
         patch(key, { status: "preparing", progress: 0, error: undefined });
-        const { file, blurDataUrl } = await prepareImage(item.file);
+        const file = await prepareImage(item.file);
         patch(key, { status: "uploading" });
         const path = uniqueStoragePath(folder, file);
         await uploadWithProgress({
@@ -130,9 +126,7 @@ export function ImageUploader({
           onProgress: (progress) => patch(key, { progress }),
         });
         setItems((prev) =>
-          prev.map((i) =>
-            i.key === key ? { key, status: "done", path, previewUrl: item.previewUrl, blurDataUrl } : i
-          )
+          prev.map((i) => (i.key === key ? { key, status: "done", path, previewUrl: item.previewUrl } : i))
         );
       });
     } catch (e) {
@@ -198,12 +192,7 @@ export function ImageUploader({
   return (
     <div ref={rootRef} className="flex flex-col gap-3">
       {doneItems.length > 0 ? (
-        doneItems.map((item) => (
-          <span key={item.key} hidden>
-            <input type="hidden" name={fieldName} value={item.path} />
-            <input type="hidden" name={`${fieldName}_blur`} value={item.blurDataUrl ?? ""} />
-          </span>
-        ))
+        doneItems.map((item) => <input key={item.key} type="hidden" name={fieldName} value={item.path} />)
       ) : (
         <input type="hidden" name={fieldName} value="" />
       )}

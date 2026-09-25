@@ -70,10 +70,10 @@ tapware/sanitaryware and door hardware — backed by Supabase (Postgres, Storage
    - [`0033_stop_activity_logging.sql`](supabase/migrations/0033_stop_activity_logging.sql) and
      [`0034_drop_activity_log.sql`](supabase/migrations/0034_drop_activity_log.sql) — retire the admin
      activity log: `respond_to_quote` stops writing to it, then the `activity_log` table is dropped.
-   - [`0035_image_blur_placeholders.sql`](supabase/migrations/0035_image_blur_placeholders.sql) — a
-     tiny blurred preview per photo (`blur_data_url`, and `series.hero_blur_data_url`), shown while
-     the real image loads. Safe on either side of a deploy (the app falls back to flat placeholders
-     without it); afterwards run `node scripts/optimize-media.mjs --apply` once (see "Media" below).
+   - [`0035_image_blur_placeholders.sql`](supabase/migrations/0035_image_blur_placeholders.sql) and
+     [`0036_drop_image_blur_placeholders.sql`](supabase/migrations/0036_drop_image_blur_placeholders.sql)
+     — blurred loading previews per photo, since retired: 0036 drops the `blur_data_url` /
+     `series.hero_blur_data_url` columns 0035 added. Safe on either side of a deploy.
 
    **Run 0030, 0031 and 0032 before deploying the matching code** — the admin panel reads their new
    columns. (The public inquiry form falls back safely if 0031 is missing, so no leads are lost.)
@@ -206,15 +206,15 @@ hour. `searchProducts` is intentionally left uncached (search terms are unbounde
 
 - **Uploads** go straight from the browser to Supabase Storage with a live progress ring
   (`src/lib/upload.ts`). Photos are downscaled to at most 2560px and re-encoded to WebP first
-  (`src/lib/compress-image.ts` — GIF/AVIF and already-small files are left alone), and a ~16px
-  blur preview is saved alongside. Every object path is unique, so files are stored with a
-  one-year `Cache-Control` and `next.config.ts` keeps optimized copies for 31 days.
+  (`src/lib/compress-image.ts` — GIF/AVIF and already-small files are left alone). Every object
+  path is unique, so files are stored with a one-year `Cache-Control` and `next.config.ts` keeps
+  optimized copies for 31 days.
 - **Existing photos** from before that: `node scripts/optimize-media.mjs` does a read-only dry run
-  of re-encoding oversized originals and backfilling previews; `--apply` writes it (new files +
+  of re-encoding oversized originals; `--apply` writes it (new files +
   updated rows, originals kept and listed in `scripts/.optimize-media-replaced.json`); once the
   catalog has refreshed, `--apply --delete-old` removes the replaced originals.
 - **Site assets** (hero stills, team photos, the concept-film poster) live in `src/assets/images`
-  as WebP and are imported statically — hashed, immutable URLs with a build-time blur preview. To
+  as WebP and are imported statically — hashed, immutable URLs. To
   replace one, swap the file; don't reference it by a `/public` URL.
 - **The concept film** ships as AV1 and H.264, each in a desktop and a 640px phone cut
   (`public/videos`, sources in the department page's `HERO_MEDIA`); browsers take the first they

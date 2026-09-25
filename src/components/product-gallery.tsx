@@ -6,7 +6,6 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productImageUrl } from "@/lib/supabase/storage";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { ProductImage } from "@/lib/supabase/types";
 
@@ -186,7 +185,7 @@ type Layer = { image: ProductImage; ready: boolean };
  * a colour switch). The outgoing photo stays fully visible until the
  * incoming one has actually loaded, then the two fade over each other — so
  * a switch never flashes an empty frame or a half-drawn image, however slow
- * the network. The very first photo shows with its blur preview as usual.
+ * the network.
  */
 function CrossfadeImage({
   image,
@@ -244,8 +243,6 @@ function CrossfadeImage({
               // Swapped-in photos load at once rather than lazily — they're already on screen.
               loading={isFirstPaint ? undefined : "eager"}
               sizes="(min-width: 1024px) 45vw, 100vw"
-              placeholder={isFirstPaint ? "blur" : "empty"}
-              blurDataURL={layer.image.blur_data_url || BLUR_DATA_URL}
               draggable={false}
               onLoad={() => markReady(layer.image.id)}
               onError={() => markReady(layer.image.id)}
@@ -526,8 +523,6 @@ function ZoomableImage({
           fill
           // Once zoomed, ask for a sharper source (the browser swaps it in when it arrives).
           sizes={zoomed ? "250vw" : "100vw"}
-          placeholder="blur"
-          blurDataURL={image.blur_data_url || BLUR_DATA_URL}
           draggable={false}
           className="pointer-events-none object-contain"
         />

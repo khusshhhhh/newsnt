@@ -105,7 +105,7 @@ export function ProductImageManager({
     // Up to three files optimise and upload at once (the slow part)…
     const uploads = accepted.map((item) =>
       limit(async () => {
-        const { file, blurDataUrl } = await prepareImage(item.file);
+        const file = await prepareImage(item.file);
         patchPending(item.id, { status: "uploading" });
         const path = uniqueStoragePath(prefix, file);
         await uploadWithProgress({
@@ -115,9 +115,9 @@ export function ProductImageManager({
           onProgress: (progress) => patchPending(item.id, { progress }),
         });
         patchPending(item.id, { status: "saving" });
-        return { path, blurDataUrl };
+        return path;
       }).then(
-        (uploaded) => ({ ok: true as const, ...uploaded }),
+        (path) => ({ ok: true as const, path }),
         (error: unknown) => ({ ok: false as const, error })
       )
     );
@@ -133,13 +133,7 @@ export function ProductImageManager({
       }
 
       try {
-        const inserted = await addProductImage(
-          productId,
-          result.path,
-          imagesRef.current.length,
-          variantId,
-          result.blurDataUrl
-        );
+        const inserted = await addProductImage(productId, result.path, imagesRef.current.length, variantId);
         if (inserted) {
           imagesRef.current = [...imagesRef.current, inserted];
           setImages((prev) => [...prev, inserted]);

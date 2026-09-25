@@ -3,7 +3,6 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import { getApprovedProjectPhotos, getPublishedSeries } from "@/lib/data/catalog";
 import { mediaUrl } from "@/lib/supabase/storage";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
 import { ProjectPhotoSubmitDialog } from "@/components/project-photo-submit-dialog";
@@ -57,8 +56,6 @@ export default async function ProjectsPage({ params }: { params: Promise<Params>
                     alt={photo.caption ?? ""}
                     fill
                     sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                    placeholder="blur"
-                    blurDataURL={photo.blur_data_url || BLUR_DATA_URL}
                     className="object-cover"
                   />
                 </div>
