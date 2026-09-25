@@ -24,12 +24,12 @@ export default async function AdminOrdersPage({
 }) {
   const { q: rawQuery, view: rawView, status: rawStatus, page: rawPage } = await searchParams;
   const q = rawQuery?.trim() ?? "";
-  const view: View = rawView === "list" ? "list" : "board";
+  const view: View = rawView === "board" ? "board" : "list";
   // The board shows every stage side by side, so the stage filter and
   // paging only apply to the list.
   const status = view === "list" && isStage(rawStatus) ? rawStatus : undefined;
   const page = view === "list" ? parsePage(rawPage) : 1;
-  const current = { view: view === "list" ? "list" : undefined, status, q: q || undefined };
+  const current = { view: view === "board" ? "board" : undefined, status, q: q || undefined };
   const supabase = await createClient();
 
   let query = supabase
@@ -63,13 +63,13 @@ export default async function AdminOrdersPage({
         <div className="flex gap-1 rounded-full border border-border p-1 text-sm" role="tablist" aria-label="Orders view">
           {(
             [
-              { value: "board", label: "Board", icon: KanbanSquare },
               { value: "list", label: "List", icon: List },
+              { value: "board", label: "Board", icon: KanbanSquare },
             ] as const
           ).map(({ value, label, icon: Icon }) => (
             <Link
               key={value}
-              href={buildHref("/admin/orders", { q: q || undefined }, { view: value === "list" ? "list" : undefined })}
+              href={buildHref("/admin/orders", { q: q || undefined }, { view: value === "board" ? "board" : undefined })}
               role="tab"
               aria-selected={view === value}
               className={cn(

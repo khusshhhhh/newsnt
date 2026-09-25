@@ -1,5 +1,5 @@
-import { AdminKanbanSkeleton } from "@/components/skeletons";
+import { AdminListSkeleton } from "@/components/skeletons";
 
 export default function Loading() {
-  return <AdminKanbanSkeleton />;
+  return <AdminListSkeleton />;
 }
