@@ -66,7 +66,7 @@ async function sendOtpEmail(userId: string, email: string) {
         emailCode(code),
         emailNote("It expires in 10 minutes and works once."),
         emailNote(
-          "<strong>Didn't try to sign in?</strong> Someone may have your password — reset it from the sign-in page and let an owner know."
+          "Didn't try to sign in? Someone may have your password — reset it from the sign-in page and let an owner know."
         ),
       ].join(""),
     }),

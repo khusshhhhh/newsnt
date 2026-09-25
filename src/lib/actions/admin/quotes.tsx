@@ -369,7 +369,7 @@ export async function sendQuoteReminder(quoteId: string) {
       body: [
         emailParagraph(`Hi ${escapeHtml(quote.customer.name)},`),
         emailParagraph(
-          `We wanted to follow up on quote <strong>${escapeHtml(quote.quote_number)}</strong>. If anything needs changing — quantities, finishes, a different series — let us know and we'll happily revise it.`
+          `We wanted to follow up on quote ${escapeHtml(quote.quote_number)}. If anything needs changing — quantities, finishes, a different series — let us know and we'll happily revise it.`
         ),
         emailDetails([
           ["Quote", escapeHtml(quote.quote_number)],

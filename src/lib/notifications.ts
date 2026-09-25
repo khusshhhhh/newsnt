@@ -126,7 +126,7 @@ export async function sendCustomerInquiryReceipt(inquiry: InquiryForNotification
           `Thanks for getting in touch with ${escapeHtml(label)}. We've received your request and a member of the team will get back to you soon.`
         ),
         emailDetails([
-          ["Reference", `<strong>${reference}</strong>`],
+          ["Reference", reference],
           ["Department", escapeHtml(department ? departmentCopy(department).label : inquiry.department)],
         ]),
         await itemsHtml(inquiry),
@@ -137,7 +137,7 @@ export async function sendCustomerInquiryReceipt(inquiry: InquiryForNotification
           ["Accept online", "Happy with it? Accept in a couple of clicks and we'll confirm lead times and delivery."],
         ]),
         department ? emailButton(siteLink(seriesIndexHref(department)), "Keep exploring the range", "secondary") : "",
-        emailParagraph(`Mention <strong>${reference}</strong> if you reply to this email — it helps us find your request quickly.`),
+        emailParagraph(`Mention ${reference} if you reply to this email — it helps us find your request quickly.`),
         customerSignOff(),
       ].join(""),
     }),

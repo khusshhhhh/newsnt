@@ -30,7 +30,7 @@ const RULE = "#e6e6e3";
 const CANVAS = "#f3f3f1";
 const PANEL = "#fafaf8";
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
-const WORDMARK_FONT = "'Arial Black', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+const WORDMARK_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 const TAGLINE = "Tapware, sanitaryware & door hardware, across six design series.";
 const MANIFESTO = "A tap gets touched with wet hands, in bad light, for twenty years. We design for that morning, not the photograph.";
@@ -71,7 +71,7 @@ export function emailNote(html: string) {
 }
 
 export function emailHeading(html: string) {
-  return `<h2 style="margin:32px 0 12px;font-family:${FONT};font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};">${html}</h2>`;
+  return `<h2 style="margin:32px 0 12px;font-family:${FONT};font-size:12px;line-height:16px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};">${html}</h2>`;
 }
 
 /** A "bulletproof" button — a table cell carries the fill, so it survives clients that ignore padding on links. */
@@ -81,7 +81,7 @@ export function emailButton(href: string, label: string, variant: "primary" | "s
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
       <tr>
         <td bgcolor="${primary ? INK : "#ffffff"}" style="border:1px solid ${INK};">
-          <a href="${escapeHtml(href)}" target="_blank" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:14px;font-weight:600;line-height:16px;letter-spacing:0.3px;color:${primary ? "#ffffff" : INK};text-decoration:none;">${label}&nbsp;&rarr;</a>
+          <a href="${escapeHtml(href)}" target="_blank" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:14px;font-weight:500;line-height:16px;letter-spacing:0.3px;color:${primary ? "#ffffff" : INK};text-decoration:none;">${label}&nbsp;&rarr;</a>
         </td>
       </tr>
     </table>`;
@@ -94,7 +94,7 @@ export function emailDetails(rows: Array<[label: string, valueHtml: string]>) {
       ([label, value], i) => `
       <tr>
         <td style="padding:12px 0;${i > 0 ? `border-top:1px solid ${RULE};` : ""}font-family:${FONT};font-size:12px;line-height:18px;letter-spacing:1px;text-transform:uppercase;color:${MUTED};" valign="top">${label}</td>
-        <td style="padding:12px 0 12px 16px;${i > 0 ? `border-top:1px solid ${RULE};` : ""}font-family:${FONT};font-size:14px;line-height:20px;font-weight:600;color:${TEXT};text-align:right;" valign="top">${value}</td>
+        <td style="padding:12px 0 12px 16px;${i > 0 ? `border-top:1px solid ${RULE};` : ""}font-family:${FONT};font-size:14px;line-height:20px;font-weight:400;color:${TEXT};text-align:right;" valign="top">${value}</td>
       </tr>`
     )
     .join("");
@@ -112,7 +112,7 @@ export function emailItems(items: Array<{ nameHtml: string; metaHtml?: string; q
           ${item.nameHtml}
           ${item.metaHtml ? `<div style="font-size:12px;line-height:18px;color:${MUTED};">${item.metaHtml}</div>` : ""}
         </td>
-        <td style="padding:12px 0 12px 16px;border-top:1px solid ${RULE};font-family:${FONT};font-size:14px;line-height:20px;font-weight:600;color:${TEXT};text-align:right;white-space:nowrap;" valign="top">&times;&nbsp;${item.quantity}</td>
+        <td style="padding:12px 0 12px 16px;border-top:1px solid ${RULE};font-family:${FONT};font-size:14px;line-height:20px;font-weight:400;color:${TEXT};text-align:right;white-space:nowrap;" valign="top">&times;&nbsp;${item.quantity}</td>
       </tr>`
     )
     .join("");
@@ -144,7 +144,7 @@ export function emailCode(code: string) {
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
       <tr>
-        <td bgcolor="${PANEL}" style="padding:18px 28px;border:1px solid ${RULE};font-family:'SFMono-Regular', Menlo, Consolas, monospace;font-size:32px;line-height:36px;font-weight:700;letter-spacing:10px;color:${INK};">${escapeHtml(code)}</td>
+        <td bgcolor="${PANEL}" style="padding:18px 28px;border:1px solid ${RULE};font-family:'SFMono-Regular', Menlo, Consolas, monospace;font-size:32px;line-height:36px;font-weight:500;letter-spacing:10px;color:${INK};">${escapeHtml(code)}</td>
       </tr>
     </table>`;
 }
@@ -155,9 +155,9 @@ export function emailSteps(steps: Array<[title: string, bodyHtml: string]>) {
     .map(
       ([title, body], i) => `
       <tr>
-        <td width="40" valign="top" style="padding:14px 0;border-top:1px solid ${RULE};font-family:${FONT};font-size:12px;line-height:20px;font-weight:700;color:${FAINT};">${String(i + 1).padStart(2, "0")}</td>
+        <td width="40" valign="top" style="padding:14px 0;border-top:1px solid ${RULE};font-family:${FONT};font-size:12px;line-height:20px;font-weight:400;color:${FAINT};">${String(i + 1).padStart(2, "0")}</td>
         <td valign="top" style="padding:14px 0;border-top:1px solid ${RULE};font-family:${FONT};">
-          <div style="font-size:14px;line-height:20px;font-weight:700;color:${TEXT};">${title}</div>
+          <div style="font-size:14px;line-height:20px;font-weight:500;color:${TEXT};">${title}</div>
           <div style="font-size:13px;line-height:20px;color:${MUTED};">${body}</div>
         </td>
       </tr>`
@@ -196,9 +196,9 @@ function rangeBand(department: Department | undefined) {
       return `
         <td class="stack card" width="48%" valign="top" bgcolor="#ffffff" style="padding:20px;border:1px solid ${RULE};font-family:${FONT};">
           <div style="font-size:11px;line-height:16px;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};">Flow ${escapeHtml(copy.shortLabel)}</div>
-          <div style="margin-top:6px;font-size:16px;line-height:22px;font-weight:800;color:${INK};">${escapeHtml(copy.label)}</div>
+          <div style="margin-top:6px;font-size:16px;line-height:22px;font-weight:500;color:${INK};">${escapeHtml(copy.label)}</div>
           <div style="margin-top:6px;font-size:13px;line-height:20px;color:${MUTED};">${escapeHtml(copy.tagline)}.</div>
-          <div style="margin-top:14px;font-size:13px;line-height:20px;font-weight:600;">
+          <div style="margin-top:14px;font-size:13px;line-height:20px;font-weight:400;">
             ${link(siteLink(seriesIndexHref(d)), `Browse ${copy.seriesLabel.toLowerCase()}`)}
             <span style="color:${FAINT};">&nbsp;&middot;&nbsp;</span>
             ${link(siteLink(projectsHref(d)), "Projects")}
@@ -214,7 +214,7 @@ function rangeBand(department: Department | undefined) {
           <tr>
             <td style="padding:0 0 20px;font-family:${FONT};">
               <div style="font-size:11px;line-height:16px;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};">The Flow range</div>
-              <div style="margin-top:8px;font-size:20px;line-height:26px;font-weight:800;letter-spacing:-0.3px;color:${INK};">One design language, two departments.</div>
+              <div style="margin-top:8px;font-size:20px;line-height:26px;font-weight:500;letter-spacing:-0.3px;color:${INK};">One design language, two departments.</div>
               <div style="margin-top:8px;font-size:14px;line-height:22px;color:${MUTED};">Every series shares the same radii and the same weight in the hand — so pieces from different collections still look like they were drawn by the same person.</div>
             </td>
           </tr>
@@ -258,14 +258,14 @@ function footer(audience: "customer" | "staff", department: Department | undefin
   return `
     <tr>
       <td class="px" style="padding:32px 40px 8px;" align="center">
-        <div style="font-family:${WORDMARK_FONT};font-size:18px;line-height:22px;font-weight:900;letter-spacing:4px;color:${INK};">FLOW</div>
+        <div style="font-family:${WORDMARK_FONT};font-size:18px;line-height:22px;font-weight:700;letter-spacing:4px;color:${INK};">FLOW</div>
         <p style="margin:8px 0 20px;font-family:${FONT};font-size:12px;line-height:18px;color:${MUTED};">${escapeHtml(TAGLINE)}</p>
-        <p style="margin:0 0 16px;font-family:${FONT};font-size:12px;line-height:22px;font-weight:600;">${nav.join(sep)}</p>
+        <p style="margin:0 0 16px;font-family:${FONT};font-size:12px;line-height:22px;font-weight:400;">${nav.join(sep)}</p>
         ${audience === "customer" && contactLines.length > 0 ? muted(contactLines.join(sep)) : ""}
         ${audience === "customer" && contact.address ? muted(escapeHtml(contact.address)) : ""}
         ${
           audience === "customer" && contact.socials.length > 0
-            ? `<p style="margin:12px 0 8px;font-family:${FONT};font-size:12px;line-height:18px;font-weight:600;">${contact.socials
+            ? `<p style="margin:12px 0 8px;font-family:${FONT};font-size:12px;line-height:18px;font-weight:400;">${contact.socials
                 .map(([name, url]) => link(url, name, INK))
                 .join(sep)}</p>`
             : ""
@@ -340,7 +340,7 @@ export function emailLayout(opts: EmailLayoutOptions) {
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td valign="middle">
-                  <a href="${escapeHtml(SITE_URL)}" target="_blank" style="font-family:${WORDMARK_FONT};font-size:26px;line-height:28px;font-weight:900;letter-spacing:5px;color:#ffffff;text-decoration:none;">FLOW</a>
+                  <a href="${escapeHtml(SITE_URL)}" target="_blank" style="font-family:${WORDMARK_FONT};font-size:26px;line-height:28px;font-weight:700;letter-spacing:5px;color:#ffffff;text-decoration:none;">FLOW</a>
                 </td>
                 <td valign="middle" align="right" style="font-family:${FONT};font-size:11px;line-height:16px;letter-spacing:1.5px;text-transform:uppercase;color:#a3a3a3;">${headerLabel}</td>
               </tr>
@@ -349,8 +349,8 @@ export function emailLayout(opts: EmailLayoutOptions) {
         </tr>
         <tr>
           <td class="px" bgcolor="#ffffff" style="padding:40px 40px 24px;">
-            ${opts.eyebrow ? `<div style="margin:0 0 10px;font-family:${FONT};font-size:11px;line-height:16px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};">${escapeHtml(opts.eyebrow)}</div>` : ""}
-            <h1 class="h1" style="margin:0 0 24px;font-family:${FONT};font-size:28px;line-height:34px;font-weight:800;letter-spacing:-0.5px;color:${INK};">${escapeHtml(opts.heading)}</h1>
+            ${opts.eyebrow ? `<div style="margin:0 0 10px;font-family:${FONT};font-size:11px;line-height:16px;font-weight:400;letter-spacing:1.5px;text-transform:uppercase;color:${MUTED};">${escapeHtml(opts.eyebrow)}</div>` : ""}
+            <h1 class="h1" style="margin:0 0 24px;font-family:${FONT};font-size:28px;line-height:34px;font-weight:500;letter-spacing:-0.5px;color:${INK};">${escapeHtml(opts.heading)}</h1>
             ${opts.body}
           </td>
         </tr>
@@ -370,6 +370,6 @@ export function customerSignOff() {
   return (
     emailParagraph(
       `Questions? Just reply to this email${contact.phone ? ` or call us on ${link(`tel:${contact.phone.replace(/[^\d+]/g, "")}`, escapeHtml(contact.phone))}` : ""} — it goes straight to our team.`
-    ) + emailParagraph(`Warm regards,<br/><strong>The Flow team</strong>`)
+    ) + emailParagraph(`Warm regards,<br/>The Flow team`)
   );
 }

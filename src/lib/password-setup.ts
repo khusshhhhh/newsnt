@@ -56,7 +56,7 @@ export async function sendPasswordSetupEmail(email: string, kind: "invite" | "re
               emailParagraph("Someone asked to reset the password for this Flow admin account."),
               emailButton(url, "Choose a new password"),
               emailNote("The link works once and expires in an hour."),
-              emailNote("<strong>Wasn't you?</strong> You can ignore this email — your password hasn't changed."),
+              emailNote("Wasn't you? You can ignore this email — your password hasn't changed."),
             ].join(""),
           }
     ),
