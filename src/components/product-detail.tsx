@@ -6,16 +6,18 @@ import { getImageProps } from "next/image";
 import { toast } from "sonner";
 import { Download, FileText, Mail, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, productPriceLabel } from "@/lib/format";
 import { documentUrl, productImageUrl } from "@/lib/supabase/storage";
 import { getDefaultVariant } from "@/lib/colors";
 import { basketKey, openQuoteBasket, useQuoteBasket } from "@/lib/quote-basket";
 import { departmentCopy } from "@/lib/department";
 import { STOCK_STATUS_LABEL } from "@/lib/stock-status";
+import { recordRecentlyViewed } from "@/lib/recently-viewed";
 import { ProductGallery } from "@/components/product-gallery";
 import { InquiryDialog } from "@/components/inquiry-dialog";
 import { ReviewsSection } from "@/components/reviews-section";
 import { Reveal } from "@/components/reveal";
+import { ShareButton } from "@/components/share-button";
 import type { ProductWithRelations, Review } from "@/lib/supabase/types";
 
 /**
@@ -90,6 +92,30 @@ export function ProductDetail({
     return () => observer.disconnect();
   }, []);
 
+  // Lets fixed elements elsewhere (the back-to-top button) make room for the bar.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (actionsVisible) delete root.dataset.stickyBar;
+    else root.dataset.stickyBar = "";
+    return () => {
+      delete root.dataset.stickyBar;
+    };
+  }, [actionsVisible]);
+
+  // Remember this visit for the "Recently viewed" row.
+  useEffect(() => {
+    const image = defaultVariant?.product_images[0] ?? product.product_images[0];
+    recordRecentlyViewed({
+      productId: product.id,
+      department: product.department,
+      slug: product.slug,
+      name: product.name,
+      seriesName: product.series?.name ?? null,
+      imagePath: image?.storage_path ?? product.variants.find((v) => v.product_images.length > 0)?.product_images[0]?.storage_path ?? null,
+      priceLabel: productPriceLabel(product),
+    });
+  }, [product, defaultVariant]);
+
   const images = useMemo(() => {
     if (selectedVariant && selectedVariant.product_images.length > 0) {
       return selectedVariant.product_images;
@@ -145,13 +171,18 @@ export function ProductDetail({
 
       <div>
         <Reveal delay={0.1}>
-          {product.series && (
+          <div className="flex items-center justify-between gap-4">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-              {product.series.name}
-              <span aria-hidden className="size-1 rounded-full bg-muted-foreground/50" />
+              {product.series && (
+                <>
+                  {product.series.name}
+                  <span aria-hidden className="size-1 rounded-full bg-muted-foreground/50" />
+                </>
+              )}
               {product.category.name}
             </span>
-          )}
+            <ShareButton title={product.name} text={shareText(product.name, selectedVariant?.color_name)} />
+          </div>
           <h1 className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-heading leading-[0.98] tracking-tight text-foreground">
             <span className="text-4xl font-medium sm:text-5xl">{product.name}</span>
             {selectedVariant && (
@@ -333,6 +364,10 @@ export function ProductDetail({
       </div>
     </div>
   );
+}
+
+function shareText(name: string, colour?: string) {
+  return colour ? `${name} in ${colour} — Flow` : `${name} — Flow`;
 }
 
 function SectionHeading({ index, title }: { index: number; title: string }) {

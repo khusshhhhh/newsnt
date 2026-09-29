@@ -7,22 +7,9 @@ import type { ProductWithRelations } from "@/lib/supabase/types";
 import { productImageUrl } from "@/lib/supabase/storage";
 import { productHref } from "@/lib/department";
 import { getDefaultVariant } from "@/lib/colors";
-import { formatPrice } from "@/lib/format";
+import { productPriceLabel } from "@/lib/format";
 import { STOCK_STATUS_LABEL } from "@/lib/stock-status";
 import { cn } from "@/lib/utils";
-
-/** "From {min}" when colors are priced differently, the single shared price when they match, or the product's fallback price. */
-function priceLabel(product: ProductWithRelations) {
-  const variantPrices = (product.variants ?? [])
-    .map((v) => v.price)
-    .filter((p): p is number => p != null);
-
-  if (variantPrices.length === 0) return formatPrice(product.price);
-
-  const min = Math.min(...variantPrices);
-  const max = Math.max(...variantPrices);
-  return min === max ? formatPrice(min) : `From ${formatPrice(min)}`;
-}
 
 export function ProductCard({
   product,
@@ -74,7 +61,7 @@ export function ProductCard({
             </span>
           )}
           <h3 className="font-heading text-base text-foreground">{product.name}</h3>
-          <p className="text-sm text-muted-foreground">{priceLabel(product)}</p>
+          <p className="text-sm text-muted-foreground">{productPriceLabel(product)}</p>
           {stockStatus !== "in_stock" && (
             <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-muted-foreground">
               {STOCK_STATUS_LABEL[stockStatus]}

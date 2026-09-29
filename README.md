@@ -196,6 +196,9 @@ gallery. Managed from the "Colors" section on a product's admin edit page.
 - `/api/cron/daily` — daily housekeeping, called by Vercel Cron
 
 Press **Ctrl/⌘ + K** anywhere in the admin to search everything, and **?** for keyboard shortcuts.
+On the storefront, **/** jumps to search. Recently viewed products and recent searches are kept in
+the visitor's own browser (localStorage, no accounts) and shown on the product, department and
+search pages.
 
 ## Caching
 

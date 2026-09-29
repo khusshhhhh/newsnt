@@ -3,6 +3,8 @@ import { DEPARTMENTS, isDepartment } from "@/lib/department";
 import { getCategories } from "@/lib/data/catalog";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { BackToTop } from "@/components/back-to-top";
+import { StorefrontShortcuts } from "@/components/storefront-shortcuts";
 
 /**
  * Both departments are known at build time, so their pages that don't read
@@ -31,10 +33,12 @@ export default async function DepartmentLayout({
   return (
     <>
       <SiteHeader department={department} />
-      <main id="main-content" className="flex-1">
+      <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
         {children}
       </main>
       <SiteFooter department={department} categoriesByDepartment={categoriesByDepartment} />
+      <BackToTop />
+      <StorefrontShortcuts department={department} />
     </>
   );
 }

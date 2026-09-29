@@ -1,3 +1,5 @@
+import type { ProductWithRelations } from "@/lib/supabase/types";
+
 /** Currency is locked to AUD everywhere (see products_currency_aud_check). */
 export function formatPrice(price: number | null) {
   if (price == null) return "Price on enquiry";
@@ -20,4 +22,17 @@ export function formatAmount(amount: number) {
     minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+/** "From {min}" when colours are priced differently, the single shared price when they match, or the product's fallback price. */
+export function productPriceLabel(product: Pick<ProductWithRelations, "price" | "variants">) {
+  const variantPrices = (product.variants ?? [])
+    .map((v) => v.price)
+    .filter((p): p is number => p != null);
+
+  if (variantPrices.length === 0) return formatPrice(product.price);
+
+  const min = Math.min(...variantPrices);
+  const max = Math.max(...variantPrices);
+  return min === max ? formatPrice(min) : `From ${formatPrice(min)}`;
 }

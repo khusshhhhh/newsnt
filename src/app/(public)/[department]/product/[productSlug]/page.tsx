@@ -10,6 +10,7 @@ import { getDefaultVariant } from "@/lib/colors";
 import { productHref, isDepartment, seriesHref, seriesIndexHref, type Department } from "@/lib/department";
 import { SITE_URL } from "@/lib/site";
 import { Container } from "@/components/container";
+import { RecentlyViewed } from "@/components/recently-viewed";
 
 type Params = { department: string; productSlug: string };
 type SearchParams = { finish?: string };
@@ -133,6 +134,12 @@ export default async function ProductPage({
           </div>
         </section>
       )}
+
+      <RecentlyViewed
+        department={department}
+        excludeProductId={product.id}
+        className="mt-20 border-t border-border pt-12"
+      />
     </Container>
   );
 }

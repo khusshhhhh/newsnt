@@ -11,6 +11,7 @@ import { HeroMedia, type VideoSource } from "@/components/hero-media";
 import tapwareFilmPoster from "@/assets/images/tapware-showcase-poster.webp";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
+import { RecentlyViewed } from "@/components/recently-viewed";
 import { cn } from "@/lib/utils";
 import {
   departmentCopy,
@@ -244,6 +245,8 @@ export default async function DepartmentHomePage({ params }: { params: Promise<P
           </Container>
         </section>
       )}
+
+      <RecentlyViewed department={department} contained className="border-t border-border py-16 md:py-24" />
 
       {hasFilm && (
         <section id="concept-film" className="scroll-mt-24 border-t border-border bg-background py-16 md:py-24">

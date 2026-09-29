@@ -33,10 +33,11 @@ export async function SiteHeader({ department }: { department: Department }) {
           />
         </nav>
 
-        <div className="flex items-center justify-self-end gap-3">
+        <div className="col-start-3 flex items-center justify-self-end gap-3">
           <Link
             href={searchHref(department)}
             aria-label="Search"
+            title="Search (/)"
             className={buttonVariants({ variant: "ghost", size: "icon" })}
           >
             <Search className="size-4" />

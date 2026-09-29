@@ -211,9 +211,13 @@
   }
 }
 
+/* `backwards`, not `both`: a fill that outlives the animation keeps a
+   transform on the wrapper, which makes it the containing block for every
+   position: fixed descendant — the product page's sticky mobile quote bar
+   then sat at the bottom of the page instead of the screen. */
 @media (prefers-reduced-motion: no-preference) {
   .page-in {
-    animation: page-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: page-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 }
 
