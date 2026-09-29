@@ -35,3 +35,17 @@ export function listingHref(
   const s = qs.toString();
   return s ? `${basePath}?${s}` : basePath;
 }
+
+/**
+ * How many products come in each colour, keyed by lower-cased colour name
+ * (finishes match variants by name, case-insensitively — see getProducts).
+ * A product with two variants of the same name counts once.
+ */
+export function countProductsByFinish(rows: { variants: { color_name: string }[] | null }[]) {
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    const names = new Set((row.variants ?? []).map((v) => v.color_name.trim().toLowerCase()));
+    for (const name of names) counts[name] = (counts[name] ?? 0) + 1;
+  }
+  return counts;
+}

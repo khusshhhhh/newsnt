@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
 import { getActiveFinishes, getCategories, getPublishedSeries } from "@/lib/data/catalog";
-import { departmentCopy, departmentHref, otherDepartment, searchHref, type Department } from "@/lib/department";
+import { departmentCopy, departmentHref, otherDepartment, type Department } from "@/lib/department";
 import { Container } from "@/components/container";
 import { CatalogNav } from "@/components/catalog-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { QuoteBasketButton } from "@/components/quote-basket-button";
+import { SavedLink } from "@/components/saved-link";
+import { HeaderSearch } from "@/components/header-search";
 import { Logo } from "@/components/logo";
-import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export async function SiteHeader({ department }: { department: Department }) {
@@ -34,14 +34,9 @@ export async function SiteHeader({ department }: { department: Department }) {
         </nav>
 
         <div className="col-start-3 flex items-center justify-self-end gap-3">
-          <Link
-            href={searchHref(department)}
-            aria-label="Search"
-            title="Search (/)"
-            className={buttonVariants({ variant: "ghost", size: "icon" })}
-          >
-            <Search className="size-4" />
-          </Link>
+          <HeaderSearch department={department} />
+
+          <SavedLink department={department} />
 
           <QuoteBasketButton department={department} />
 

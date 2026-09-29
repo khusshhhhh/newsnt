@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { preload } from "react-dom";
 import { getImageProps } from "next/image";
 import { toast } from "sonner";
-import { Download, FileText, Mail, Minus, Plus } from "lucide-react";
+import { Download, FileText, Mail, Minus, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatPrice, productPriceLabel } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
+import { productSnapshot } from "@/lib/product-snapshot";
 import { documentUrl, productImageUrl } from "@/lib/supabase/storage";
 import { getDefaultVariant } from "@/lib/colors";
 import { basketKey, openQuoteBasket, useQuoteBasket } from "@/lib/quote-basket";
-import { departmentCopy } from "@/lib/department";
+import { departmentCopy, productHref } from "@/lib/department";
 import { STOCK_STATUS_LABEL } from "@/lib/stock-status";
 import { recordRecentlyViewed } from "@/lib/recently-viewed";
 import { ProductGallery } from "@/components/product-gallery";
@@ -18,6 +19,7 @@ import { InquiryDialog } from "@/components/inquiry-dialog";
 import { ReviewsSection } from "@/components/reviews-section";
 import { Reveal } from "@/components/reveal";
 import { ShareButton } from "@/components/share-button";
+import { SaveButton } from "@/components/save-button";
 import type { ProductWithRelations, Review } from "@/lib/supabase/types";
 
 /**
@@ -104,17 +106,8 @@ export function ProductDetail({
 
   // Remember this visit for the "Recently viewed" row.
   useEffect(() => {
-    const image = defaultVariant?.product_images[0] ?? product.product_images[0];
-    recordRecentlyViewed({
-      productId: product.id,
-      department: product.department,
-      slug: product.slug,
-      name: product.name,
-      seriesName: product.series?.name ?? null,
-      imagePath: image?.storage_path ?? product.variants.find((v) => v.product_images.length > 0)?.product_images[0]?.storage_path ?? null,
-      priceLabel: productPriceLabel(product),
-    });
-  }, [product, defaultVariant]);
+    recordRecentlyViewed(productSnapshot(product));
+  }, [product]);
 
   const images = useMemo(() => {
     if (selectedVariant && selectedVariant.product_images.length > 0) {
@@ -134,6 +127,11 @@ export function ProductDetail({
   const inBasket = quoteBasket.has(currentKey);
   const quantityInBasket = quoteBasket.quantityOf(currentKey);
   const stockStatus = selectedVariant?.stock_status ?? product.stock_status;
+
+  const selectedFinishCode = selectedVariant ? finishCodes[selectedVariant.color_name] : undefined;
+  const specSheetHref = `${productHref(product)}/spec-sheet${
+    selectedFinishCode ? `?finish=${encodeURIComponent(selectedFinishCode)}` : ""
+  }`;
 
   const enquiryMessage = `Hi, I'd like to know more about ${product.name}${
     selectedVariant ? ` in ${selectedVariant.color_name}` : ""
@@ -181,7 +179,10 @@ export function ProductDetail({
               )}
               {product.category.name}
             </span>
-            <ShareButton title={product.name} text={shareText(product.name, selectedVariant?.color_name)} />
+            <div className="flex shrink-0 items-center gap-2">
+              <SaveButton product={product} variant={selectedVariant} />
+              <ShareButton title={product.name} text={shareText(product.name, selectedVariant?.color_name)} />
+            </div>
           </div>
           <h1 className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-heading leading-[0.98] tracking-tight text-foreground">
             <span className="text-4xl font-medium sm:text-5xl">{product.name}</span>
@@ -258,15 +259,26 @@ export function ProductDetail({
               </InquiryDialog>
             </div>
           </div>
-          {resources.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
             <a
-              href="#resources"
-              className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              href={specSheetHref}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
-              <Download className="size-3.5" />
-              Spec sheets &amp; downloads ({resources.length})
+              <Printer className="size-3.5" />
+              Spec sheet (PDF)
             </a>
-          )}
+            {resources.length > 0 && (
+              <a
+                href="#resources"
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                <Download className="size-3.5" />
+                Downloads ({resources.length})
+              </a>
+            )}
+          </div>
         </Reveal>
 
         {product.variants.length > 0 && (

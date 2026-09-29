@@ -10,6 +10,7 @@ import { getDefaultVariant } from "@/lib/colors";
 import { productPriceLabel } from "@/lib/format";
 import { STOCK_STATUS_LABEL } from "@/lib/stock-status";
 import { cn } from "@/lib/utils";
+import { SaveButton } from "@/components/save-button";
 
 export function ProductCard({
   product,
@@ -23,7 +24,13 @@ export function ProductCard({
   preferredColorName?: string;
 }) {
   const variants = product.variants ?? [];
-  const [selectedColorName, setSelectedColorName] = useState<string | null>(preferredColorName ?? null);
+  // Remembers which `preferredColorName` the pick was made under, so changing
+  // the listing's finish filter (a client navigation that keeps this card
+  // mounted) switches the card to the new finish instead of keeping the old one.
+  const [selection, setSelection] = useState({ preferred: preferredColorName, name: preferredColorName ?? null });
+  const selectedColorName =
+    selection.preferred === preferredColorName ? selection.name : (preferredColorName ?? null);
+  const setSelectedColorName = (name: string) => setSelection({ preferred: preferredColorName, name });
 
   const selectedVariant = selectedColorName
     ? variants.find((v) => v.color_name === selectedColorName) ?? null
@@ -36,7 +43,7 @@ export function ProductCard({
   const stockStatus = selectedVariant?.stock_status ?? defaultVariant?.stock_status ?? product.stock_status;
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
       <Link href={productHref(product)} className="relative block aspect-square w-full overflow-hidden">
         {image ? (
           <Image
@@ -53,6 +60,12 @@ export function ProductCard({
           </div>
         )}
       </Link>
+      <SaveButton
+        product={product}
+        variant={selectedVariant ?? defaultVariant}
+        appearance="icon"
+        className="absolute top-3 right-3"
+      />
       <div className="flex flex-1 flex-col gap-1 p-4">
         <Link href={productHref(product)} className="flex flex-col gap-1">
           {product.series && (

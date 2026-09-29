@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import { escapeLikePattern, sanitizeSearchTerm } from "@/lib/search";
-import type { ListingOptions } from "@/lib/listing";
+import { countProductsByFinish, type ListingOptions } from "@/lib/listing";
 import type { Department } from "@/lib/department";
 import type {
   Category,
@@ -256,6 +256,44 @@ export const getProducts = unstable_cache(
     };
   },
   ["products"],
+  { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
+);
+
+/**
+ * Products per finish across a whole listing (every page, same series /
+ * category / stock filter as getProducts), so the finish pills can hide
+ * finishes that would lead to an empty page and show how many match.
+ */
+export const getFinishCounts = unstable_cache(
+  async (
+    department: Department,
+    filter: { seriesSlug?: string; categorySlug?: string },
+    inStockOnly = false
+  ): Promise<Record<string, number>> => {
+    const supabase = createPublicClient();
+    let query = supabase
+      .from("products")
+      .select("id, variants:product_variants(color_name)")
+      .eq("department", department)
+      .eq("is_published", true);
+
+    if (filter.seriesSlug) {
+      const series = await getSeriesBySlug(department, filter.seriesSlug);
+      if (!series) return {};
+      query = query.eq("series_id", series.id);
+    }
+    if (filter.categorySlug) {
+      const category = await getCategoryBySlug(department, filter.categorySlug);
+      if (!category) return {};
+      query = query.eq("category_id", category.id);
+    }
+    if (inStockOnly) query = query.eq("stock_status", "in_stock");
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return countProductsByFinish((data ?? []) as { variants: { color_name: string }[] | null }[]);
+  },
+  ["finish-counts"],
   { revalidate: CATALOG_REVALIDATE_SECONDS, tags: [CATALOG_TAG] }
 );
 

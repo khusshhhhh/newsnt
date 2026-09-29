@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getActiveFinishes, getProducts, getSeriesBySlug } from "@/lib/data/catalog";
+import { getActiveFinishes, getFinishCounts, getProducts, getSeriesBySlug } from "@/lib/data/catalog";
 import { mediaUrl } from "@/lib/supabase/storage";
 import { ProductCard } from "@/components/product-card";
 import { ImageSlider } from "@/components/image-slider";
@@ -56,9 +56,10 @@ export default async function SeriesDetailPage({
   const { page, finish: finishCode, sort, inStockOnly } = parseListing(await searchParams);
   const basePath = seriesHref(series);
 
-  const [{ items: products, pageCount, total }, finishes] = await Promise.all([
+  const [{ items: products, pageCount, total }, finishes, finishCounts] = await Promise.all([
     getProducts(department, { seriesSlug, finishCode }, page, { sort, inStockOnly }),
     getActiveFinishes(),
+    getFinishCounts(department, { seriesSlug }, inStockOnly),
   ]);
 
   // Falls back to the single legacy `hero_image_url` for series saved
@@ -100,6 +101,7 @@ export default async function SeriesDetailPage({
           basePath={basePath}
           activeCode={finishCode}
           hrefFor={(finish) => listingHref(basePath, { finish, sort, inStockOnly })}
+          counts={finishCounts}
         />
         <ListingControls sort={sort} inStockOnly={inStockOnly} total={total} />
 

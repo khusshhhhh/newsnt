@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getActiveFinishes, getCategoryBySlug, getProducts } from "@/lib/data/catalog";
+import { getActiveFinishes, getFinishCounts, getCategoryBySlug, getProducts } from "@/lib/data/catalog";
 import { ProductCard } from "@/components/product-card";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
@@ -49,9 +49,10 @@ export default async function CategoryPage({
 
   const { page, finish: finishCode, sort, inStockOnly } = parseListing(await searchParams);
   const basePath = categoryHref(category);
-  const [{ items: products, pageCount, total }, finishes] = await Promise.all([
+  const [{ items: products, pageCount, total }, finishes, finishCounts] = await Promise.all([
     getProducts(department, { categorySlug, finishCode }, page, { sort, inStockOnly }),
     getActiveFinishes(),
+    getFinishCounts(department, { categorySlug }, inStockOnly),
   ]);
 
   return (
@@ -68,6 +69,7 @@ export default async function CategoryPage({
         basePath={basePath}
         activeCode={finishCode}
         hrefFor={(finish) => listingHref(basePath, { finish, sort, inStockOnly })}
+        counts={finishCounts}
       />
       <ListingControls sort={sort} inStockOnly={inStockOnly} total={total} />
 

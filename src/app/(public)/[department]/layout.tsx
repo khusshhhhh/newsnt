@@ -38,7 +38,7 @@ export default async function DepartmentLayout({
       </main>
       <SiteFooter department={department} categoriesByDepartment={categoriesByDepartment} />
       <BackToTop />
-      <StorefrontShortcuts department={department} />
+      <StorefrontShortcuts />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getActiveFinishes, getCategoryBySlug, getProducts, getSeriesBySlug } from "@/lib/data/catalog";
+import { getActiveFinishes, getFinishCounts, getCategoryBySlug, getProducts, getSeriesBySlug } from "@/lib/data/catalog";
 import { ProductCard } from "@/components/product-card";
 import { Container } from "@/components/container";
 import { Reveal } from "@/components/reveal";
@@ -47,9 +47,10 @@ export default async function SeriesCategoryPage({
   if (!series || !category) notFound();
 
   const { page, finish: finishCode, sort, inStockOnly } = parseListing(await searchParams);
-  const [{ items: products, pageCount, total }, finishes] = await Promise.all([
+  const [{ items: products, pageCount, total }, finishes, finishCounts] = await Promise.all([
     getProducts(department, { seriesSlug, categorySlug, finishCode }, page, { sort, inStockOnly }),
     getActiveFinishes(),
+    getFinishCounts(department, { seriesSlug, categorySlug }, inStockOnly),
   ]);
   const basePath = `/${department}/series/${seriesSlug}/${categorySlug}`;
 
@@ -72,6 +73,7 @@ export default async function SeriesCategoryPage({
         basePath={basePath}
         activeCode={finishCode}
         hrefFor={(finish) => listingHref(basePath, { finish, sort, inStockOnly })}
+        counts={finishCounts}
       />
       <ListingControls sort={sort} inStockOnly={inStockOnly} total={total} />
 

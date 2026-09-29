@@ -82,3 +82,7 @@ export function productHref(product: { department: Department; slug: string }) {
 export function otherDepartment(department: Department): Department {
   return department === "sanitary-tapware" ? "door-hardware" : "sanitary-tapware";
 }
+
+export function savedHref(department: Department) {
+  return `/${department}/saved`;
+}

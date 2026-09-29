@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { ArrowRight, Menu, Search, X } from "lucide-react";
+import { ArrowRight, Heart, Menu, Search, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   categoryHref,
@@ -11,6 +11,7 @@ import {
   finishHref,
   otherDepartment,
   projectsHref,
+  savedHref,
   searchHref,
   seriesHref,
   type Department,
@@ -141,6 +142,14 @@ export function MobileNav({
           </div>
 
           <div className="border-t border-border px-6 py-5">
+            <DialogPrimitive.Close
+              render={<Link href={savedHref(department)} />}
+              nativeButton={false}
+              className="flex items-center justify-between py-2 text-sm font-semibold text-foreground"
+            >
+              Saved products
+              <Heart className="size-4" />
+            </DialogPrimitive.Close>
             <DialogPrimitive.Close
               render={<Link href={projectsHref(department)} />}
               nativeButton={false}

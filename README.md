@@ -178,6 +178,10 @@ gallery. Managed from the "Colors" section on a product's admin edit page.
   `sanitary-tapware` or `door-hardware`
 - `/[department]/projects` — customer-submitted installation photos (approved ones only); has its
   own submission dialog
+- `/[department]/saved` — the visitor's hearted products (kept in their browser), with "Add all to quote"
+- `/[department]/product/[productSlug]/spec-sheet` — a printable one-page PDF of a product
+  (`?finish=CODE` picks the colour); product photos are converted to JPEG with `sharp` to embed them
+- `/api/search?department=…&q=…` — type-ahead suggestions for the header search (CDN-cached for 5 minutes)
 - `/admin` — dashboard (protected; redirects to `/admin/login` if signed out)
 - `/admin/series`, `/admin/categories`, `/admin/products`, `/admin/finishes` — CRUD, each with
   `/new` and `/[id]`, filterable by department where relevant (`?department=door-hardware`)
@@ -196,9 +200,10 @@ gallery. Managed from the "Colors" section on a product's admin edit page.
 - `/api/cron/daily` — daily housekeeping, called by Vercel Cron
 
 Press **Ctrl/⌘ + K** anywhere in the admin to search everything, and **?** for keyboard shortcuts.
-On the storefront, **/** jumps to search. Recently viewed products and recent searches are kept in
-the visitor's own browser (localStorage, no accounts) and shown on the product, department and
-search pages.
+On the storefront, **/** or **Ctrl/⌘ + K** opens search with live suggestions. Recently viewed
+products, recent searches and saved (hearted) products are kept in the visitor's own browser
+(localStorage, no accounts). Listing pages' finish filters only offer finishes that listing actually
+has, with a product count for each.
 
 ## Caching
 
